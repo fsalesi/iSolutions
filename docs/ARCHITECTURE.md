@@ -301,7 +301,7 @@ function Detail({ row, isNew, onChange, colTypes, colScales }: {
   row: Row; isNew: boolean; onChange: (field: keyof Row, value: any) => void;
   colTypes: Record<string, string>; colScales: Record<string, number>;
 }) {
-  const field = useFieldHelper({ row, onChange, table: "my_table", colTypes: colTypes as any, colScales });
+  const { field } = useFieldHelper({ row, onChange, table: "my_table", colTypes: colTypes as any, colScales });
   return (
     <Section title="General">
       {field("name", { autoFocus: isNew })}
@@ -485,7 +485,7 @@ The DataGrid uses this to offer type-appropriate filter operators in AdvancedSea
 | Component  | Key Props | Notes |
 |------------|-----------|-------|
 | `Section`  | `title` | Groups fields with uppercase header |
-| `Field`    | `label, required?` | Wraps input with label + required asterisk |
+| `Field`    | `label, required?, error?` | Wraps input with label + required asterisk. `error` adds red border + message below. |
 | `Input`    | `value, onChange?, readOnly?, type?, placeholder?` | onChange receives string value (not event). Coerces null/undefined to "". |
 | `Select`   | `value, onChange, options: {value,label}[]` | onChange receives string value |
 | `Checkbox` | `checked, onChange, label` | onChange receives boolean |
@@ -658,7 +658,7 @@ The `useFieldHelper` hook eliminates form field boilerplate. Instead of manually
 **Setup in a detail component:**
 ```tsx
 function Detail({ row, isNew, onChange, colTypes, colScales }) {
-  const field = useFieldHelper({ row, onChange, table: "my_table", colTypes, colScales });
+  const { field } = useFieldHelper({ row, onChange, table: "my_table", colTypes, colScales });
   return (
     <Section title="General">
       {field("name", { autoFocus: isNew })}
@@ -671,11 +671,22 @@ function Detail({ row, isNew, onChange, colTypes, colScales }) {
 }
 ```
 
+
+**Validation:**
+
+`useFieldHelper` returns `{ field, validate }`. Required field validation is automatic — CrudPage checks all fields marked `required: true` before save:
+
+- **On save**: Empty required fields get a red border and "Required" message below
+- **On edit**: Error clears as soon as the user modifies the field
+- **No page code needed**: Just add `required: true` to the field override
+
+The validation is DOM-based using `data-required` attributes. CrudPage scans for `[data-required]` elements, checks their input values, and blocks save if any are empty. The "Required" message is i18n via `t("validation.required", "Required")`.
+
 **What `field("name")` auto-derives:**
 
 | Concern | How it's resolved |
 |---------|-------------------|
-| **Label** | `t("{table}.{field}", humanize(field))` — translated, falls back to Title Case |
+| **Label** | `t("{table}.field.{name}", humanize(name))` — translated, falls back to Title Case. `humanize` strips `_id` suffix and converts `_nbr` to "Number". |
 | **Value** | `row[field]` |
 | **onChange** | `v => onChange(field, v)` |
 | **Component** | Detected from `colTypes[field]` (see table below) |
@@ -700,7 +711,7 @@ function Detail({ row, isNew, onChange, colTypes, colScales }) {
 {field("status", { type: "toggle", colorOn: "green", colorOff: "red" })}
 ```
 
-Available `type` values: `"input"`, `"email"`, `"select"`, `"checkbox"`, `"toggle"`, `"datepicker"`, `"number"`
+Available `type` values: `"input"`, `"email"`, `"select"`, `"checkbox"`, `"toggle"`, `"datepicker"`, `"number"`, `"lookup"`
 
 **Overriding any prop:**
 ```tsx

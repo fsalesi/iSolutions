@@ -146,3 +146,13 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+/* Field validation error state */
+.fld-err input,
+.fld-err select,
+.fld-err textarea {
+  border-color: var(--danger-text) !important;
+}
+.fld-err > label {
+  color: var(--danger-text) !important;
+}

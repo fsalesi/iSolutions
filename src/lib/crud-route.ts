@@ -49,7 +49,7 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
       if (val === "" || val === null) return false;
       return !!val;
     }
-    return val ?? null;
+    return val === "" ? null : val ?? null;
   }
 
 

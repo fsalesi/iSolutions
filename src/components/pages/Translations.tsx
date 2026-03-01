@@ -19,7 +19,7 @@ function Detail({ row, isNew, onChange, colTypes, colScales }: {
   colTypes: Record<string, string>; colScales: Record<string, number>;
 }) {
   const t = useT();
-  const field = useFieldHelper({ row, onChange, table: "translations", colTypes: colTypes as any, colScales });
+  const { field } = useFieldHelper({ row, onChange, table: "translations", colTypes: colTypes as any, colScales });
 
   return (
     <Section title={t("translations.section_translation", "Translation")}>

@@ -44,7 +44,7 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
     onClear,
     placeholder,
     readOnly = false,
-    minChars = 0,
+    minChars = 1,
     renderRow,
     renderValue,
   } = config;
@@ -256,10 +256,11 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
   // Focus handling
   function handleFocus() {
     if (readOnly) return;
-    if (preload || (!value && !multiple)) {
-      handleSearchChange("");
+    if (value && !multiple) {
+      // Seed search input with current display so text doesn't vanish
+      setSearch(displayText || value);
     }
-    setOpen(true);
+    // Don't open dropdown on focus — it opens when typing produces results
   }
 
   // Display chips for multi-select

@@ -321,6 +321,32 @@ export function CrudPage<TRow extends { oid: string }>({
   }, [isMobile, config]);
 
   const handleSave = useCallback(async () => {
+    // DOM-based required field validation
+    const container = document.querySelector('[data-detail-body]');
+    if (container) {
+      // Clear previous errors
+      container.querySelectorAll('.fld-err').forEach(el => el.classList.remove('fld-err'));
+      container.querySelectorAll('.fld-err-msg').forEach(el => el.remove());
+
+      const missing: Element[] = [];
+      container.querySelectorAll('[data-required]').forEach(fieldEl => {
+        const input = fieldEl.querySelector('input, select, textarea') as HTMLInputElement | null;
+        const val = input?.value?.trim() ?? '';
+        if (!val) missing.push(fieldEl);
+      });
+
+      if (missing.length > 0) {
+        missing.forEach(el => {
+          el.classList.add('fld-err');
+          const msg = document.createElement('div');
+          msg.className = 'fld-err-msg text-xs mt-0.5';
+          msg.style.color = 'var(--danger-text)';
+          msg.textContent = t('validation.required', 'Required');
+          el.appendChild(msg);
+        });
+        return;
+      }
+    }
     setSaving(true);
     setError("");
     try {
@@ -339,9 +365,9 @@ export function CrudPage<TRow extends { oid: string }>({
       setIsDirty(false);
       setIsNew(false);
       setRefreshKey(k => k + 1);
-    } catch { setError("Network error"); }
+    } catch { setError(t("crud.network_error", "Network error")); }
     setSaving(false);
-  }, [form, isNew, config]);
+  }, [form, isNew, config, t]);
 
   const handleDelete = useCallback(async () => {
     if (!selectedRec) return;
@@ -416,6 +442,26 @@ export function CrudPage<TRow extends { oid: string }>({
   const shellTitle = isMobile && mobileShowDetail && selectedRec && detailTitle
     ? detailTitle(selectedRec)
     : config.title;
+
+  // Clear validation errors when user edits a field
+  useEffect(() => {
+    const container = document.querySelector('[data-detail-body]');
+    if (!container) return;
+    const handler = (e: Event) => {
+      const target = e.target as HTMLElement;
+      const fieldEl = target.closest('[data-required]');
+      if (fieldEl?.classList.contains('fld-err')) {
+        fieldEl.classList.remove('fld-err');
+        fieldEl.querySelector('.fld-err-msg')?.remove();
+      }
+    };
+    container.addEventListener('input', handler);
+    container.addEventListener('change', handler);
+    return () => {
+      container.removeEventListener('input', handler);
+      container.removeEventListener('change', handler);
+    };
+  });
 
   const detailProps = { row: form, isNew, onChange: handleFieldChange, colTypes, colScales };
 
@@ -500,7 +546,7 @@ export function CrudPage<TRow extends { oid: string }>({
                 </div>
               )}
 
-              {detailBody}
+              <div data-detail-body>{detailBody}</div>
 
               {showFooter && (
                 <AuditFooter

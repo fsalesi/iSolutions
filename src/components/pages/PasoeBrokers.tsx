@@ -18,7 +18,7 @@ function Detail({ row, isNew, onChange, colTypes, colScales }: {
   colTypes: Record<string, string>; colScales: Record<string, number>;
 }) {
   const t = useT();
-  const field = useFieldHelper({ row, onChange, table: "pasoe_brokers", colTypes: colTypes as any, colScales });
+  const { field } = useFieldHelper({ row, onChange, table: "pasoe_brokers", colTypes: colTypes as any, colScales });
   return (
     <Section title={t("pasoe_brokers.section_general", "General")}>
       {field("name", { autoFocus: isNew })}

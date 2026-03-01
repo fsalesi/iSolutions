@@ -25,7 +25,7 @@ function Detail({ row, isNew, onChange, colTypes, colScales }: {
   colTypes: Record<string, string>; colScales: Record<string, number>;
 }) {
   const t = useT();
-  const field = useFieldHelper({ row, onChange, table: "locales", colTypes: colTypes as any, colScales });
+  const { field } = useFieldHelper({ row, onChange, table: "locales", colTypes: colTypes as any, colScales });
   return (
     <Section title={t("locales.section_settings", "Locale Settings")}>
       {field("code", { autoFocus: isNew, placeholder: "e.g. en-us" })}

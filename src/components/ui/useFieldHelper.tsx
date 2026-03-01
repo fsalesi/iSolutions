@@ -3,14 +3,17 @@
  * useFieldHelper — Factory hook that returns a `field()` function
  * for auto-wiring form fields with minimal boilerplate.
  *
+ * Returns { field, validate }:
+ *   - field(name, overrides?) renders a form field
+ *   - validate() checks required fields, returns true if valid
+ *
  * Usage:
- *   const field = useFieldHelper({ row, onChange, table, colTypes, colScales, isNew });
+ *   const { field, validate } = useFieldHelper({ row, onChange, table, colTypes, colScales, isNew });
  *   return (
  *     <Section title="General">
- *       {field("name", { autoFocus: isNew })}
+ *       {field("name", { autoFocus: isNew, required: true })}
  *       {field("email", { type: "email", required: true })}
  *       {field("is_active", { colorOn: "green", colorOff: "red" })}
- *       {field("locale", { type: "select", options: localeOpts })}
  *     </Section>
  *   );
  */
@@ -95,7 +98,9 @@ function detectType(colType: ColType | undefined, fieldName: string): FieldType 
 
 export function useFieldHelper(config: FieldHelperConfig) {
   const t = useT();
-  const { row, onChange, table, colTypes = {}, colScales = {}, isNew } = config;
+  const { row, onChange, table, colTypes = {}, colScales = {} } = config;
+
+
 
   const field = useCallback((name: string, overrides?: FieldOverrides): ReactNode => {
     const {
@@ -255,7 +260,7 @@ export function useFieldHelper(config: FieldHelperConfig) {
     );
   }, [row, onChange, table, colTypes, colScales, t]);
 
-  return field;
+  return { field };
 }
 
 /** Convert snake_case to Title Case */

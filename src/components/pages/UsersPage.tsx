@@ -34,7 +34,7 @@ function ProfileTab({ user, onChange, isNew, colTypes, colScales }: {
   colTypes: Record<string, string>; colScales: Record<string, number>;
 }) {
   const t = useT();
-  const field = useFieldHelper({ row: user, onChange, table: "users", colTypes: colTypes as any, colScales });
+  const { field } = useFieldHelper({ row: user, onChange, table: "users", colTypes: colTypes as any, colScales });
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -78,7 +78,7 @@ function IPurchaseTab({ user, onChange, colTypes, colScales }: {
   colTypes: Record<string, string>; colScales: Record<string, number>;
 }) {
   const t = useT();
-  const field = useFieldHelper({ row: user, onChange, table: "users", colTypes: colTypes as any, colScales });
+  const { field } = useFieldHelper({ row: user, onChange, table: "users", colTypes: colTypes as any, colScales });
   return (
     <div className="max-w-4xl space-y-6">
       <Section title={t("users.section_purchasing", "Purchasing")}>
