@@ -282,6 +282,9 @@ export function CrudPage<TRow extends { oid: string }>({
     setIsDirty(false);
     setError("");
     setConfirmDelete(false);
+    // Clear validation errors
+    document.querySelectorAll('.fld-err').forEach(el => el.classList.remove('fld-err'));
+    document.querySelectorAll('.fld-err-msg').forEach(el => el.remove());
     fetch(`${config.apiPath}?oid=${encodeURIComponent(oid)}&limit=1`)
       .then(r => r.json())
       .then(data => {
@@ -316,6 +319,9 @@ export function CrudPage<TRow extends { oid: string }>({
     setIsDirty(false);
     setError("");
     setConfirmDelete(false);
+    // Clear validation errors
+    document.querySelectorAll('.fld-err').forEach(el => el.classList.remove('fld-err'));
+    document.querySelectorAll('.fld-err-msg').forEach(el => el.remove());
     if (isMobile) setMobileShowDetail(true);
     else setExpanded(false);
   }, [isMobile, config]);
@@ -341,7 +347,7 @@ export function CrudPage<TRow extends { oid: string }>({
           const msg = document.createElement('div');
           msg.className = 'fld-err-msg text-xs mt-0.5';
           msg.style.color = 'var(--danger-text)';
-          msg.textContent = t('validation.required', 'Required');
+          msg.textContent = el.getAttribute('data-required-msg') || t('validation.required', 'Required');
           el.appendChild(msg);
         });
         return;

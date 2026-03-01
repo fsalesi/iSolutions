@@ -42,7 +42,7 @@ function ProfileTab({ user, onChange, isNew, colTypes, colScales }: {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
           {field("user_id", { required: true, readOnly: !isNew })}
           {field("full_name", { required: true })}
-          {field("email", { type: "email", required: true })}
+          {field("email", { type: "email", required: true, requiredMsg: "Email address is required" })}
           {field("company")}
           {field("title")}
           {field("domains", { required: true })}

@@ -47,6 +47,8 @@ interface FieldOverrides {
   label?: string;
   /** Field is required */
   required?: boolean;
+  /** Override the default "Required" validation message */
+  requiredMsg?: string;
   /** Field is read-only */
   readOnly?: boolean;
   /** Autofocus this field */
@@ -107,6 +109,7 @@ export function useFieldHelper(config: FieldHelperConfig) {
       type: typeOverride,
       label: labelOverride,
       required,
+      requiredMsg,
       readOnly,
       autoFocus,
       placeholder,
@@ -254,7 +257,7 @@ export function useFieldHelper(config: FieldHelperConfig) {
     }
 
     return (
-      <Field key={name} label={label} required={required}>
+      <Field key={name} label={label} required={required} requiredMsg={requiredMsg}>
         {component}
       </Field>
     );
