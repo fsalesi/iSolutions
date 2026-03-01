@@ -29,7 +29,7 @@ const ALLOWED_TABLES: Record<string, { schema: string; domainCol?: string }> = {
 // Whitelist of sortable/queryable columns per table
 const ALLOWED_COLUMNS: Record<string, Set<string>> = {
   users: new Set([
-    "user_id", "full_name", "email", "is_disabled", "domains", "supervisor_id",
+    "user_id", "full_name", "email", "is_active", "domains", "supervisor_id",
     "approval_limit", "title", "company", "city", "state", "phone", "last_login",
     "created_by", "created_at", "delegate_id", "department", "cost_center",
     "country", "postal_code", "cell_phone", "employee_number", "notes", "locale", "timezone",

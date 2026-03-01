@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   }
 
   const res = await db.query(`
-    SELECT column_name, data_type
+    SELECT column_name, data_type, numeric_scale
     FROM information_schema.columns
     WHERE table_name = $1 AND table_schema = 'public'
     ORDER BY ordinal_position
@@ -26,11 +26,18 @@ export async function GET(req: NextRequest) {
     .map(r => {
       const dt = r.data_type.toLowerCase();
       let type = "text";
-      if (dt.includes("int") || dt.includes("numeric") || dt.includes("float") || dt.includes("double") || dt === "real") type = "number";
+      let scale: number | undefined;
+      if (dt.includes("int")) { type = "number"; scale = 0; }
+      else if (dt.includes("numeric") || dt.includes("float") || dt.includes("double") || dt === "real") {
+        type = "number";
+        scale = r.numeric_scale ?? 2;
+      }
       else if (dt === "boolean") type = "boolean";
       else if (dt.includes("timestamp")) type = "datetime";
       else if (dt === "date") type = "date";
-      return { key: r.column_name, type };
+      const col: any = { key: r.column_name, type };
+      if (scale !== undefined) col.scale = scale;
+      return col;
     });
 
   return NextResponse.json(columns);

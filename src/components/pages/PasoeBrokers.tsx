@@ -1,30 +1,31 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
+import { useMemo } from "react";
 import { CrudPage, type CrudPageConfig } from "@/components/crud-page/CrudPage";
 import type { ColumnDef } from "@/components/data-grid/DataGrid";
-import { Section, Field, Input, Checkbox, Badge } from "@/components/ui";
+import { Section } from "@/components/ui";
 import { useT } from "@/context/TranslationContext";
+import { useFieldHelper } from "@/components/ui/useFieldHelper";
 
 type Row = { oid: string; [key: string]: any };
 
 const COLUMNS: ColumnDef<Row>[] = [
-  { key: "name", label: "Name", locked: true },
-  { key: "domain", label: "Domain" },
-  { key: "connect_string", label: "Connect String" },
-  { key: "cacheable" as any, label: "Cacheable", render: (r) => <Badge variant={r.cacheable ? "success" : "neutral"}>{r.cacheable ? "Yes" : "No"}</Badge> },
-  { key: "proxy_connect", label: "Proxy Connect" },
+  { key: "name", locked: true },
 ];
 
-function Detail({ row, isNew, onChange }: { row: Row; isNew: boolean; onChange: (f: keyof Row, v: any) => void }) {
+function Detail({ row, isNew, onChange, colTypes, colScales }: {
+  row: Row; isNew: boolean; onChange: (f: keyof Row, v: any) => void;
+  colTypes: Record<string, string>; colScales: Record<string, number>;
+}) {
   const t = useT();
+  const field = useFieldHelper({ row, onChange, table: "pasoe_brokers", colTypes: colTypes as any, colScales });
   return (
     <Section title={t("pasoe_brokers.section_general", "General")}>
-      <Field label={t("pasoe_brokers.name", "Name")}><Input value={row.name} onChange={v => onChange("name", v)} autoFocus={isNew} /></Field>
-      <Field label={t("pasoe_brokers.domain", "Domain")}><Input value={row.domain} onChange={v => onChange("domain", v)} /></Field>
-      <Field label={t("pasoe_brokers.connect_string", "Connect String")}><Input value={row.connect_string} onChange={v => onChange("connect_string", v)} /></Field>
-      <Field label={t("pasoe_brokers.proxy_connect", "Proxy Connect")}><Input value={row.proxy_connect} onChange={v => onChange("proxy_connect", v)} /></Field>
-      <Field label={t("pasoe_brokers.cacheable", "Cacheable")}><Checkbox checked={row.cacheable} onChange={v => onChange("cacheable", v)} label={t("pasoe_brokers.cache_label", "Cache broker lookups")} /></Field>
+      {field("name", { autoFocus: isNew })}
+      {field("domain")}
+      {field("connect_string")}
+      {field("proxy_connect")}
+      {field("cacheable")}
     </Section>
   );
 }

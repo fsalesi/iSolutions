@@ -4,19 +4,22 @@ import { useState, useCallback, useRef, useEffect, type ReactNode } from "react"
 import { Icon } from "@/components/icons/Icon";
 import { useTranslation } from "@/context/TranslationContext";
 import { formatDate } from "@/components/ui/date-utils";
+import { formatNumber } from "@/components/ui/number-utils";
 import { AdvancedSearch, serializeFilters, countConditions, type FilterTree, type ColType } from "./AdvancedSearch";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 // ── Types ──────────────────────────────────────────────────────────
 export type ColumnDef<T> = {
   key: keyof T & string;
-  label: string;
+  label?: string;
   sortable?: boolean;
   render?: (row: T) => ReactNode;
   width?: string;
   hideOnMobile?: boolean;
   /** If true, column cannot be hidden */
   locked?: boolean;
+  /** If true, column is excluded from the grid entirely */
+  hidden?: boolean;
 };
 
 export type SortState = {
@@ -67,15 +70,26 @@ interface DataGridProps<T extends { oid: string }> {
     filename?: string;                // Base filename for download
   };
   colTypes?: Record<string, ColType>;
+  colScales?: Record<string, number>;
+}
+
+
+// ── Column alignment by type ───────────────────────────────────────
+function colAlign(key: string, colTypes: Record<string, ColType>): "left" | "right" | "center" {
+  const ct = colTypes[key];
+  if (ct === "number") return "right";
+  if (ct === "boolean") return "center";
+  return "left";
 }
 
 // ── Auto-format cell values by column type ─────────────────────────
-function formatCellValue(val: any, key: string, colTypes: Record<string, ColType>, locale: string): string {
+function formatCellValue(val: any, key: string, colTypes: Record<string, ColType>, locale: string, colScales: Record<string, number> = {}): string {
   if (val == null || val === "") return "";
   const ct = colTypes[key];
   if (ct === "datetime") return formatDate(String(val), locale, "datetime");
   if (ct === "date") return formatDate(String(val), locale, "date");
-  if (ct === "boolean") return val ? "Yes" : "No";
+  if (ct === "number") return formatNumber(val, locale, colScales[key] ?? 0);
+  if (ct === "boolean") return val ? "✓" : "";
   return String(val);
 }
 
@@ -95,6 +109,7 @@ export function DataGrid<T extends { oid: string }>({
   userId,
   exportConfig,
   colTypes = {},
+  colScales = {},
 }: DataGridProps<T>) {
   const isMobile = useIsMobile();
   const showExpandBtn = !isMobile && onToggleExpand;
@@ -158,6 +173,19 @@ export function DataGrid<T extends { oid: string }>({
       })
       .catch(() => { prefsLoaded.current = true; });
   }, [gridId, userId]);
+
+  // Sync visibleKeys when defaultVisible changes (schema loaded after mount) and no user pref saved
+  useEffect(() => {
+    if (defaultVisible && defaultVisible.length > 0 && !hasUserPref && prefsLoaded.current) {
+      setVisibleKeys(prev => {
+        // Only update if current keys are a subset of new defaults (i.e. schema expanded)
+        if (prev.length < defaultVisible.length && defaultVisible.slice(0, prev.length).join() === prev.join()) {
+          return defaultVisible;
+        }
+        return prev;
+      });
+    }
+  }, [defaultVisible, hasUserPref]);
 
   // Auto-save user prefs when columns change (debounced 800ms)
   const savePrefs = useCallback((keys: string[]) => {
@@ -250,7 +278,7 @@ export function DataGrid<T extends { oid: string }>({
       const exportColumns = exportKeys
         .map(k => columns.find(c => c.key === k))
         .filter(Boolean)
-        .map(c => ({ key: c!.key, label: c!.label }));
+        .map(c => ({ key: c!.key, label: c!.label || c!.key }));
 
       const res = await fetch("/api/export", {
         method: "POST",
@@ -594,7 +622,7 @@ export function DataGrid<T extends { oid: string }>({
               {rows.map(row => (
                 <div key={row.oid} onClick={() => onSelect(row.oid)}>
                   {renderCard ? renderCard(row, selectedId === row.oid)
-                    : <DefaultCard row={row} columns={visibleColumns} isSelected={selectedId === row.oid} colTypes={colTypes} locale={locale} />}
+                    : <DefaultCard row={row} columns={visibleColumns} isSelected={selectedId === row.oid} colTypes={colTypes} colScales={colScales} locale={locale} />}
                 </div>
               ))}
               {loadingMore && <LoadingIndicator />}
@@ -610,14 +638,15 @@ export function DataGrid<T extends { oid: string }>({
                   <th
                     key={col.key}
                     onClick={col.sortable !== false ? () => handleSort(col.key) : undefined}
-                    className="text-left px-3 py-2 text-xs font-medium uppercase tracking-wider select-none"
+                    className="px-3 py-2 text-xs font-medium uppercase tracking-wider select-none"
                     style={{
                       color: "var(--text-muted)",
                       cursor: col.sortable !== false ? "pointer" : "default",
                       width: col.width,
+                      textAlign: colAlign(col.key, colTypes),
                     }}
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1" style={{ justifyContent: colAlign(col.key, colTypes) === "right" ? "flex-end" : colAlign(col.key, colTypes) === "center" ? "center" : "flex-start" }}>
                       {col.label}
                       {sort.field === col.key && (
                         <Icon name={sort.dir === "asc" ? "sortAsc" : "sortDesc"} size={12} />
@@ -654,11 +683,12 @@ export function DataGrid<T extends { oid: string }>({
                             key={col.key}
                             className="px-3 py-2"
                             style={{
-                              color: col.key === visibleColumns[0]?.key ? "var(--text-primary)" : "var(--text-secondary)",
-                              fontWeight: col.key === visibleColumns[0]?.key ? 500 : 400,
+                              color: colTypes[col.key] === "boolean" && row[col.key] ? "var(--success-text)" : col.key === visibleColumns[0]?.key ? "var(--text-primary)" : "var(--text-secondary)",
+                              fontWeight: colTypes[col.key] === "boolean" && row[col.key] ? 600 : col.key === visibleColumns[0]?.key ? 500 : 400,
+                              textAlign: colAlign(col.key, colTypes),
                             }}
                           >
-                            {col.render ? col.render(row) : formatCellValue(row[col.key], col.key, colTypes, locale)}
+                            {col.render ? col.render(row) : formatCellValue(row[col.key], col.key, colTypes, locale, colScales)}
                           </td>
                         ))}
                       </tr>
@@ -805,8 +835,8 @@ function LoadingIndicator() {
 }
 
 function DefaultCard<T extends { oid: string }>({
-  row, columns, isSelected, colTypes, locale,
-}: { row: T; columns: ColumnDef<T>[]; isSelected: boolean; colTypes: Record<string, ColType>; locale: string }) {
+  row, columns, isSelected, colTypes, colScales, locale,
+}: { row: T; columns: ColumnDef<T>[]; isSelected: boolean; colTypes: Record<string, ColType>; colScales: Record<string, number>; locale: string }) {
   const visibleCols = columns.filter(c => !c.hideOnMobile);
   const primary = visibleCols[0];
   const secondary = visibleCols.slice(1);
@@ -819,13 +849,13 @@ function DefaultCard<T extends { oid: string }>({
       <div className="flex-1 min-w-0">
         {primary && (
           <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
-            {primary.render ? primary.render(row) : formatCellValue(row[primary.key], primary.key, colTypes, locale)}
+            {primary.render ? primary.render(row) : formatCellValue(row[primary.key], primary.key, colTypes, locale, colScales)}
           </div>
         )}
         {secondary.length > 0 && (
           <div className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
             {secondary.map((col, i) => (
-              <span key={col.key}>{i > 0 && " · "}{col.render ? col.render(row) : formatCellValue(row[col.key], col.key, colTypes, locale)}</span>
+              <span key={col.key}>{i > 0 && " · "}{col.render ? col.render(row) : formatCellValue(row[col.key], col.key, colTypes, locale, colScales)}</span>
             ))}
           </div>
         )}

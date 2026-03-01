@@ -41,7 +41,7 @@ interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "onChan
 export function Input({ value, onChange, readOnly, className = "", style, ...rest }: InputProps) {
   return (
     <input
-      value={value}
+      value={value ?? ""}
       onChange={e => onChange?.(e.target.value)}
       readOnly={readOnly}
       className={`w-full px-3 py-2 text-sm rounded-lg transition-all outline-none ${className}`}

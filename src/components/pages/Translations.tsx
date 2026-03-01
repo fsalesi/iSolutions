@@ -3,20 +3,22 @@
 import { useMemo, useState, useEffect } from "react";
 import { CrudPage, type CrudPageConfig } from "@/components/crud-page/CrudPage";
 import type { ColumnDef } from "@/components/data-grid/DataGrid";
-import { Section, Field, Input, Select } from "@/components/ui";
+import { Section } from "@/components/ui";
 import { useT } from "@/context/TranslationContext";
+import { useFieldHelper } from "@/components/ui/useFieldHelper";
 
 type Row = { oid: string; [key: string]: any };
 
 const COLUMNS: ColumnDef<Row>[] = [
-  { key: "locale", label: "Locale", locked: true },
-  { key: "namespace", label: "Namespace" },
-  { key: "key", label: "Key" },
-  { key: "value", label: "Value" },
+  { key: "locale", locked: true },
 ];
 
-function Detail({ row, isNew, onChange }: { row: Row; isNew: boolean; onChange: (f: keyof Row, v: any) => void }) {
+function Detail({ row, isNew, onChange, colTypes, colScales }: {
+  row: Row; isNew: boolean; onChange: (f: keyof Row, v: any) => void;
+  colTypes: Record<string, string>; colScales: Record<string, number>;
+}) {
   const t = useT();
+  const field = useFieldHelper({ row, onChange, table: "translations", colTypes: colTypes as any, colScales });
   const [localeOptions, setLocaleOptions] = useState<{ value: string; label: string }[]>([]);
 
   useEffect(() => {
@@ -28,10 +30,10 @@ function Detail({ row, isNew, onChange }: { row: Row; isNew: boolean; onChange: 
 
   return (
     <Section title={t("translations.section_translation", "Translation")}>
-      <Field label={t("translations.locale", "Locale")}><Select value={row.locale} onChange={v => onChange("locale", v)} options={localeOptions} /></Field>
-      <Field label={t("translations.namespace", "Namespace")}><Input value={row.namespace} onChange={v => onChange("namespace", v)} placeholder="e.g. global, users, messages" /></Field>
-      <Field label={t("translations.key", "Key")}><Input value={row.key} onChange={v => onChange("key", v)} autoFocus={isNew} placeholder="e.g. full_name, save_button" /></Field>
-      <Field label={t("translations.value", "Value")}><Input value={row.value} onChange={v => onChange("value", v)} placeholder="Translated text" /></Field>
+      {field("locale", { type: "select", options: localeOptions })}
+      {field("namespace", { placeholder: "e.g. global, users, messages" })}
+      {field("key", { autoFocus: isNew, placeholder: "e.g. full_name, save_button" })}
+      {field("value", { placeholder: "Translated text" })}
     </Section>
   );
 }

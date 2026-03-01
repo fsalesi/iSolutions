@@ -92,14 +92,16 @@ export interface CrudPageConfig<TRow extends { oid: string }> {
   title: string;
   /** API path (e.g. "/api/pasoe_brokers"). Drives ALL operations. */
   apiPath: string;
-  /** Grid columns */
-  columns: ColumnDef<TRow>[];
+  /** Grid column overrides. Auto-generated from DB schema if omitted. */
+  columns?: ColumnDef<TRow>[];
 
   /** The detail form renderer (optional if renderTabs provided) */
   renderDetail?: (props: {
     row: TRow;
     isNew: boolean;
     onChange: (field: keyof TRow, value: any) => void;
+    colTypes: Record<string, string>;
+    colScales: Record<string, number>;
   }) => ReactNode;
 
 
@@ -111,10 +113,18 @@ export interface CrudPageConfig<TRow extends { oid: string }> {
     row: TRow;
     isNew: boolean;
     onChange: (field: keyof TRow, value: any) => void;
+    colTypes: Record<string, string>;
+    colScales: Record<string, number>;
   }) => ReactNode;
   /** Extra toolbar actions beyond the defaults */
   extraActions?: CrudAction[];
 
+}
+
+
+/** Convert snake_case column name to Title Case label */
+function humanize(key: string): string {
+  return key.replace(/_/g, " ").replace(/\w/g, c => c.toUpperCase());
 }
 
 // ── CrudPage Component ──────────────────────────────────────────
@@ -143,25 +153,98 @@ export function CrudPage<TRow extends { oid: string }>({
     { key: "updated_by", label: t("crud.updated_by", "Updated By") },
   ], [t]);
 
+  const [colTypes, setColTypes] = useState<Record<string, ColType>>({});
+  const [colScales, setColScales] = useState<Record<string, number>>({});
+
   // ── Auto-derive everything from apiPath ──
   const tableName = config.apiPath.replace("/api/", "");
   const xform = (raw: any) => raw as TRow;
   const gridId = tableName;
   const colTypesUrl = `/api/columns?table=${tableName}`;
+  const [schemaColumns, setSchemaColumns] = useState<ColumnDef<TRow>[]>([]);
+
+  useEffect(() => {
+    fetch(colTypesUrl).then(r => r.json()).then((cols: { key: string; type: string; scale?: number }[]) => {
+      const typeMap: Record<string, ColType> = {};
+      const scaleMap: Record<string, number> = {};
+      const autoCols: ColumnDef<TRow>[] = [];
+      for (const col of cols) {
+        typeMap[col.key] = col.type as ColType;
+        if (col.scale !== undefined) scaleMap[col.key] = col.scale;
+        autoCols.push({ key: col.key as keyof TRow & string, label: col.key });
+      }
+      setColTypes(typeMap);
+      setColScales(scaleMap);
+      setSchemaColumns(autoCols);
+    }).catch(() => {});
+  }, [colTypesUrl]);
+
+  // ── Merge schema-discovered columns with page-level overrides ──
+  const mergedColumns: ColumnDef<TRow>[] = useMemo(() => {
+    const overrides = config.columns || [];
+
+    if (overrides.length > 0 && schemaColumns.length === 0) {
+      // Schema not loaded yet — use overrides as-is with translated labels
+      return overrides.map(c => ({
+        ...c,
+        label: c.label || t(`${tableName}.${c.key as string}`, humanize(c.key as string)),
+      }));
+    }
+
+    if (overrides.length > 0) {
+      // Overrides define the order; add any schema columns not in overrides at the end
+      const seen = new Set(overrides.map(c => c.key as string));
+      const result = overrides.map(c => {
+        const key = c.key as string;
+        return {
+          ...c,
+          label: c.label || t(`${tableName}.${key}`, humanize(key)),
+        };
+      });
+      for (const sc of schemaColumns) {
+        if (!seen.has(sc.key as string)) {
+          const key = sc.key as string;
+          result.push({ ...sc, label: t(`${tableName}.${key}`, humanize(key)) });
+        }
+      }
+      return result;
+    }
+
+    // No overrides — pure auto-discovery with translated labels
+    return schemaColumns.map(c => {
+      const key = c.key as string;
+      return { ...c, label: t(`${tableName}.${key}`, humanize(key)) };
+    });
+  }, [config.columns, schemaColumns, t, tableName]);
+
+  // Filter out columns marked hidden in overrides
+  const filteredColumns = useMemo(() => {
+    const hiddenKeys = new Set(
+      (config.columns || []).filter(c => c.hidden).map(c => c.key as string)
+    );
+    return hiddenKeys.size > 0 ? mergedColumns.filter(c => !hiddenKeys.has(c.key as string)) : mergedColumns;
+  }, [mergedColumns, config.columns]);
+
   const searchPlaceholder = `Search ${config.title.toLowerCase()}...`;
   const emptyIcon = "database";
   const emptyText = t("crud.no_records", "No records found.");
-  const defaultVisible = config.columns.slice(0, 4).map(c => String(c.key));
-  const firstCol = String(config.columns[0]?.key || "oid");
+  const defaultVisible = filteredColumns.slice(0, 4).map(c => String(c.key));
+  const firstCol = String(filteredColumns[0]?.key || "oid");
   const deleteLabel = (row: TRow) => String((row as any)[firstCol] || row.oid);
   const detailTitle = (row: TRow) => String((row as any)[firstCol] || t("crud.new", "New"));
-  const searchCols = config.columns.filter(c => typeof c.key === "string").slice(0, 3).map(c => String(c.key));
+  const searchCols = filteredColumns.filter(c => typeof c.key === "string").slice(0, 3).map(c => String(c.key));
   const exportCfg = { table: tableName, searchFields: searchCols, filename: `${tableName}-export` };
-  const emptyRow = () => {
+  const emptyRow = useCallback(() => {
     const row: any = { oid: "" };
-    for (const col of config.columns) row[col.key as string] = "";
+    for (const col of mergedColumns) {
+      const ct = colTypes[col.key as string];
+      if (ct === "boolean") row[col.key as string] = false;
+      else if (ct === "number") row[col.key as string] = 0;
+      else if (ct === "datetime" || ct === "date") row[col.key as string] = null;
+      else row[col.key as string] = "";
+    }
     return row as TRow;
-  };
+  }, [mergedColumns, colTypes]);
 
   const genericFetchPage: FetchPage<TRow> = async ({ offset, limit, search, sort, dir, filters }) => {
     const params = new URLSearchParams({
@@ -174,15 +257,7 @@ export function CrudPage<TRow extends { oid: string }>({
   };
   const fetchPage = genericFetchPage;
 
-  const [colTypes, setColTypes] = useState<Record<string, ColType>>({});
 
-  useEffect(() => {
-    fetch(colTypesUrl).then(r => r.json()).then((cols: { key: string; type: string }[]) => {
-      const map: Record<string, ColType> = {};
-      for (const col of cols) map[col.key] = col.type as ColType;
-      setColTypes(map);
-    }).catch(() => {});
-  }, [colTypesUrl]);
 
   const [selectedOid, setSelectedOid] = useState<string | null>(null);
   const [selectedRec, setSelectedRec] = useState<TRow | null>(null);
@@ -293,10 +368,10 @@ export function CrudPage<TRow extends { oid: string }>({
 
   // ── Auto-inject audit columns into DataGrid ────────────────
   const allColumns = useMemo(() => {
-    const existing = new Set(config.columns.map(c => c.key));
+    const existing = new Set(filteredColumns.map(c => c.key));
     const extra = AUDIT_GRID_COLUMNS.filter(c => !existing.has(c.key as any));
-    return [...config.columns, ...extra] as ColumnDef<TRow>[];
-  }, [config.columns]);
+    return [...filteredColumns, ...extra] as ColumnDef<TRow>[];
+  }, [filteredColumns]);
 
   // ── Auto-derive audit table from exportConfig ──────────────
   const auditTable = tableName;
@@ -342,7 +417,7 @@ export function CrudPage<TRow extends { oid: string }>({
     ? detailTitle(selectedRec)
     : config.title;
 
-  const detailProps = { row: form, isNew, onChange: handleFieldChange };
+  const detailProps = { row: form, isNew, onChange: handleFieldChange, colTypes, colScales };
 
   // Detail content: renderTabs owns the full area, renderDetail gets a scrollable wrapper.
   // In both cases, the footer is rendered OUTSIDE / AFTER the scrollable area.
@@ -382,6 +457,7 @@ export function CrudPage<TRow extends { oid: string }>({
             expanded={expanded}
             onToggleExpand={() => setExpanded(e => !e)}
             colTypes={colTypes}
+            colScales={colScales}
             gridId={gridId}
             userId={user.userId}
             exportConfig={exportCfg}

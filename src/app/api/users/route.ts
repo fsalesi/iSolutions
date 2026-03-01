@@ -4,7 +4,7 @@ export const { GET, POST, PUT, DELETE } = createCrudRoutes({
   table: "users",
   columns: [
     "user_id", "full_name", "email", "title", "company", "user_type",
-    "is_disabled", "expire_date", "last_login", "failed_logins",
+    "is_active", "expire_date", "last_login", "failed_logins",
     "domains", "phone", "cell_phone", "carrier", "mobile_enabled",
     "street1", "street2", "city", "state", "postal_code", "country",
     "supervisor_id", "delegate_id", "approval_limit",
@@ -12,7 +12,7 @@ export const { GET, POST, PUT, DELETE } = createCrudRoutes({
     "created_at", "created_by", "updated_at", "updated_by", "oid",
   ],
   colTypes: {
-    is_disabled: "boolean",
+    is_active: "boolean",
     mobile_enabled: "boolean",
     failed_logins: "number",
     approval_limit: "number",

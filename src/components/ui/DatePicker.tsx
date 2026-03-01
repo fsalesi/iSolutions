@@ -303,7 +303,7 @@ export function DatePicker({
             onBlur={() => handleBlur("from")}
             onKeyDown={e => handleKeyDown(e, "from")}
           />
-          {mode === "datetime" && value && (
+          {mode === "datetime" && value && !readOnly && (
             <DatePickerTime
               hours={new Date(value).getHours()}
               minutes={new Date(value).getMinutes()}

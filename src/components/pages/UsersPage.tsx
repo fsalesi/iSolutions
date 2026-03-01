@@ -1,20 +1,19 @@
 "use client";
-import { fmtMoney } from "@/lib/format";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { CrudPage, type CrudPageConfig } from "@/components/crud-page/CrudPage";
 import type { ColumnDef } from "@/components/data-grid/DataGrid";
 import type { CrudAction } from "@/components/crud-toolbar/CrudToolbar";
-import { Section, Field, Input, Select, Checkbox, Badge, TabBar, type TabDef } from "@/components/ui";
+import { Section, TabBar, type TabDef } from "@/components/ui";
 import { useT } from "@/context/TranslationContext";
+import { useFieldHelper } from "@/components/ui/useFieldHelper";
 import { LocaleSelect } from "@/components/ui/LocaleSelect";
-import { DatePicker } from "@/components/ui/DatePicker";
+import { Field } from "@/components/ui";
 import { Icon } from "@/components/icons/Icon";
 
 type User = { oid: string; [key: string]: any };
 
 function UserCard({ row, isSelected }: { row: User; isSelected: boolean }) {
-  const t = useT();
   return (
     <div className="w-full text-left px-4 py-3 flex items-center gap-3 transition-colors cursor-pointer"
       style={{ background: isSelected ? "var(--bg-selected)" : "transparent", borderBottom: "1px solid var(--border-light)" }}>
@@ -26,16 +25,17 @@ function UserCard({ row, isSelected }: { row: User; isSelected: boolean }) {
         <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{row.full_name}</div>
         <div className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{row.user_id} · {row.email}</div>
       </div>
-      {row.is_disabled
-        ? <Badge variant="danger">{t("users.status_disabled", "Disabled")}</Badge>
-        : <Badge variant="success">{t("users.status_active", "Active")}</Badge>}
       <Icon name="chevRight" size={16} className="flex-shrink-0" style={{ color: "var(--text-muted)" } as any} />
     </div>
   );
 }
 
-function ProfileTab({ user, onChange }: { user: User; onChange: (f: keyof User, v: any) => void }) {
+function ProfileTab({ user, onChange, isNew, colTypes, colScales }: {
+  user: User; onChange: (f: keyof User, v: any) => void; isNew: boolean;
+  colTypes: Record<string, string>; colScales: Record<string, number>;
+}) {
   const t = useT();
+  const field = useFieldHelper({ row: user, onChange, table: "users", colTypes: colTypes as any, colScales });
   const [localeOpts, setLocaleOpts] = useState<{ value: string; label: string }[]>([]);
   useEffect(() => {
     fetch("/api/locales?limit=100")
@@ -47,62 +47,67 @@ function ProfileTab({ user, onChange }: { user: User; onChange: (f: keyof User, 
     <div className="space-y-6 max-w-4xl">
       <Section title={t("users.section_identity", "Identity")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-          <Field label={t("users.user_id", "User ID")} required><Input value={user.user_id} readOnly /></Field>
-          <Field label={t("users.full_name", "Full Name")} required><Input value={user.full_name} onChange={v => onChange("full_name", v)} /></Field>
-          <Field label={t("users.email", "Email")} required><Input value={user.email} onChange={v => onChange("email", v)} type="email" /></Field>
-          <Field label={t("users.company", "Company")}><Input value={user.company} onChange={v => onChange("company", v)} /></Field>
-          <Field label={t("users.title_field", "Title")}><Input value={user.title} onChange={v => onChange("title", v)} /></Field>
-          <Field label={t("users.domains", "Domains")} required><Input value={user.domains} onChange={v => onChange("domains", v)} /></Field>
-          <Field label={t("users.locale", "Language")}><LocaleSelect value={user.locale} onChange={v => onChange("locale", v)} options={localeOpts} /></Field>
+          {field("user_id", { required: true, readOnly: !isNew })}
+          {field("full_name", { required: true })}
+          {field("email", { type: "email", required: true })}
+          {field("company")}
+          {field("title")}
+          {field("domains", { required: true })}
+          {/* LocaleSelect is a custom component — manual override */}
+          <Field label={t("users.locale", "Language")}>
+            <LocaleSelect value={user.locale} onChange={v => onChange("locale", v)} options={localeOpts} />
+          </Field>
         </div>
       </Section>
       <Section title={t("users.section_status", "Status")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-          <Field label={t("users.is_disabled", "Disabled")}>
-            <Checkbox checked={user.is_disabled} onChange={v => onChange("is_disabled", v)} label={user.is_disabled ? t("users.status_disabled", "Disabled") : t("users.status_active", "Active")} />
-          </Field>
-          <Field label={t("users.expiration_date", "Expiration Date")}><DatePicker value={user.expire_date ?? null} onChange={v => onChange("expire_date", v)} /></Field>
-          <Field label={t("users.last_login", "Last Login")}><DatePicker value={user.last_login ?? null} onChange={() => {}} readOnly /></Field>
-          <Field label={t("users.failed_logins", "Failed Logins")}><Input value={String(user.failed_logins)} readOnly /></Field>
+          {field("is_active", { colorOn: "var(--success-text)", colorOff: "var(--danger-text)" })}
+          {field("expire_date")}
+          {field("last_login", { readOnly: true, mode: "datetime" })}
+          {field("failed_logins", { readOnly: true })}
         </div>
       </Section>
       <Section title={t("users.section_contact", "Contact")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-          <Field label={t("users.phone", "Phone")}><Input value={user.phone} onChange={v => onChange("phone", v)} /></Field>
-          <Field label={t("users.cell_phone", "Cell Phone")}><Input value={user.cell_phone} onChange={v => onChange("cell_phone", v)} /></Field>
-          <Field label={t("users.street1", "Street 1")}><Input value={user.street1} onChange={v => onChange("street1", v)} /></Field>
-          <Field label={t("users.street2", "Street 2")}><Input value={user.street2} onChange={v => onChange("street2", v)} /></Field>
-          <Field label={t("users.city", "City")}><Input value={user.city} onChange={v => onChange("city", v)} /></Field>
-          <Field label={t("users.state", "State")}><Input value={user.state} onChange={v => onChange("state", v)} /></Field>
-          <Field label={t("users.postal_code", "Postal Code")}><Input value={user.postal_code} onChange={v => onChange("postal_code", v)} /></Field>
-          <Field label={t("users.country", "Country")}><Input value={user.country} onChange={v => onChange("country", v)} /></Field>
+          {field("phone")}
+          {field("cell_phone")}
+          {field("street1")}
+          {field("street2")}
+          {field("city")}
+          {field("state")}
+          {field("postal_code")}
+          {field("country")}
         </div>
       </Section>
     </div>
   );
 }
 
-function IPurchaseTab({ user, onChange }: { user: User; onChange: (f: keyof User, v: any) => void }) {
+function IPurchaseTab({ user, onChange, colTypes, colScales }: {
+  user: User; onChange: (f: keyof User, v: any) => void;
+  colTypes: Record<string, string>; colScales: Record<string, number>;
+}) {
   const t = useT();
-
+  const field = useFieldHelper({ row: user, onChange, table: "users", colTypes: colTypes as any, colScales });
   return (
     <div className="max-w-4xl space-y-6">
       <Section title={t("users.section_purchasing", "Purchasing")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-          <Field label={t("users.supervisor", "Supervisor")}><Input value={user.supervisor_id} onChange={v => onChange("supervisor_id", v)} /></Field>
-          <Field label={t("users.delegate", "Delegate")}><Input value={user.delegate_id} onChange={v => onChange("delegate_id", v)} /></Field>
-          <Field label={t("users.approval_limit", "Approval Limit ($)")}>
-            <Input value={fmtMoney(user.approval_limit)} onChange={v => onChange("approval_limit", v.replace(/,/g, ""))} />
-          </Field>
-          <Field label={t("users.employee_number", "Employee Number")}><Input value={user.employee_number} onChange={v => onChange("employee_number", v)} /></Field>
-          <Field label={t("users.erp_initials", "ERP Initials")}><Input value={user.erp_initials} onChange={v => onChange("erp_initials", v)} /></Field>
+          {field("supervisor_id")}
+          {field("delegate_id")}
+          {field("approval_limit")}
+          {field("employee_number")}
+          {field("erp_initials")}
         </div>
       </Section>
     </div>
   );
 }
 
-function UserTabs({ row, onChange }: { row: User; isNew: boolean; onChange: (f: keyof User, v: any) => void }) {
+function UserTabs({ row, onChange, isNew, colTypes, colScales }: {
+  row: User; isNew: boolean; onChange: (f: keyof User, v: any) => void;
+  colTypes: Record<string, string>; colScales: Record<string, number>;
+}) {
   const t = useT();
   const [activeTab, setActiveTab] = useState("profile");
   const tabs: TabDef[] = [
@@ -113,8 +118,8 @@ function UserTabs({ row, onChange }: { row: User; isNew: boolean; onChange: (f: 
     <>
       <TabBar tabs={tabs} active={activeTab} onChange={setActiveTab} />
       <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-        {activeTab === "profile" && <ProfileTab user={row} onChange={onChange} />}
-        {activeTab === "ipurchase" && <IPurchaseTab user={row} onChange={onChange} />}
+        {activeTab === "profile" && <ProfileTab user={row} onChange={onChange} isNew={isNew} colTypes={colTypes} colScales={colScales} />}
+        {activeTab === "ipurchase" && <IPurchaseTab user={row} onChange={onChange} colTypes={colTypes} colScales={colScales} />}
       </div>
     </>
   );
@@ -126,26 +131,8 @@ export default function UsersPage({ activeNav, onNavigate, selectRecordOid, sele
   const t = useT();
 
   const columns: ColumnDef<User>[] = useMemo(() => [
-    { key: "user_id", label: t("users.user_id", "User ID"), locked: true },
-    { key: "full_name", label: t("users.full_name", "Name") },
-    { key: "email", label: t("users.email", "Email") },
-    {
-      key: "is_disabled" as any, label: t("users.section_status", "Status"),
-      render: (row) => row.is_disabled
-        ? <Badge variant="danger">{t("users.status_disabled", "Disabled")}</Badge>
-        : <Badge variant="success">{t("users.status_active", "Active")}</Badge>,
-    },
-    { key: "domains", label: t("users.domains", "Domains") },
-    { key: "supervisor_id", label: t("users.supervisor", "Supervisor") },
-    { key: "approval_limit", label: t("users.approval_limit", "Approval Limit") },
-    { key: "title", label: t("users.title_field", "Title") },
-    { key: "company", label: t("users.company", "Company") },
-    { key: "city", label: t("users.city", "City") },
-    { key: "state", label: t("users.state", "State") },
-    { key: "phone", label: t("users.phone", "Phone") },
-    { key: "last_login" as any, label: t("users.last_login", "Last Login") },
-    { key: "postal_code", label: t("users.postal_code", "Postal Code") },
-  ], [t]);
+    { key: "user_id", locked: true },
+  ], []);
 
   const extraActions: CrudAction[] = useMemo(() => [
     { key: "password", icon: "key",      label: t("users.tab_password", "Password"), separator: true },

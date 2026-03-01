@@ -286,24 +286,27 @@ export const { GET, POST, PUT, DELETE } = createCrudRoutes({
 import { useMemo } from "react";
 import { CrudPage, type CrudPageConfig } from "@/components/crud-page/CrudPage";
 import type { ColumnDef } from "@/components/data-grid/DataGrid";
-import { Section, Field, Input, Checkbox } from "@/components/ui";
+import { Section } from "@/components/ui";
+import { useT } from "@/context/TranslationContext";
+import { useFieldHelper } from "@/components/ui/useFieldHelper";
 
 type Row = { oid: string; [key: string]: any };
 
+// Only override columns that need custom behavior; rest auto-discover from DB schema
 const COLUMNS: ColumnDef<Row>[] = [
-  { key: "name", label: "Name", locked: true },
-  { key: "description", label: "Description" },
-  { key: "is_active", label: "Active" },
+  { key: "name", locked: true },
 ];
 
-function Detail({ row, isNew, onChange }: {
+function Detail({ row, isNew, onChange, colTypes, colScales }: {
   row: Row; isNew: boolean; onChange: (field: keyof Row, value: any) => void;
+  colTypes: Record<string, string>; colScales: Record<string, number>;
 }) {
+  const field = useFieldHelper({ row, onChange, table: "my_table", colTypes: colTypes as any, colScales });
   return (
     <Section title="General">
-      <Field label="Name"><Input value={row.name} onChange={v => onChange("name", v)} autoFocus={isNew} /></Field>
-      <Field label="Description"><Input value={row.description} onChange={v => onChange("description", v)} /></Field>
-      <Field label="Active"><Checkbox checked={row.is_active} onChange={v => onChange("is_active", v)} /></Field>
+      {field("name", { autoFocus: isNew })}
+      {field("description")}
+      {field("is_active")}
     </Section>
   );
 }
@@ -323,7 +326,7 @@ export default function MyTable({ activeNav, onNavigate, selectRecordOid, select
 }
 ```
 
-That's it. **4 required config fields**: `title`, `apiPath`, `columns`, `renderDetail`.
+That's it. **3 required config fields**: `title`, `apiPath`, `renderDetail` (or `renderTabs`). `columns` is optional — auto-discovered from the database schema.
 
 #### Step 3: Register in the router
 
@@ -343,6 +346,9 @@ And add a nav entry in `src/components/shell/Sidebar.tsx`.
 | Tabbed detail form | Provide `renderTabs` instead of `renderDetail` |
 | Custom list card | Provide `renderCard` |
 | Extra toolbar buttons | Provide `extraActions` |
+| Lock a column | `{ key: "user_id", locked: true }` in `columns` — cannot be hidden by user |
+| Hide a column | `{ key: "internal_field", hidden: true }` in `columns` — excluded from grid entirely |
+| Custom column order | List columns in `columns` array — unlisted schema columns append at end |
 
 ### renderDetail vs renderTabs
 
@@ -480,15 +486,283 @@ The DataGrid uses this to offer type-appropriate filter operators in AdvancedSea
 |------------|-----------|-------|
 | `Section`  | `title` | Groups fields with uppercase header |
 | `Field`    | `label, required?` | Wraps input with label + required asterisk |
-| `Input`    | `value, onChange?, readOnly?, type?, placeholder?` | onChange receives string value (not event) |
+| `Input`    | `value, onChange?, readOnly?, type?, placeholder?` | onChange receives string value (not event). Coerces null/undefined to "". |
 | `Select`   | `value, onChange, options: {value,label}[]` | onChange receives string value |
 | `Checkbox` | `checked, onChange, label` | onChange receives boolean |
 | `Badge`    | `variant: "success"\|"danger"\|"warning"\|"neutral"\|"info"` | Status pill |
 | `TabBar`   | `tabs: TabDef[], active, onChange` | `TabDef = { key, label, icon? }` |
+| `DatePicker` | `value, onChange, mode?, readOnly?` | See DatePicker section below |
+| `NumberInput` | `value, onChange, scale?, readOnly?` | Locale-aware formatting with grouping separators |
+| `Toggle`   | `value, onChange, triState?, readOnly?` | Sliding on/off (or on/null/off) toggle |
+| `EmailInput` | `value, onChange, multiple?, readOnly?` | Validates email; multi-mode shows chips |
 
 ### Icons (`<Icon name="..." size={18} />`)
 
 Available names: `menu`, `search`, `plus`, `save`, `trash`, `copy`, `key`, `download`, `upload`, `unlock`, `shield`, `users`, `user`, `settings`, `briefcase`, `clock`, `mail`, `lock`, `chart`, `chevUp`, `chevDown`, `chevRight`, `chevLeft`, `chevFirst`, `chevLast`, `x`, `check`, `sortAsc`, `sortDesc`, `tag`, `arrowLeft`, `server`, `activity`, `messageSquare`, `logOut`, `columns`, `filter`, `expand`, `collapse`, `eye`, `eyeOff`
+
+
+### DatePicker (`@/components/ui/DatePicker`)
+
+Locale-aware date/datetime/range picker with calendar popup.
+
+```tsx
+import { DatePicker } from "@/components/ui/DatePicker";
+
+// Date only
+<DatePicker value={row.expire_date} onChange={v => onChange("expire_date", v)} mode="date" />
+
+// Datetime
+<DatePicker value={row.last_login} onChange={v => onChange("last_login", v)} mode="datetime" readOnly />
+
+// Date range (e.g. for filters)
+<DatePicker mode="range" value={start} onChange={setStart} valueTo={end} onChangeTo={setEnd} presets />
+```
+
+| Prop | Type | Default | Notes |
+|------|------|---------|-------|
+| `value` | `string \| null` | — | ISO date string |
+| `onChange` | `(v: string \| null) => void` | — | |
+| `mode` | `"date" \| "datetime" \| "range"` | `"date"` | |
+| `readOnly` | `boolean` | `false` | Hides calendar icon and time picker |
+| `min` / `max` | `string` | — | ISO date bounds |
+| `timeStep` | `number` | `15` | Minutes between time options |
+| `presets` | `boolean` | `false` | Show preset sidebar (range mode) |
+| `clearable` | `boolean` | `true` | Show clear button |
+
+**Files:** `DatePicker.tsx`, `DatePickerCalendar.tsx`, `DatePickerTime.tsx`, `DatePickerPresets.tsx`, `date-utils.ts`
+
+Locale behavior: detects MDY/DMY/YMD order, date separator, 12h/24h from browser locale. Placeholder auto-generates (e.g. "MM/DD/YYYY" or "DD.MM.YYYY").
+
+### NumberInput (`@/components/ui/NumberInput`)
+
+Locale-aware number input. Shows formatted value (with grouping separators) when blurred, raw editable value when focused.
+
+```tsx
+import { NumberInput } from "@/components/ui/NumberInput";
+
+<NumberInput value={row.approval_limit} onChange={v => onChange("approval_limit", v)} scale={2} />
+```
+
+| Prop | Type | Default | Notes |
+|------|------|---------|-------|
+| `value` | `number \| string` | — | |
+| `onChange` | `(v: number) => void` | — | Always emits a number |
+| `scale` | `number` | `2` | Decimal places for display |
+| `readOnly` | `boolean` | `false` | |
+
+**Files:** `NumberInput.tsx`, `number-utils.ts`
+
+Formatting: uses `Intl.NumberFormat` for locale-appropriate grouping (e.g. `1,234.56` in en-US, `1.234,56` in de). Prevents alpha character entry.
+
+### Toggle (`@/components/ui/Toggle`)
+
+Sliding toggle for boolean fields. Supports two-state (true/false) and three-state (true/null/false).
+
+```tsx
+import { Toggle } from "@/components/ui/Toggle";
+
+// Two-state
+<Toggle value={row.is_active} onChange={v => onChange("is_active", v)}
+  colorOn="green" colorOff="red" labelOn="Active" labelOff="Inactive" />
+
+// Three-state (nullable boolean)
+<Toggle value={row.flag} onChange={v => onChange("flag", v)} triState
+  labelOn="Yes" labelOff="No" labelNull="Unknown" />
+```
+
+| Prop | Type | Default | Notes |
+|------|------|---------|-------|
+| `value` | `boolean \| null` | — | |
+| `onChange` | `(v: boolean \| null) => void` | — | |
+| `triState` | `boolean` | `false` | Enable null middle state |
+| `size` | `"sm" \| "md"` | `"md"` | |
+| `colorOn` / `colorOff` | `string` | accent/gray | CSS color values |
+| `labelOn` / `labelOff` / `labelNull` | `string` | — | Text shown beside toggle |
+| `readOnly` | `boolean` | `false` | |
+
+Cycle behavior in triState: `false → null → true → false`
+
+### EmailInput (`@/components/ui/EmailInput`)
+
+Email input with validation. Single mode for one address, multi mode for chip-based entry.
+
+```tsx
+import { EmailInput } from "@/components/ui/EmailInput";
+
+// Single email (e.g. Users page)
+<EmailInput value={row.email} onChange={v => onChange("email", v)} required />
+
+// Multiple emails (semicolon-separated in DB)
+<EmailInput value={row.notify_emails} onChange={v => onChange("notify_emails", v)} multiple />
+```
+
+| Prop | Type | Default | Notes |
+|------|------|---------|-------|
+| `value` | `string` | — | Single email or semicolon-separated list |
+| `onChange` | `(v: string) => void` | — | |
+| `multiple` | `boolean` | `false` | Chip-based multi-email mode |
+| `required` | `boolean` | `false` | |
+| `readOnly` | `boolean` | `false` | |
+
+Multi mode: Enter, comma, semicolon, or blur to add. Backspace to remove last. Deduplicates. Validation error is i18n-translated (`validation.invalid_email`).
+
+### DataGrid Auto-Formatting
+
+The DataGrid automatically formats cell values based on column type (from `/api/columns`):
+
+| Column Type | Display | Alignment |
+|-------------|---------|-----------|
+| `text` | As-is | Left |
+| `number` | Locale-formatted with grouping (e.g. `1,234.56`) | Right |
+| `boolean` | Green `✓` for true, blank for false | Center |
+| `datetime` | Locale-formatted date + time | Left |
+| `date` | Locale-formatted date only | Left |
+
+No manual `render` functions needed for standard formatting. Custom renderers still override when provided.
+
+### Column Auto-Discovery
+
+Grid columns are auto-generated from the database schema via `/api/columns?table={name}`. Labels are translated using the `{table}.{column}` key convention (e.g. `users.full_name`), falling back to humanized column names (e.g. `full_name` → "Full Name").
+
+**Column cascade (most specific wins):**
+
+1. **Schema** — all columns from the database table (minus system columns: oid, audit fields, password_hash)
+2. **Page overrides** (`config.columns`) — define order, lock/hide columns, add custom renderers
+3. **Grid defaults** (`grid_defaults` table) — admin-configured default visible set
+4. **User prefs** (`grid_user_prefs` table) — per-user column visibility saved via column chooser
+
+**ColumnDef flags:**
+
+| Flag | Effect |
+|------|--------|
+| `locked: true` | Column cannot be hidden via column chooser |
+| `hidden: true` | Column excluded from grid entirely (not in chooser) |
+| `render: (row) => ReactNode` | Custom cell renderer (overrides auto-format) |
+
+**Minimal page config (auto-discover everything):**
+```tsx
+const config = {
+  title: "Users",
+  apiPath: "/api/users",
+  columns: [{ key: "user_id", locked: true }],  // only overrides
+  renderTabs: (props) => <UserTabs {...props} />,
+};
+```
+
+### useFieldHelper — Auto-Wired Form Fields
+
+The `useFieldHelper` hook eliminates form field boilerplate. Instead of manually wiring `value`, `onChange`, labels, and picking the right component for every field, you call `field("name")` and everything is auto-derived.
+
+**Import:** `import { useFieldHelper } from "@/components/ui/useFieldHelper";`
+
+**Setup in a detail component:**
+```tsx
+function Detail({ row, isNew, onChange, colTypes, colScales }) {
+  const field = useFieldHelper({ row, onChange, table: "my_table", colTypes, colScales });
+  return (
+    <Section title="General">
+      {field("name", { autoFocus: isNew })}
+      {field("description")}
+      {field("is_active")}
+      {field("amount")}
+      {field("due_date")}
+    </Section>
+  );
+}
+```
+
+**What `field("name")` auto-derives:**
+
+| Concern | How it's resolved |
+|---------|-------------------|
+| **Label** | `t("{table}.{field}", humanize(field))` — translated, falls back to Title Case |
+| **Value** | `row[field]` |
+| **onChange** | `v => onChange(field, v)` |
+| **Component** | Detected from `colTypes[field]` (see table below) |
+| **Null safety** | Text → `?? ""`, boolean → `?? false`, number → `?? 0`, date → `?? null` |
+
+**Auto-detected component by column type:**
+
+| Column Type | Component | Notes |
+|-------------|-----------|-------|
+| `text` | `Input` | Default for unknown types too |
+| `boolean` | `Toggle` | Two-state on/off |
+| `number` | `NumberInput` | Scale from `colScales`, locale-formatted |
+| `datetime` | `DatePicker mode="datetime"` | |
+| `date` | `DatePicker mode="date"` | |
+| Field named `email` / `*_email` / `*_emails` | `EmailInput` | Smart name detection |
+
+**Overriding the component type:**
+```tsx
+{field("date_format", { type: "select", options: DATE_FORMATS })}
+{field("is_default", { type: "checkbox", checkLabel: "Use as system default" })}
+{field("email", { type: "email", required: true })}
+{field("status", { type: "toggle", colorOn: "green", colorOff: "red" })}
+```
+
+Available `type` values: `"input"`, `"email"`, `"select"`, `"checkbox"`, `"toggle"`, `"datepicker"`, `"number"`
+
+**Overriding any prop:**
+```tsx
+{field("user_id", { required: true, readOnly: !isNew })}    // required + conditional readOnly
+{field("name", { autoFocus: isNew })}                        // autoFocus on new records
+{field("code", { placeholder: "e.g. en-us" })}               // placeholder
+{field("decimal_char", { maxLength: 1 })}                     // extra HTML attribute
+{field("amount", { scale: 4 })}                               // override decimal scale
+{field("is_active", { colorOn: "#28a745", colorOff: "#dc3545" })}  // toggle colors
+{field("label", { label: "Custom Label" })}                   // override translated label
+```
+
+**Escape hatch — raw JSX for fully custom components:**
+```tsx
+<Section title="Identity">
+  {field("user_id", { required: true })}
+  {field("full_name", { required: true })}
+  {/* Custom component that field() can't auto-wire */}
+  <Field label={t("users.locale", "Language")}>
+    <LocaleSelect value={row.locale} onChange={v => onChange("locale", v)} options={localeOpts} />
+  </Field>
+  {field("domains")}
+</Section>
+```
+
+**Full override reference:**
+
+| Override | Type | Used by |
+|----------|------|---------|
+| `type` | `FieldType` | All — override auto-detected component |
+| `label` | `string` | All — override translated label |
+| `required` | `boolean` | All — shows asterisk on Field |
+| `readOnly` | `boolean` | All — disables editing |
+| `autoFocus` | `boolean` | Input, EmailInput |
+| `placeholder` | `string` | Input, EmailInput, NumberInput |
+| `options` | `{value, label}[]` | Select — required when `type: "select"` |
+| `scale` | `number` | NumberInput — decimal places |
+| `colorOn` / `colorOff` | `string` | Toggle — custom colors |
+| `labelOn` / `labelOff` / `labelNull` | `string` | Toggle — text labels |
+| `triState` | `boolean` | Toggle — enable null middle state |
+| `checkLabel` | `string` | Checkbox — text beside checkbox |
+| `multiple` | `boolean` | EmailInput — chip-based multi mode |
+| `mode` | `"date" \| "datetime" \| "range"` | DatePicker |
+| `presets` | `boolean` | DatePicker — show preset sidebar |
+| Any extra prop | `any` | Spread onto the inner component |
+
+**CrudPage integration:**
+
+CrudPage automatically passes `colTypes` and `colScales` to `renderDetail` and `renderTabs` props, so detail components always have type metadata available. No extra wiring needed.
+
+### Type Coercion in CRUD Routes
+
+The generic `crud-route.ts` automatically coerces values before sending to PostgreSQL:
+
+| Column Type | Empty string → | null → |
+|-------------|---------------|--------|
+| `datetime` / `date` | `null` | `null` |
+| `number` | `0` | `0` |
+| `boolean` | `false` | `false` |
+| `text` | `""` | `null` |
+
+This prevents "invalid input syntax" errors when saving empty date fields, etc.
 
 ### Styling rules
 
@@ -500,13 +774,92 @@ Available names: `menu`, `search`, `plus`, `save`, `trash`, `copy`, `key`, `down
 
 ### Key theme tokens
 
-```
-Backgrounds: --bg-main, --bg-surface, --bg-surface-alt, --bg-selected
-Text:        --text-primary, --text-secondary, --text-muted
-Borders:     --border, --border-light
-Accent:      --accent, --accent-hover
-Status:      --danger-text
-```
+All colors are defined as CSS custom properties in `src/app/globals.css` with light and dark mode variants. **Never hardcode colors — always use these tokens.**
+
+#### Backgrounds
+
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--bg-body` | `#f8fafc` | `#0c0f1a` | Page background |
+| `--bg-surface` | `#ffffff` | `#151927` | Cards, panels, detail area |
+| `--bg-surface-alt` | `#f1f5f9` | `#1c2235` | Zebra rows, alternate surfaces |
+| `--bg-hover` | `#f1f5f9` | `#1c2235` | Row/item hover state |
+| `--bg-selected` | `#eff6ff` | `#172044` | Selected row highlight |
+| `--bg-overlay` | `rgba(0,0,0,0.4)` | `rgba(0,0,0,0.6)` | Modal/dialog backdrop |
+
+#### Sidebar
+
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--sidebar-bg` | `#0f172a` | `#090c16` | Sidebar background |
+| `--sidebar-text` | `#94a3b8` | `#64748b` | Inactive nav item text |
+| `--sidebar-text-hover` | `#ffffff` | `#e2e8f0` | Hovered nav item text |
+| `--sidebar-active-bg` | `rgba(37,99,235,0.15)` | `rgba(37,99,235,0.2)` | Active nav item background |
+| `--sidebar-active-text` | `#60a5fa` | `#60a5fa` | Active nav item text |
+| `--sidebar-border` | `rgba(51,65,85,0.5)` | `rgba(30,41,59,0.8)` | Sidebar dividers |
+| `--sidebar-section` | `#64748b` | `#475569` | Section header text |
+
+#### Text
+
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--text-primary` | `#0f172a` | `#e2e8f0` | Headings, field values, primary content |
+| `--text-secondary` | `#475569` | `#94a3b8` | Grid cells, descriptions |
+| `--text-muted` | `#94a3b8` | `#475569` | Placeholders, disabled text, hints |
+| `--text-inverse` | `#ffffff` | `#0f172a` | Text on accent/dark backgrounds |
+
+#### Borders
+
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--border` | `#e2e8f0` | `#1e293b` | Standard borders (panels, sections) |
+| `--border-light` | `#f1f5f9` | `#1c2235` | Subtle dividers (grid rows) |
+| `--border-focus` | `#60a5fa` | `#3b82f6` | Focused input border |
+
+#### Accent (brand/action)
+
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--accent` | `#2563eb` | `#3b82f6` | Primary buttons, links, active indicators |
+| `--accent-hover` | `#1d4ed8` | `#2563eb` | Hovered primary buttons |
+| `--accent-light` | `#dbeafe` | `#172044` | Accent tinted backgrounds (badges, pills) |
+| `--accent-text` | `#ffffff` | `#ffffff` | Text on accent backgrounds |
+
+#### Status
+
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--success-bg` | `#dcfce7` | `#052e16` | Success badge/alert background |
+| `--success-text` | `#15803d` | `#4ade80` | Success text, boolean ✓ in grid, active toggle |
+| `--danger-bg` | `#fef2f2` | `#2c0b0e` | Error/danger badge/alert background |
+| `--danger-text` | `#dc2626` | `#f87171` | Error text, inactive toggle, delete buttons |
+| `--danger-border` | `#fecaca` | `#7f1d1d` | Error input border |
+| `--warning-bg` | `#fffbeb` | `#2c1f08` | Warning badge/alert background |
+| `--warning-text` | `#d97706` | `#fbbf24` | Warning text |
+
+#### Inputs
+
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--input-bg` | `#ffffff` | `#1c2235` | Editable input background |
+| `--input-border` | `#cbd5e1` | `#2d3754` | Editable input border |
+| `--input-bg-ro` | `#f8fafc` | `#151927` | Read-only input background |
+| `--input-border-ro` | `#e2e8f0` | `#1e293b` | Read-only input border |
+
+#### Effects
+
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--ring-focus` | `rgba(59,130,246,0.2)` | `rgba(59,130,246,0.3)` | Focus ring (box-shadow) |
+| `--shadow-sm` | `0 1px 2px rgba(0,0,0,0.05)` | `0 1px 2px rgba(0,0,0,0.3)` | Subtle elevation |
+| `--shadow-md` | `0 4px 6px -1px rgba(0,0,0,0.1)` | `0 4px 6px -1px rgba(0,0,0,0.4)` | Dropdowns, popovers |
+
+#### Layout
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--sidebar-width` | `240px` | Sidebar width |
+| `--header-height` | `52px` | Top header height |
 
 ---
 
@@ -550,6 +903,11 @@ Status:      --danger-text
 - Put CRUD logic in page components — pages are config-only (title, apiPath, columns, renderDetail)
 - Define TypeScript types that duplicate DB schema — use `{ oid: string; [key: string]: any }`
 - Define `fetchPage`, `emptyRow`, `deleteLabel`, `gridId`, `exportConfig` in page config — CrudPage auto-derives all of these from `apiPath`
+- Manually list all grid columns — let auto-discovery handle it, only override what's custom
+- Use `String()` to wrap field values in JSX — use `?? ""` or `?? 0` to handle null/undefined
+- Add manual `render` functions for standard number/boolean/date formatting — DataGrid auto-formats by type
+- Hardcode validation messages — use `t("validation.key", "Fallback")` with translations in DB
+- Write `<Field label={t("x","Y")}><Input value={row.x} onChange={v => onChange("x", v)} /></Field>` — use `useFieldHelper` and call `field("x")` instead
 - Use anything other than `oid` as a primary key
 - Use natural keys as primary keys — they become UNIQUE constraints
 - Hardcode colors — use CSS custom properties

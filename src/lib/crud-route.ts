@@ -32,6 +32,27 @@ export interface CrudRouteConfig {
 export function createCrudRoutes(cfg: CrudRouteConfig) {
   const allowedCols = new Set(cfg.columns);
   const colTypes = cfg.colTypes || {};
+
+  /** Coerce values based on column types before sending to DB */
+  function coerceValue(field: string, val: any): any {
+    if (val === undefined) return null;
+    const ct = colTypes[field];
+    if (ct === "datetime" || ct === "date") {
+      return val === "" || val === null ? null : val;
+    }
+    if (ct === "number") {
+      if (val === "" || val === null) return 0;
+      const n = Number(val);
+      return isNaN(n) ? 0 : n;
+    }
+    if (ct === "boolean") {
+      if (val === "" || val === null) return false;
+      return !!val;
+    }
+    return val ?? null;
+  }
+
+
   const defaultSort = cfg.defaultSort || cfg.columns[0];
   const writable = cfg.writableFields || cfg.columns.filter(
     c => !["id", "oid", "created_at", "created_by", "updated_at", "updated_by"].includes(c)
@@ -113,7 +134,7 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
       }
 
       const fields = writable.filter(f => f in body);
-      const values = fields.map(f => body[f] ?? null);
+      const values = fields.map(f => coerceValue(f, body[f]));
       const placeholders = fields.map((_, i) => `$${i + 1}`).join(", ");
       const colList = fields.map(f => `"${f}"`).join(", ");
 
@@ -148,7 +169,7 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
       const fields = writable.filter(f => f in body);
       const setClauses = fields.map((f, i) => `"${f}" = $${i + 1}`);
       setClauses.push("updated_at = NOW()");
-      const values = fields.map(f => body[f] ?? null);
+      const values = fields.map(f => coerceValue(f, body[f]));
       values.push(oid);
 
       const res = await db.query(

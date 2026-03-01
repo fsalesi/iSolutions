@@ -13,7 +13,7 @@ export async function GET() {
 
   try {
     const { rows } = await db.query(
-      `SELECT user_id, full_name, email, is_disabled,
+      `SELECT user_id, full_name, email, is_active,
               locale, domains, supervisor_id, approval_limit
          FROM users
         WHERE user_id = $1`,
@@ -26,7 +26,7 @@ export async function GET() {
 
     const u = rows[0];
 
-    if (u.is_disabled) {
+    if (!u.is_active) {
       return NextResponse.json({ error: "Account disabled" }, { status: 403 });
     }
 
