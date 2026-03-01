@@ -161,90 +161,46 @@ export function CrudPage<TRow extends { oid: string }>({
   const xform = (raw: any) => raw as TRow;
   const gridId = tableName;
   const colTypesUrl = `/api/columns?table=${tableName}`;
-  const [schemaColumns, setSchemaColumns] = useState<ColumnDef<TRow>[]>([]);
 
   useEffect(() => {
     fetch(colTypesUrl).then(r => r.json()).then((cols: { key: string; type: string; scale?: number }[]) => {
       const typeMap: Record<string, ColType> = {};
       const scaleMap: Record<string, number> = {};
-      const autoCols: ColumnDef<TRow>[] = [];
       for (const col of cols) {
         typeMap[col.key] = col.type as ColType;
         if (col.scale !== undefined) scaleMap[col.key] = col.scale;
-        autoCols.push({ key: col.key as keyof TRow & string, label: col.key });
       }
       setColTypes(typeMap);
       setColScales(scaleMap);
-      setSchemaColumns(autoCols);
     }).catch(() => {});
   }, [colTypesUrl]);
 
-  // ── Merge schema-discovered columns with page-level overrides ──
-  const mergedColumns: ColumnDef<TRow>[] = useMemo(() => {
-    const overrides = config.columns || [];
 
-    if (overrides.length > 0 && schemaColumns.length === 0) {
-      // Schema not loaded yet — use overrides as-is with translated labels
-      return overrides.map(c => ({
-        ...c,
-        label: c.label || t(`${tableName}.${c.key as string}`, humanize(c.key as string)),
-      }));
-    }
-
-    if (overrides.length > 0) {
-      // Overrides define the order; add any schema columns not in overrides at the end
-      const seen = new Set(overrides.map(c => c.key as string));
-      const result = overrides.map(c => {
-        const key = c.key as string;
-        return {
-          ...c,
-          label: c.label || t(`${tableName}.${key}`, humanize(key)),
-        };
-      });
-      for (const sc of schemaColumns) {
-        if (!seen.has(sc.key as string)) {
-          const key = sc.key as string;
-          result.push({ ...sc, label: t(`${tableName}.${key}`, humanize(key)) });
-        }
-      }
-      return result;
-    }
-
-    // No overrides — pure auto-discovery with translated labels
-    return schemaColumns.map(c => {
-      const key = c.key as string;
-      return { ...c, label: t(`${tableName}.${key}`, humanize(key)) };
-    });
-  }, [config.columns, schemaColumns, t, tableName]);
-
-  // Filter out columns marked hidden in overrides
-  const filteredColumns = useMemo(() => {
-    const hiddenKeys = new Set(
-      (config.columns || []).filter(c => c.hidden).map(c => c.key as string)
-    );
-    return hiddenKeys.size > 0 ? mergedColumns.filter(c => !hiddenKeys.has(c.key as string)) : mergedColumns;
-  }, [mergedColumns, config.columns]);
+  // Columns are now auto-discovered by DataGrid via the table prop.
+  // config.columns are passed as overrides (locked, hidden, custom render, etc.)
+  const columnOverrides = config.columns || [];
 
   const searchPlaceholder = `Search ${config.title.toLowerCase()}...`;
   const emptyIcon = "database";
   const emptyText = t("crud.no_records", "No records found.");
-  const defaultVisible = filteredColumns.slice(0, 4).map(c => String(c.key));
-  const firstCol = String(filteredColumns[0]?.key || "oid");
+  const defaultVisible = columnOverrides.length > 0
+    ? columnOverrides.filter(c => !c.hidden).map(c => String(c.key))
+    : undefined; // let DataGrid show all
+  const firstCol = String(columnOverrides[0]?.key || Object.keys(colTypes)[0] || "oid");
   const deleteLabel = (row: TRow) => String((row as any)[firstCol] || row.oid);
   const detailTitle = (row: TRow) => String((row as any)[firstCol] || t("crud.new", "New"));
-  const searchCols = filteredColumns.filter(c => typeof c.key === "string").slice(0, 3).map(c => String(c.key));
+  const searchCols = (defaultVisible || Object.keys(colTypes)).slice(0, 3);
   const exportCfg = { table: tableName, searchFields: searchCols, filename: `${tableName}-export` };
   const emptyRow = useCallback(() => {
     const row: any = { oid: "" };
-    for (const col of mergedColumns) {
-      const ct = colTypes[col.key as string];
-      if (ct === "boolean") row[col.key as string] = false;
-      else if (ct === "number") row[col.key as string] = 0;
-      else if (ct === "datetime" || ct === "date") row[col.key as string] = null;
-      else row[col.key as string] = "";
+    for (const [key, ct] of Object.entries(colTypes)) {
+      if (ct === "boolean") row[key] = false;
+      else if (ct === "number") row[key] = 0;
+      else if (ct === "datetime" || ct === "date") row[key] = null;
+      else row[key] = "";
     }
     return row as TRow;
-  }, [mergedColumns, colTypes]);
+  }, [colTypes]);
 
   const genericFetchPage: FetchPage<TRow> = async ({ offset, limit, search, sort, dir, filters }) => {
     const params = new URLSearchParams({
@@ -398,12 +354,14 @@ export function CrudPage<TRow extends { oid: string }>({
 
   const hasRecord = !!(selectedRec || isNew);
 
-  // ── Auto-inject audit columns into DataGrid ────────────────
-  const allColumns = useMemo(() => {
-    const existing = new Set(filteredColumns.map(c => c.key));
-    const extra = AUDIT_GRID_COLUMNS.filter(c => !existing.has(c.key as any));
-    return [...filteredColumns, ...extra] as ColumnDef<TRow>[];
-  }, [filteredColumns]);
+  // Audit columns as overrides (DataGrid will merge with schema)
+  const allColumnOverrides = useMemo(() => {
+    const overrides = [...columnOverrides];
+    for (const ac of AUDIT_GRID_COLUMNS) {
+      if (!overrides.some(c => c.key === ac.key)) overrides.push(ac as ColumnDef<TRow>);
+    }
+    return overrides;
+  }, [columnOverrides]);
 
   // ── Auto-derive audit table from exportConfig ──────────────
   const auditTable = tableName;
@@ -499,7 +457,8 @@ export function CrudPage<TRow extends { oid: string }>({
         >
           <DataGrid<TRow>
             key={refreshKey}
-            columns={allColumns}
+            table={tableName}
+            columns={allColumnOverrides}
             defaultVisible={defaultVisible}
             fetchPage={fetchPage}
             selectedId={selectedOid}

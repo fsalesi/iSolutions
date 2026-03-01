@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, type ReactNode } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo, type ReactNode } from "react";
 import { Icon } from "@/components/icons/Icon";
 import { useTranslation } from "@/context/TranslationContext";
 import { formatDate } from "@/components/ui/date-utils";
@@ -43,9 +43,17 @@ export type FetchPage<T> = (params: {
   filters?: string;
 }) => Promise<PageResult<T>>;
 
+// Convert column key to human-readable label
+function humanize(key: string): string {
+  let s = key.replace(/_id$/, "").replace(/_nbr$/, "_number");
+  return s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
 interface DataGridProps<T extends { oid: string }> {
-  /** All available columns (superset) */
-  columns: ColumnDef<T>[];
+  /** Table name for auto-discovering columns via /api/columns. */
+  table?: string;
+  /** Column overrides merged on top of auto-discovered schema. */
+  columns?: ColumnDef<T>[];
   /** Which column keys are visible by default (order matters). If omitted, all columns shown. */
   defaultVisible?: string[];
   fetchPage: FetchPage<T>;
@@ -94,7 +102,8 @@ function formatCellValue(val: any, key: string, colTypes: Record<string, ColType
 }
 
 export function DataGrid<T extends { oid: string }>({
-  columns,
+  table,
+  columns: columnOverrides,
   defaultVisible,
   fetchPage,
   selectedId,
@@ -108,12 +117,67 @@ export function DataGrid<T extends { oid: string }>({
   gridId,
   userId,
   exportConfig,
-  colTypes = {},
-  colScales = {},
+  colTypes: colTypesProp = {},
+  colScales: colScalesProp = {},
 }: DataGridProps<T>) {
+  const { t, locale } = useTranslation();
   const isMobile = useIsMobile();
   const showExpandBtn = !isMobile && onToggleExpand;
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // ── Schema auto-discovery ──────────────────────────────────────
+  const [schemaCols, setSchemaCols] = useState<ColumnDef<T>[]>([]);
+  const [schemaColTypes, setSchemaColTypes] = useState<Record<string, ColType>>({});
+  const [schemaColScales, setSchemaColScales] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!table) return;
+    fetch(`/api/columns?table=${table}`).then(r => r.json()).then((cols: { key: string; type: string; scale?: number }[]) => {
+      const types: Record<string, ColType> = {};
+      const scales: Record<string, number> = {};
+      const defs: ColumnDef<T>[] = [];
+      for (const col of cols) {
+        types[col.key] = col.type as ColType;
+        if (col.scale !== undefined) scales[col.key] = col.scale;
+        defs.push({ key: col.key as keyof T & string, label: humanize(col.key) });
+      }
+      setSchemaColTypes(types);
+      setSchemaColScales(scales);
+      setSchemaCols(defs);
+    }).catch(() => {});
+  }, [table]);
+
+  // Merge schema + overrides into final columns list
+  const columns: ColumnDef<T>[] = useMemo(() => {
+    const overrides = columnOverrides || [];
+    if (schemaCols.length === 0) {
+      return overrides.length > 0
+        ? overrides.filter(c => !c.hidden).map(c => ({ ...c, label: c.label || humanize(c.key) }))
+        : [];
+    }
+    if (overrides.length === 0) return schemaCols;
+
+    const overrideMap = new Map(overrides.map(o => [o.key, o]));
+    const seen = new Set<string>();
+    const result: ColumnDef<T>[] = [];
+    for (const sc of schemaCols) {
+      const ov = overrideMap.get(sc.key);
+      seen.add(sc.key);
+      if (ov?.hidden) continue;
+      result.push(ov ? { ...sc, ...ov, label: ov.label || sc.label } : sc);
+    }
+    for (const ov of overrides) {
+      if (!seen.has(ov.key) && !ov.hidden) {
+        result.push({ ...ov, label: ov.label || humanize(ov.key) });
+      }
+    }
+    return result;
+  }, [schemaCols, columnOverrides]);
+
+  // Merge colTypes/colScales: schema + prop overrides
+  const colTypes = useMemo(() => ({ ...schemaColTypes, ...colTypesProp }), [schemaColTypes, colTypesProp]);
+  const colScales = useMemo(() => ({ ...schemaColScales, ...colScalesProp }), [schemaColScales, colScalesProp]);
+
 
   // Search (debounced)
   const [searchInput, setSearchInput] = useState("");
@@ -312,7 +376,6 @@ export function DataGrid<T extends { oid: string }>({
   };
 
   // ── Infinite scroll state ────────────────────────────────────────
-  const { t, locale } = useTranslation();
   const [rows, setRows] = useState<T[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);

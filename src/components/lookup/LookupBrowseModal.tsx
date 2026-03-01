@@ -1,50 +1,64 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import type { LookupConfig } from "./LookupTypes";
+import { DataGrid, type ColumnDef, type FetchPage } from "@/components/data-grid/DataGrid";
 
 interface BrowseModalProps {
   config: LookupConfig;
-  doFetch: (search: string, limit: number, offset: number) => Promise<{ rows: any[]; total: number }>;
   onSelect: (record: any) => void;
   onClose: () => void;
   selectedValues: string[];
   label?: string;
 }
 
-export function LookupBrowseModal({ config, doFetch, onSelect, onClose, selectedValues, label }: BrowseModalProps) {
-  const { valueField, displayField, gridColumns, browseTitle } = config;
-  const cols = gridColumns || [
-    { key: valueField, label: valueField },
-    ...(displayField !== valueField ? [{ key: displayField, label: displayField }] : []),
+export function LookupBrowseModal({ config, onSelect, onClose, selectedValues, label }: BrowseModalProps) {
+  const { apiPath, valueField, displayField, gridColumns, browseTitle, baseFilters, searchColumns } = config;
+
+  const table = apiPath?.replace("/api/", "");
+  const columnOverrides: ColumnDef<any>[] = gridColumns || [
+    { key: valueField, locked: true },
   ];
 
-  const [search, setSearch] = useState("");
-  const [rows, setRows] = useState<any[]>([]);
-  const [total, setTotal] = useState(0);
-  const [offset, setOffset] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const limit = 20;
+  const fetchPage: FetchPage<any> = useCallback(async ({ offset, limit, search, sort, dir, filters }) => {
+    const qs = new URLSearchParams();
+    if (search) qs.set("search", search);
+    qs.set("limit", String(limit));
+    qs.set("offset", String(offset));
+    if (sort) { qs.set("sort", sort); qs.set("dir", dir); }
 
-  const doSearch = useCallback(async (s: string, off: number) => {
-    setLoading(true);
-    try {
-      const data = await doFetch(s, limit, off);
-      setRows(data.rows);
-      setTotal(data.total);
-      setOffset(off);
-    } finally {
-      setLoading(false);
+    if (baseFilters && Object.keys(baseFilters).length) {
+      const baseTree = {
+        type: "group" as const, logic: "and" as const,
+        children: Object.entries(baseFilters).map(([field, value]) => ({
+          type: "condition" as const, field, operator: "eq", value: String(value),
+        })),
+      };
+      if (filters) {
+        const userTree = JSON.parse(filters);
+        qs.set("filters", JSON.stringify({ type: "group", logic: "and", children: [baseTree, userTree] }));
+      } else {
+        qs.set("filters", JSON.stringify(baseTree));
+      }
+    } else if (filters) {
+      qs.set("filters", filters);
     }
-  }, [doFetch]);
 
-  // Initial load
-  useEffect(() => { doSearch("", 0); }, []);
+    if (searchColumns?.length) qs.set("searchFields", searchColumns.join(","));
 
-  // Search on type (debounced)
-  useEffect(() => {
-    const timer = setTimeout(() => doSearch(search, 0), 300);
-    return () => clearTimeout(timer);
-  }, [search]);
+    const res = await fetch(`${apiPath}?${qs}`);
+    if (!res.ok) return { rows: [], total: 0, offset, limit };
+    const data = await res.json();
+    return { rows: data.rows || [], total: data.total || 0, offset, limit };
+  }, [apiPath, baseFilters, searchColumns]);
+
+  const handleSelect = useCallback(async (oid: string) => {
+    // Refetch the single record by oid to get the full row
+    const res = await fetch(`${apiPath}?oid=${encodeURIComponent(oid)}&limit=1`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const row = data.rows?.[0];
+    if (row) onSelect(row);
+  }, [apiPath, onSelect]);
 
   // Close on Escape
   useEffect(() => {
@@ -54,14 +68,12 @@ export function LookupBrowseModal({ config, doFetch, onSelect, onClose, selected
   }, [onClose]);
 
   const title = browseTitle || `Select ${label || "Record"}`;
-  const canPrev = offset > 0;
-  const canNext = offset + limit < total;
 
   return (
     <div
       style={{
         position: "fixed", inset: 0, zIndex: 100,
-        background: "var(--bg-overlay)",
+        background: "rgba(0,0,0,0.4)",
         display: "flex", alignItems: "center", justifyContent: "center",
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -72,8 +84,8 @@ export function LookupBrowseModal({ config, doFetch, onSelect, onClose, selected
           borderRadius: 12,
           boxShadow: "var(--shadow-md)",
           width: "90%",
-          maxWidth: 700,
-          maxHeight: "80vh",
+          maxWidth: 800,
+          height: "80vh",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
@@ -84,6 +96,7 @@ export function LookupBrowseModal({ config, doFetch, onSelect, onClose, selected
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "12px 16px",
           borderBottom: "1px solid var(--border)",
+          flexShrink: 0,
         }}>
           <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
             {title}
@@ -100,132 +113,18 @@ export function LookupBrowseModal({ config, doFetch, onSelect, onClose, selected
           </button>
         </div>
 
-        {/* Search */}
-        <div style={{ padding: "8px 16px", borderBottom: "1px solid var(--border)" }}>
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search..."
-            autoFocus
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              fontSize: 14,
-              border: "1px solid var(--input-border)",
-              borderRadius: 8,
-              background: "var(--input-bg)",
-              color: "var(--text-primary)",
-              outline: "none",
-            }}
+        {/* DataGrid */}
+        <div style={{ flex: 1, overflow: "hidden" }}>
+          <DataGrid
+            table={table}
+            columns={columnOverrides}
+            fetchPage={fetchPage}
+            selectedId={selectedValues[0] || null}
+            onSelect={handleSelect}
+            searchPlaceholder="Search..."
+            pageSize={20}
+            expanded={true}
           />
-        </div>
-
-        {/* Table */}
-        <div style={{ flex: 1, overflowY: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                {cols.map(col => (
-                  <th
-                    key={String(col.key)}
-                    style={{
-                      padding: "8px 12px",
-                      fontSize: 11,
-                      fontWeight: 600,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                      color: "var(--text-muted)",
-                      textAlign: "left",
-                      borderBottom: "1px solid var(--border)",
-                      position: "sticky",
-                      top: 0,
-                      background: "var(--bg-surface)",
-                    }}
-                  >
-                    {col.label || String(col.key)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, i) => {
-                const isSelected = selectedValues.includes(String(row[valueField]));
-                return (
-                  <tr
-                    key={String(row[valueField]) + i}
-                    onClick={() => onSelect(row)}
-                    style={{
-                      cursor: "pointer",
-                      background: isSelected ? "var(--bg-selected)" : "transparent",
-                      borderBottom: "1px solid var(--border-light)",
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = isSelected ? "var(--bg-selected)" : "var(--bg-hover)")}
-                    onMouseLeave={e => (e.currentTarget.style.background = isSelected ? "var(--bg-selected)" : "transparent")}
-                  >
-                    {cols.map(col => (
-                      <td
-                        key={String(col.key)}
-                        style={{
-                          padding: "8px 12px",
-                          fontSize: 13,
-                          color: col.key === valueField ? "var(--text-primary)" : "var(--text-secondary)",
-                          fontWeight: col.key === valueField ? 500 : 400,
-                        }}
-                      >
-                        {String(row[col.key as string] ?? "")}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              })}
-              {loading && (
-                <tr><td colSpan={cols.length} style={{ padding: 16, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>Loading...</td></tr>
-              )}
-              {!loading && rows.length === 0 && (
-                <tr><td colSpan={cols.length} style={{ padding: 16, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>No results found</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Footer / pagination */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "8px 16px",
-          borderTop: "1px solid var(--border)",
-          fontSize: 12,
-          color: "var(--text-muted)",
-        }}>
-          <span>{total} result{total !== 1 ? "s" : ""}</span>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              type="button"
-              disabled={!canPrev}
-              onClick={() => doSearch(search, offset - limit)}
-              style={{
-                padding: "4px 12px", borderRadius: 6, fontSize: 12, cursor: canPrev ? "pointer" : "default",
-                background: "var(--bg-surface-alt)", border: "1px solid var(--border)",
-                color: canPrev ? "var(--text-primary)" : "var(--text-muted)",
-                opacity: canPrev ? 1 : 0.5,
-              }}
-            >
-              ← Prev
-            </button>
-            <button
-              type="button"
-              disabled={!canNext}
-              onClick={() => doSearch(search, offset + limit)}
-              style={{
-                padding: "4px 12px", borderRadius: 6, fontSize: 12, cursor: canNext ? "pointer" : "default",
-                background: "var(--bg-surface-alt)", border: "1px solid var(--border)",
-                color: canNext ? "var(--text-primary)" : "var(--text-muted)",
-                opacity: canNext ? 1 : 0.5,
-              }}
-            >
-              Next →
-            </button>
-          </div>
         </div>
       </div>
     </div>

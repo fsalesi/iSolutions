@@ -523,7 +523,6 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
       {browseOpen && (
         <LookupBrowseModal
           config={config}
-          doFetch={doFetch}
           onSelect={(record) => {
             selectRecord(record);
             if (!multiple) setBrowseOpen(false);
