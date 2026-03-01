@@ -72,6 +72,7 @@ export function DatePicker({
   const [rangeField, setRangeField] = useState<"from" | "to">("from");
   const [hoverDate, setHoverDate] = useState<Date | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const inputToRef = useRef<HTMLInputElement>(null);
 
@@ -99,6 +100,27 @@ export function DatePicker({
     }
   }, [value, open]);
 
+
+  // Position popup above or below based on available space
+  useEffect(() => {
+    if (!open || !popupRef.current || !wrapRef.current) return;
+    const wrap = wrapRef.current.getBoundingClientRect();
+    const popup = popupRef.current;
+    const popupH = popup.offsetHeight;
+    const spaceBelow = window.innerHeight - wrap.bottom - 8;
+    const spaceAbove = wrap.top - 8;
+    if (spaceBelow >= popupH || spaceBelow >= spaceAbove) {
+      popup.style.top = "100%";
+      popup.style.bottom = "auto";
+      popup.style.marginTop = "4px";
+      popup.style.marginBottom = "0";
+    } else {
+      popup.style.top = "auto";
+      popup.style.bottom = "100%";
+      popup.style.marginTop = "0";
+      popup.style.marginBottom = "4px";
+    }
+  }, [open]);
   // ── Presets ───────────────────────────────────────────────────
   const resolvedPresets = useMemo(() => {
     if (presets === true) return getDefaultPresets(t);
@@ -303,16 +325,7 @@ export function DatePicker({
             onBlur={() => handleBlur("from")}
             onKeyDown={e => handleKeyDown(e, "from")}
           />
-          {mode === "datetime" && value && !readOnly && (
-            <DatePickerTime
-              hours={new Date(value).getHours()}
-              minutes={new Date(value).getMinutes()}
-              locale={locale}
-              timeStep={timeStep}
-              disabled={disabled || readOnly}
-              onChange={handleTimeChange}
-            />
-          )}
+
           {!readOnly && (
             <button
               type="button"
@@ -395,7 +408,7 @@ export function DatePicker({
 
       {/* Popup */}
       {open && !disabled && !readOnly && (
-        <div className="dp-popup" onMouseDown={e => e.preventDefault()}>
+        <div className="dp-popup" ref={popupRef} onMouseDown={e => { if (!(e.target as HTMLElement).closest(".dpt-wrap")) e.preventDefault(); }}>
           {resolvedPresets && (
             <DatePickerPresets
               presets={resolvedPresets}
@@ -404,20 +417,34 @@ export function DatePicker({
               onSelect={handlePresetSelect}
             />
           )}
-          <DatePickerCalendar
-            selected={selectedDate}
-            displayMonth={displayMonth}
-            displayYear={displayYear}
-            locale={locale}
-            min={mode === "range" && rangeField === "to" ? value : min}
-            max={max}
-            rangeFrom={rangeFromDate}
-            rangeTo={rangeToDate}
-            hoverDate={mode === "range" ? hoverDate : undefined}
-            onHoverDate={mode === "range" ? setHoverDate : undefined}
-            onSelect={handleCalendarSelect}
-            onMonthChange={(m, y) => { setDisplayMonth(m); setDisplayYear(y); }}
-          />
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <DatePickerCalendar
+              selected={selectedDate}
+              displayMonth={displayMonth}
+              displayYear={displayYear}
+              locale={locale}
+              min={mode === "range" && rangeField === "to" ? value : min}
+              max={max}
+              rangeFrom={rangeFromDate}
+              rangeTo={rangeToDate}
+              hoverDate={mode === "range" ? hoverDate : undefined}
+              onHoverDate={mode === "range" ? setHoverDate : undefined}
+              onSelect={handleCalendarSelect}
+              onMonthChange={(m, y) => { setDisplayMonth(m); setDisplayYear(y); }}
+            />
+            {mode === "datetime" && value && (
+              <div style={{ borderTop: "1px solid var(--border-light)", padding: "4px 12px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <DatePickerTime
+                  hours={new Date(value).getHours()}
+                  minutes={new Date(value).getMinutes()}
+                  locale={locale}
+                  timeStep={timeStep}
+                  disabled={disabled || readOnly}
+                  onChange={handleTimeChange}
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -510,9 +537,7 @@ export function DatePicker({
         }
         .dp-popup {
           position: absolute;
-          top: 100%;
           left: 0;
-          margin-top: 4px;
           background: var(--bg-surface);
           border: 1px solid var(--border);
           border-radius: 10px;

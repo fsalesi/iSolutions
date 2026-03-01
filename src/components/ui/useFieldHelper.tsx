@@ -21,6 +21,8 @@ import { DatePicker } from "@/components/ui/DatePicker";
 import { NumberInput } from "@/components/ui/NumberInput";
 import { Toggle } from "@/components/ui/Toggle";
 import { EmailInput } from "@/components/ui/EmailInput";
+import { Lookup } from "@/components/lookup/Lookup";
+import type { LookupConfig } from "@/components/lookup/LookupTypes";
 
 type ColType = "text" | "number" | "boolean" | "date" | "datetime";
 
@@ -33,7 +35,7 @@ interface FieldHelperConfig {
   isNew?: boolean;
 }
 
-type FieldType = "input" | "email" | "select" | "checkbox" | "toggle" | "datepicker" | "number";
+type FieldType = "input" | "email" | "select" | "checkbox" | "toggle" | "datepicker" | "number" | "lookup";
 
 interface FieldOverrides {
   /** Override the auto-detected component type */
@@ -72,6 +74,8 @@ interface FieldOverrides {
   onChangeTo?: (v: string | null) => void;
   /** DatePicker presets */
   presets?: boolean;
+  /** Lookup config (required when type="lookup") */
+  lookup?: LookupConfig;
   /** Any extra props to spread on the inner component */
   [key: string]: any;
 }
@@ -115,6 +119,7 @@ export function useFieldHelper(config: FieldHelperConfig) {
       valueTo,
       onChangeTo,
       presets,
+      lookup,
       // Collect remaining props
       ...extraProps
     } = overrides || {};
@@ -217,6 +222,17 @@ export function useFieldHelper(config: FieldHelperConfig) {
             onChangeTo={onChangeTo}
             presets={presets}
             {...extraProps}
+          />
+        );
+        break;
+
+      case "lookup":
+        component = (
+          <Lookup
+            value={value}
+            onChange={handleChange}
+            config={lookup!}
+            label={label}
           />
         );
         break;

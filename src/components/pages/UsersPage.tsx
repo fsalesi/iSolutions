@@ -7,8 +7,7 @@ import type { CrudAction } from "@/components/crud-toolbar/CrudToolbar";
 import { Section, TabBar, type TabDef } from "@/components/ui";
 import { useT } from "@/context/TranslationContext";
 import { useFieldHelper } from "@/components/ui/useFieldHelper";
-import { LocaleSelect } from "@/components/ui/LocaleSelect";
-import { Field } from "@/components/ui";
+import { LocaleLookup, ActiveUserLookup } from "@/components/lookup/presets";
 import { Icon } from "@/components/icons/Icon";
 
 type User = { oid: string; [key: string]: any };
@@ -36,13 +35,7 @@ function ProfileTab({ user, onChange, isNew, colTypes, colScales }: {
 }) {
   const t = useT();
   const field = useFieldHelper({ row: user, onChange, table: "users", colTypes: colTypes as any, colScales });
-  const [localeOpts, setLocaleOpts] = useState<{ value: string; label: string }[]>([]);
-  useEffect(() => {
-    fetch("/api/locales?limit=100")
-      .then(r => r.json())
-      .then(d => setLocaleOpts(d.rows.map((l: any) => ({ value: l.code, label: `${l.code} \u2014 ${l.description}` }))))
-      .catch(() => {});
-  }, []);
+
   return (
     <div className="space-y-6 max-w-4xl">
       <Section title={t("users.section_identity", "Identity")}>
@@ -53,10 +46,7 @@ function ProfileTab({ user, onChange, isNew, colTypes, colScales }: {
           {field("company")}
           {field("title")}
           {field("domains", { required: true })}
-          {/* LocaleSelect is a custom component — manual override */}
-          <Field label={t("users.locale", "Language")}>
-            <LocaleSelect value={user.locale} onChange={v => onChange("locale", v)} options={localeOpts} />
-          </Field>
+          {field("locale", { type: "lookup", lookup: LocaleLookup({ dropdownColumns: [{ key: "flag_svg", type: "flag" }, "description"] }) })}
         </div>
       </Section>
       <Section title={t("users.section_status", "Status")}>
@@ -93,8 +83,8 @@ function IPurchaseTab({ user, onChange, colTypes, colScales }: {
     <div className="max-w-4xl space-y-6">
       <Section title={t("users.section_purchasing", "Purchasing")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-          {field("supervisor_id")}
-          {field("delegate_id")}
+          {field("supervisor_id", { type: "lookup", lookup: ActiveUserLookup({ placeholder: "Search supervisor..." }) })}
+          {field("delegate_id", { type: "lookup", lookup: ActiveUserLookup({ placeholder: "Search delegate..." }) })}
           {field("approval_limit")}
           {field("employee_number")}
           {field("erp_initials")}

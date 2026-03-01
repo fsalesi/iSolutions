@@ -221,7 +221,7 @@ export function DatePickerCalendar({
 
       <style>{`
         .dp-calendar {
-          width: 280px;
+          width: 252px;
           padding: 8px;
           user-select: none;
         }
@@ -229,11 +229,11 @@ export function DatePickerCalendar({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 8px;
+          margin-bottom: 2px;
         }
         .dp-nav {
-          width: 28px;
-          height: 28px;
+          width: 26px;
+          height: 26px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -247,7 +247,7 @@ export function DatePickerCalendar({
         }
         .dp-nav:hover { background: var(--bg-hover); }
         .dp-title {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 600;
           color: var(--text-primary);
           cursor: pointer;
@@ -259,7 +259,7 @@ export function DatePickerCalendar({
         }
         .dp-title:hover { background: var(--bg-hover); }
         .dp-title-static {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 600;
           color: var(--text-primary);
           padding: 4px 8px;
@@ -268,18 +268,18 @@ export function DatePickerCalendar({
         .dp-weekdays {
           display: grid;
           grid-template-columns: repeat(7, 1fr);
-          margin-bottom: 2px;
+          margin-bottom: 0;
         }
         .dp-weekday {
           text-align: center;
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 500;
           color: var(--text-muted);
-          padding: 4px 0;
+          padding: 1px 0;
         }
         .dp-grid {
           display: grid;
-          gap: 2px;
+          gap: 1px;
         }
         .dp-grid-7 { grid-template-columns: repeat(7, 1fr); }
         .dp-grid-3 { grid-template-columns: repeat(3, 1fr); gap: 4px; }
@@ -296,8 +296,9 @@ export function DatePickerCalendar({
           transition: background 0.15s, color 0.15s;
         }
         .dp-day {
-          width: 34px;
-          height: 34px;
+          width: 32px;
+          height: 26px;
+          font-size: 12px;
         }
         .dp-empty {
           cursor: default;
@@ -330,25 +331,25 @@ export function DatePickerCalendar({
           opacity: 0.4;
         }
         .dp-month-cell, .dp-year-cell {
-          padding: 10px 4px;
+          padding: 8px 4px;
           font-size: 13px;
         }
         .dp-footer {
           display: flex;
           justify-content: center;
-          margin-top: 6px;
-          padding-top: 6px;
-          border-top: 1px solid var(--border);
+          margin-top: 1px;
+          padding-top: 1px;
+          border-top: none;
         }
         .dp-today-btn {
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 500;
           color: var(--accent);
           background: none;
           border: none;
           cursor: pointer;
-          padding: 4px 12px;
-          border-radius: 6px;
+          padding: 2px 8px;
+          border-radius: 4px;
           transition: background 0.15s;
         }
         .dp-today-btn:hover { background: var(--bg-hover); }

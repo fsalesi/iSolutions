@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import { CrudPage, type CrudPageConfig } from "@/components/crud-page/CrudPage";
 import type { ColumnDef } from "@/components/data-grid/DataGrid";
 import { Section } from "@/components/ui";
 import { useT } from "@/context/TranslationContext";
 import { useFieldHelper } from "@/components/ui/useFieldHelper";
+import { LocaleLookup } from "@/components/lookup/presets";
 
 type Row = { oid: string; [key: string]: any };
 
@@ -19,18 +20,10 @@ function Detail({ row, isNew, onChange, colTypes, colScales }: {
 }) {
   const t = useT();
   const field = useFieldHelper({ row, onChange, table: "translations", colTypes: colTypes as any, colScales });
-  const [localeOptions, setLocaleOptions] = useState<{ value: string; label: string }[]>([]);
-
-  useEffect(() => {
-    fetch("/api/locales?limit=100")
-      .then(r => r.json())
-      .then(d => setLocaleOptions(d.rows.map((l: any) => ({ value: l.code, label: `${l.code} — ${l.description}` }))))
-      .catch(() => {});
-  }, []);
 
   return (
     <Section title={t("translations.section_translation", "Translation")}>
-      {field("locale", { type: "select", options: localeOptions })}
+      {field("locale", { type: "lookup", lookup: LocaleLookup() })}
       {field("namespace", { placeholder: "e.g. global, users, messages" })}
       {field("key", { autoFocus: isNew, placeholder: "e.g. full_name, save_button" })}
       {field("value", { placeholder: "Translated text" })}

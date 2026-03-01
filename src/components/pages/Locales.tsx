@@ -11,6 +11,7 @@ type Row = { oid: string; [key: string]: any };
 
 const COLUMNS: ColumnDef<Row>[] = [
   { key: "code", locked: true },
+  { key: "flag_svg", hidden: true },
 ];
 
 const DATE_FORMATS = [

@@ -6,16 +6,12 @@ import { Flag } from "@/components/ui/Flag";
 import { useTranslation } from "@/context/TranslationContext";
 import { useAuth } from "@/context/AuthContext";
 
-type LocaleOption = { code: string; description: string };
+type LocaleRecord = { code: string; description: string; flag_svg?: string };
 
-/**
- * Tiny inline SVG flags — renders crisply on all platforms.
- * Windows doesn't support emoji flags so we draw them.
- */
 export function LocalePicker() {
   const { locale, setLocale } = useTranslation();
   const { user } = useAuth();
-  const [locales, setLocales] = useState<LocaleOption[]>([]);
+  const [locales, setLocales] = useState<LocaleRecord[]>([]);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -26,7 +22,6 @@ export function LocalePicker() {
       .catch(() => {});
   }, []);
 
-  // Click outside to close
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -36,7 +31,6 @@ export function LocalePicker() {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  // Escape to close
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
@@ -59,9 +53,10 @@ export function LocalePicker() {
 
   if (locales.length <= 1) return null;
 
+  const current = locales.find(l => l.code === locale);
+
   return (
     <div ref={ref} className="relative">
-      {/* Trigger: flag + chevron */}
       <button
         onClick={() => setOpen(o => !o)}
         className="flex items-center gap-1 px-1.5 py-1.5 rounded-md transition-colors"
@@ -73,11 +68,10 @@ export function LocalePicker() {
         onMouseLeave={e => { if (!open) e.currentTarget.style.background = open ? "var(--bg-hover)" : "transparent"; }}
         title="Change language"
       >
-        <Flag code={locale} size={16} />
+        <Flag svg={current?.flag_svg} size={16} />
         <Icon name="chevDown" size={11} />
       </button>
 
-      {/* Dropdown popover */}
       {open && (
         <div
           className="absolute right-0 top-full mt-1 rounded-lg py-1 z-50 min-w-[190px]"
@@ -102,7 +96,7 @@ export function LocalePicker() {
                 onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "var(--bg-hover)"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = isActive ? "var(--accent-bg, rgba(59,130,246,0.08))" : "transparent"; }}
               >
-                <Flag code={l.code} size={18} />
+                <Flag svg={l.flag_svg} size={18} />
                 <span className="flex-1">{l.description}</span>
                 {isActive && <Icon name="check" size={14} />}
               </button>

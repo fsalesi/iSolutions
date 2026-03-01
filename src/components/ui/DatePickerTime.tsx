@@ -1,193 +1,145 @@
 "use client";
 /**
- * DatePickerTime — Time selector sub-component.
- * Dropdown list of times at configurable step intervals.
- * Supports 12h/24h based on locale, plus direct keyboard entry.
+ * DatePickerTime — Three-column spinner: ▲ HH ▼ : ▲ MM ▼  ▲ AM/PM ▼
  */
-import { useState, useRef, useEffect, useMemo } from "react";
-import { generateTimeOptions, parseTime, localeUses12Hour } from "./date-utils";
+import { useMemo, useCallback } from "react";
+import { localeUses12Hour } from "./date-utils";
 
 interface DatePickerTimeProps {
-  /** Current hours (0-23) */
   hours: number;
-  /** Current minutes (0-59) */
   minutes: number;
   locale: string;
-  timeStep: number;
+  timeStep?: number;
   disabled?: boolean;
   onChange: (hours: number, minutes: number) => void;
 }
 
-export function DatePickerTime({ hours, minutes, locale, timeStep, disabled, onChange }: DatePickerTimeProps) {
-  const options = useMemo(() => generateTimeOptions(timeStep, locale), [timeStep, locale]);
+function SpinColumn({ value, onUp, onDown }: {
+  value: string;
+  onUp: () => void;
+  onDown: () => void;
+}) {
+  return (
+    <div className="dpt-spin">
+      <button type="button" className="dpt-arrow" onMouseDown={e => { e.preventDefault(); onUp(); }}>
+        <svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 5L5 1L9 5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>
+      </button>
+      <span className="dpt-val">{value}</span>
+      <button type="button" className="dpt-arrow" onMouseDown={e => { e.preventDefault(); onDown(); }}>
+        <svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>
+      </button>
+    </div>
+  );
+}
+
+export function DatePickerTime({ hours, minutes, locale, timeStep = 1, disabled, onChange }: DatePickerTimeProps) {
   const uses12h = useMemo(() => localeUses12Hour(locale), [locale]);
-  const [open, setOpen] = useState(false);
-  const [inputValue, setInputValue] = useState("");
-  const listRef = useRef<HTMLDivElement>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const step = Math.max(1, Math.min(timeStep, 30));
 
-  // Format current time for display
-  const displayValue = useMemo(() => {
-    const hh = hours.toString().padStart(2, "0");
-    const mm = minutes.toString().padStart(2, "0");
+  const h12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+  const period = hours < 12 ? "AM" : "PM";
+
+  const hourUp = useCallback(() => {
     if (uses12h) {
-      const period = hours < 12 ? "AM" : "PM";
-      const h12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-      return `${h12}:${mm} ${period}`;
+      const next = h12 === 12 ? 1 : h12 + 1;
+      const h24 = period === "AM" ? (next === 12 ? 0 : next) : (next === 12 ? 12 : next + 12);
+      onChange(h24, minutes);
+    } else {
+      onChange((hours + 1) % 24, minutes);
     }
-    return `${hh}:${mm}`;
-  }, [hours, minutes, uses12h]);
+  }, [uses12h, h12, hours, period, minutes, onChange]);
 
-  // Current value key for highlighting
-  const currentKey = `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
-
-  // Scroll to selected option when opening
-  useEffect(() => {
-    if (open && listRef.current) {
-      const active = listRef.current.querySelector("[data-active]");
-      if (active) active.scrollIntoView({ block: "center" });
+  const hourDown = useCallback(() => {
+    if (uses12h) {
+      const next = h12 === 1 ? 12 : h12 - 1;
+      const h24 = period === "AM" ? (next === 12 ? 0 : next) : (next === 12 ? 12 : next + 12);
+      onChange(h24, minutes);
+    } else {
+      onChange((hours + 23) % 24, minutes);
     }
-  }, [open]);
+  }, [uses12h, h12, hours, period, minutes, onChange]);
 
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+  const minUp = useCallback(() => {
+    const next = (minutes + step) % 60;
+    onChange(hours, next);
+  }, [hours, minutes, step, onChange]);
 
-  const handleInputChange = (val: string) => {
-    setInputValue(val);
-  };
+  const minDown = useCallback(() => {
+    const next = (minutes - step + 60) % 60;
+    onChange(hours, next);
+  }, [hours, minutes, step, onChange]);
 
-  const handleInputBlur = () => {
-    if (inputValue.trim()) {
-      const parsed = parseTime(inputValue);
-      if (parsed) {
-        onChange(parsed.hours, parsed.minutes);
-      }
-    }
-    setInputValue("");
-    setOpen(false);
-  };
+  const togglePeriod = useCallback(() => {
+    const newH = period === "AM" ? hours + 12 : hours - 12;
+    onChange(Math.max(0, Math.min(23, newH)), minutes);
+  }, [hours, minutes, period, onChange]);
 
-  const handleInputKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      (e.target as HTMLInputElement).blur();
-    } else if (e.key === "Escape") {
-      setInputValue("");
-      setOpen(false);
-    }
-  };
+  if (disabled) {
+    const display = uses12h
+      ? `${h12}:${minutes.toString().padStart(2, "0")} ${period}`
+      : `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+    return <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{display}</span>;
+  }
+
+  const hourLabel = uses12h ? String(h12) : hours.toString().padStart(2, "0");
+  const minLabel = minutes.toString().padStart(2, "0");
 
   return (
-    <div className="dpt-wrap" ref={wrapRef}>
-      <input
-        type="text"
-        className="dpt-input"
-        value={inputValue || displayValue}
-        onChange={e => handleInputChange(e.target.value)}
-        onFocus={() => { setOpen(true); setInputValue(""); }}
-        onBlur={handleInputBlur}
-        onKeyDown={handleInputKeyDown}
-        disabled={disabled}
-        placeholder={uses12h ? "hh:mm AM" : "HH:mm"}
-      />
-      <svg className="dpt-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
-      </svg>
-      {open && (
-        <div className="dpt-dropdown" ref={listRef}>
-          {options.map(opt => {
-            const isActive = opt.value === currentKey;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                className={`dpt-option${isActive ? " dpt-active" : ""}`}
-                data-active={isActive ? "" : undefined}
-                onMouseDown={e => {
-                  e.preventDefault();
-                  const [h, m] = opt.value.split(":").map(Number);
-                  onChange(h, m);
-                  setOpen(false);
-                }}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
+    <div className="dpt-wrap">
+      <SpinColumn value={hourLabel} onUp={hourUp} onDown={hourDown} />
+      <span className="dpt-colon">:</span>
+      <SpinColumn value={minLabel} onUp={minUp} onDown={minDown} />
+      {uses12h && (
+        <>
+          <SpinColumn value={period} onUp={togglePeriod} onDown={togglePeriod} />
+        </>
       )}
 
       <style>{`
         .dpt-wrap {
-          position: relative;
-          display: inline-flex;
+          display: flex;
           align-items: center;
+          gap: 2px;
+          user-select: none;
         }
-        .dpt-input {
-          width: 100px;
-          height: 34px;
-          padding: 0 28px 0 10px;
-          font-size: 13px;
-          border: 1px solid var(--input-border);
-          border-radius: 8px;
-          background: var(--input-bg);
-          color: var(--text-primary);
-          outline: none;
-          transition: border-color 0.15s, box-shadow 0.15s;
+        .dpt-spin {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0;
         }
-        .dpt-input:focus {
-          border-color: var(--border-focus);
-          box-shadow: 0 0 0 3px var(--ring-focus);
-        }
-        .dpt-input:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .dpt-icon {
-          position: absolute;
-          right: 8px;
-          pointer-events: none;
-          color: var(--text-muted);
-        }
-        .dpt-dropdown {
-          position: absolute;
-          top: 100%;
-          left: 0;
-          margin-top: 4px;
-          width: 120px;
-          max-height: 200px;
-          overflow-y: auto;
-          background: var(--bg-surface);
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-          z-index: 1001;
-          padding: 4px;
-        }
-        .dpt-option {
-          display: block;
-          width: 100%;
-          padding: 6px 10px;
-          font-size: 13px;
-          text-align: left;
+        .dpt-arrow {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 16px;
           border: none;
           background: none;
-          color: var(--text-primary);
           cursor: pointer;
+          color: var(--text-muted);
           border-radius: 4px;
-          transition: background 0.1s;
+          transition: background 0.1s, color 0.1s;
         }
-        .dpt-option:hover { background: var(--bg-hover); }
-        .dpt-active {
-          background: var(--accent-light) !important;
+        .dpt-arrow:hover {
+          background: var(--bg-hover);
+          color: var(--text-primary);
+        }
+        .dpt-val {
+          font-size: 13px;
           font-weight: 600;
+          color: var(--accent);
+          min-width: 28px;
+          text-align: center;
+          line-height: 1;
+          padding: 1px 0;
+        }
+        .dpt-colon {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text-muted);
+          margin: 0 1px;
+          align-self: center;
         }
       `}</style>
     </div>
