@@ -1,5 +1,5 @@
 "use client";
-import { fmtDate, fmtMoney } from "@/lib/format";
+import { fmtMoney } from "@/lib/format";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { CrudPage, type CrudPageConfig } from "@/components/crud-page/CrudPage";
@@ -8,6 +8,7 @@ import type { CrudAction } from "@/components/crud-toolbar/CrudToolbar";
 import { Section, Field, Input, Select, Checkbox, Badge, TabBar, type TabDef } from "@/components/ui";
 import { useT } from "@/context/TranslationContext";
 import { LocaleSelect } from "@/components/ui/LocaleSelect";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { Icon } from "@/components/icons/Icon";
 
 type User = { oid: string; [key: string]: any };
@@ -60,8 +61,8 @@ function ProfileTab({ user, onChange }: { user: User; onChange: (f: keyof User, 
           <Field label={t("users.is_disabled", "Disabled")}>
             <Checkbox checked={user.is_disabled} onChange={v => onChange("is_disabled", v)} label={user.is_disabled ? t("users.status_disabled", "Disabled") : t("users.status_active", "Active")} />
           </Field>
-          <Field label={t("users.expiration_date", "Expiration Date")}><Input value={fmtDate(user.expire_date)} readOnly /></Field>
-          <Field label={t("users.last_login", "Last Login")}><Input value={fmtDate(user.last_login)} readOnly /></Field>
+          <Field label={t("users.expiration_date", "Expiration Date")}><DatePicker value={user.expire_date ?? null} onChange={v => onChange("expire_date", v)} /></Field>
+          <Field label={t("users.last_login", "Last Login")}><DatePicker value={user.last_login ?? null} onChange={() => {}} readOnly /></Field>
           <Field label={t("users.failed_logins", "Failed Logins")}><Input value={String(user.failed_logins)} readOnly /></Field>
         </div>
       </Section>

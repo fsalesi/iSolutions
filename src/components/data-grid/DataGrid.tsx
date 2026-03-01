@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect, type ReactNode } from "react";
 import { Icon } from "@/components/icons/Icon";
-import { useT } from "@/context/TranslationContext";
+import { useTranslation } from "@/context/TranslationContext";
+import { formatDate } from "@/components/ui/date-utils";
 import { AdvancedSearch, serializeFilters, countConditions, type FilterTree, type ColType } from "./AdvancedSearch";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
@@ -66,6 +67,16 @@ interface DataGridProps<T extends { oid: string }> {
     filename?: string;                // Base filename for download
   };
   colTypes?: Record<string, ColType>;
+}
+
+// ── Auto-format cell values by column type ─────────────────────────
+function formatCellValue(val: any, key: string, colTypes: Record<string, ColType>, locale: string): string {
+  if (val == null || val === "") return "";
+  const ct = colTypes[key];
+  if (ct === "datetime") return formatDate(String(val), locale, "datetime");
+  if (ct === "date") return formatDate(String(val), locale, "date");
+  if (ct === "boolean") return val ? "Yes" : "No";
+  return String(val);
 }
 
 export function DataGrid<T extends { oid: string }>({
@@ -273,7 +284,7 @@ export function DataGrid<T extends { oid: string }>({
   };
 
   // ── Infinite scroll state ────────────────────────────────────────
-  const t = useT();
+  const { t, locale } = useTranslation();
   const [rows, setRows] = useState<T[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -583,7 +594,7 @@ export function DataGrid<T extends { oid: string }>({
               {rows.map(row => (
                 <div key={row.oid} onClick={() => onSelect(row.oid)}>
                   {renderCard ? renderCard(row, selectedId === row.oid)
-                    : <DefaultCard row={row} columns={visibleColumns} isSelected={selectedId === row.oid} />}
+                    : <DefaultCard row={row} columns={visibleColumns} isSelected={selectedId === row.oid} colTypes={colTypes} locale={locale} />}
                 </div>
               ))}
               {loadingMore && <LoadingIndicator />}
@@ -647,7 +658,7 @@ export function DataGrid<T extends { oid: string }>({
                               fontWeight: col.key === visibleColumns[0]?.key ? 500 : 400,
                             }}
                           >
-                            {col.render ? col.render(row) : String(row[col.key] ?? "")}
+                            {col.render ? col.render(row) : formatCellValue(row[col.key], col.key, colTypes, locale)}
                           </td>
                         ))}
                       </tr>
@@ -794,8 +805,8 @@ function LoadingIndicator() {
 }
 
 function DefaultCard<T extends { oid: string }>({
-  row, columns, isSelected,
-}: { row: T; columns: ColumnDef<T>[]; isSelected: boolean }) {
+  row, columns, isSelected, colTypes, locale,
+}: { row: T; columns: ColumnDef<T>[]; isSelected: boolean; colTypes: Record<string, ColType>; locale: string }) {
   const visibleCols = columns.filter(c => !c.hideOnMobile);
   const primary = visibleCols[0];
   const secondary = visibleCols.slice(1);
@@ -808,13 +819,13 @@ function DefaultCard<T extends { oid: string }>({
       <div className="flex-1 min-w-0">
         {primary && (
           <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
-            {primary.render ? primary.render(row) : String(row[primary.key] ?? "")}
+            {primary.render ? primary.render(row) : formatCellValue(row[primary.key], primary.key, colTypes, locale)}
           </div>
         )}
         {secondary.length > 0 && (
           <div className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
             {secondary.map((col, i) => (
-              <span key={col.key}>{i > 0 && " · "}{col.render ? col.render(row) : String(row[col.key] ?? "")}</span>
+              <span key={col.key}>{i > 0 && " · "}{col.render ? col.render(row) : formatCellValue(row[col.key], col.key, colTypes, locale)}</span>
             ))}
           </div>
         )}

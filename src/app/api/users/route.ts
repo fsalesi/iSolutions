@@ -16,6 +16,8 @@ export const { GET, POST, PUT, DELETE } = createCrudRoutes({
     mobile_enabled: "boolean",
     failed_logins: "number",
     approval_limit: "number",
+    expire_date: "datetime",
+    last_login: "datetime",
   },
   defaultSort: "full_name",
   searchColumns: ["user_id", "full_name", "email"],
