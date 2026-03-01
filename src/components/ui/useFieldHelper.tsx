@@ -126,7 +126,7 @@ export function useFieldHelper(config: FieldHelperConfig) {
 
     const colType = colTypes[name];
     const fieldType = typeOverride || detectType(colType, name);
-    const label = labelOverride || t(`${table}.${name}`, humanize(name));
+    const label = labelOverride || t(`${table}.field.${name}`, humanize(name));
     const value = row[name];
     const handleChange = (v: any) => onChange(name, v);
 
@@ -260,5 +260,9 @@ export function useFieldHelper(config: FieldHelperConfig) {
 
 /** Convert snake_case to Title Case */
 function humanize(key: string): string {
-  return key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  return key
+    .replace(/_id$/, "")
+    .replace(/_nbr$/, " Number")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, c => c.toUpperCase());
 }

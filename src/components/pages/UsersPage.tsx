@@ -87,7 +87,6 @@ function IPurchaseTab({ user, onChange, colTypes, colScales }: {
           {field("delegate_id", { type: "lookup", lookup: ActiveUserLookup({ placeholder: "Search delegate..." }) })}
           {field("approval_limit")}
           {field("employee_number")}
-          {field("erp_initials")}
         </div>
       </Section>
     </div>
@@ -137,7 +136,7 @@ export default function UsersPage({ activeNav, onNavigate, selectRecordOid, sele
   ), []);
 
   const config = useMemo<CrudPageConfig<User>>(() => ({
-    title: t("users.title", "Users and Groups"),
+    title: t("users.title", "Users"),
     apiPath: "/api/users",
     columns,
     renderTabs: (props) => <UserTabs {...props} />,

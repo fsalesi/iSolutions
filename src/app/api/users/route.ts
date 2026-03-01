@@ -8,7 +8,7 @@ export const { GET, POST, PUT, DELETE } = createCrudRoutes({
     "domains", "phone", "cell_phone", "carrier", "mobile_enabled",
     "street1", "street2", "city", "state", "postal_code", "country",
     "supervisor_id", "delegate_id", "approval_limit",
-    "employee_number", "erp_initials", "locale",
+    "employee_number", "locale",
     "created_at", "created_by", "updated_at", "updated_by", "oid",
   ],
   colTypes: {

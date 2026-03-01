@@ -44,10 +44,12 @@ export function buildFilterWhere(
       case "eq":
         if (t === "date" || t === "datetime") return { sql: `${col}::date = ${p}::date`, params: [cond.value], nextIdx: idx + 1 };
         if (t === "number") return { sql: `${col} = ${p}::numeric`, params: [cond.value], nextIdx: idx + 1 };
+        if (t === "boolean") return { sql: `${col} = ${p}::boolean`, params: [cond.value], nextIdx: idx + 1 };
         return { sql: `${col} = ${p}`, params: [cond.value], nextIdx: idx + 1 };
       case "neq":
         if (t === "date" || t === "datetime") return { sql: `${col}::date != ${p}::date`, params: [cond.value], nextIdx: idx + 1 };
         if (t === "number") return { sql: `${col} != ${p}::numeric`, params: [cond.value], nextIdx: idx + 1 };
+        if (t === "boolean") return { sql: `${col} != ${p}::boolean`, params: [cond.value], nextIdx: idx + 1 };
         return { sql: `${col} != ${p}`, params: [cond.value], nextIdx: idx + 1 };
       case "contains":     return { sql: `${col}::text ILIKE ${p}`, params: [`%${cond.value}%`], nextIdx: idx + 1 };
       case "not_contains": return { sql: `${col}::text NOT ILIKE ${p}`, params: [`%${cond.value}%`], nextIdx: idx + 1 };
