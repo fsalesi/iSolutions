@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Icon } from "@/components/icons/Icon";
+import { useT } from "@/context/TranslationContext";
 import { Badge } from "@/components/ui";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -91,6 +92,7 @@ function groupEntries(entries: AuditEntry[]): AuditGroup[] {
 // ── Component ──────────────────────────────────────────────────
 
 export function AuditPanel({ table, recordOid, open, onClose }: AuditPanelProps) {
+  const t = useT();
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -104,7 +106,7 @@ export function AuditPanel({ table, recordOid, open, onClose }: AuditPanelProps)
       const res = await fetch(`/api/audit-log?table=${encodeURIComponent(table)}&oid=${encodeURIComponent(recordOid)}&limit=200`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error || "Failed to load audit history");
+        setError(data.error || t("audit.failed_load", "Failed to load audit history"));
         setEntries([]);
         setTotal(0);
       } else {
@@ -282,8 +284,8 @@ export function AuditPanel({ table, recordOid, open, onClose }: AuditPanelProps)
                       {/* No field detail (INSERT/DELETE or touch-only) */}
                       {(group.action.toUpperCase() !== "UPDATE" || !group.changes.some(c => c.field_name)) && (
                         <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                          {group.action.toUpperCase() === "INSERT" ? "Record created" :
-                           group.action.toUpperCase() === "DELETE" ? "Record deleted" :
+                          {group.action.toUpperCase() === "INSERT" ? t("audit.record_created", "Record created") :
+                           group.action.toUpperCase() === "DELETE" ? t("audit.record_deleted", "Record deleted") :
                            "Record touched (no field changes)"}
                         </p>
                       )}

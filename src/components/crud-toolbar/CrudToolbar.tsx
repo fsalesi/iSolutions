@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Icon } from "@/components/icons/Icon";
+import { useT } from "@/context/TranslationContext";
 
 export type CrudAction = {
   key: string;
@@ -32,11 +33,12 @@ export function CrudToolbar({
   saveDisabled, deleteDisabled,
   extraActions = [],
 }: CrudToolbarProps) {
+  const t = useT();
   const baseActions: CrudAction[] = [
-    { key: "save", icon: "save", label: "Save", variant: "primary", disabled: saveDisabled, onClick: onSave },
-    { key: "new", icon: "plus", label: "New", onClick: onNew },
-    { key: "delete", icon: "trash", label: "Delete", variant: "danger", disabled: deleteDisabled, onClick: onDelete },
-    { key: "copy", icon: "copy", label: "Copy", onClick: onCopy },
+    { key: "save", icon: "save", label: t("crud.save", "Save"), variant: "primary", disabled: saveDisabled, onClick: onSave },
+    { key: "new", icon: "plus", label: t("crud.new", "New"), onClick: onNew },
+    { key: "delete", icon: "trash", label: t("crud.delete", "Delete"), variant: "danger", disabled: deleteDisabled, onClick: onDelete },
+    { key: "copy", icon: "copy", label: t("crud.copy", "Copy"), onClick: onCopy },
   ];
 
   const allActions = [...baseActions, ...extraActions];

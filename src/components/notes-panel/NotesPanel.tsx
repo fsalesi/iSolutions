@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Icon } from "@/components/icons/Icon";
+import { useT } from "@/context/TranslationContext";
 
 /* ── types ──────────────────────────────────────────────── */
 type Attachment = { id: number; note_id: number; filename: string; mime_type: string; file_size: number };
@@ -66,6 +67,7 @@ function isPreviewable(mime: string) {
 
 /* ── component ──────────────────────────────────────────── */
 export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: NotesPanelProps) {
+  const t = useT();
   const [notes, setNotes] = useState<Note[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -177,7 +179,7 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
           body: text.trim(), mentions: allMentions,
         }),
       });
-      if (!res.ok) throw new Error("Failed to create note");
+      if (!res.ok) throw new Error(t("notes.failed_create", "Failed to create note"));
       const note = await res.json();
 
       // Upload pending files
@@ -193,7 +195,7 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
       setSelectedMentions([]);
       fetchNotes();
     } catch (err) {
-      console.error("Failed to send note:", err);
+      console.error(t("notes.failed_send", "Failed to send note"), err);
     }
     setSending(false);
   };
@@ -227,7 +229,7 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
       setEditText("");
       fetchNotes();
     } catch (err) {
-      console.error("Failed to edit note:", err);
+      console.error(t("notes.failed_edit", "Failed to edit note"), err);
     }
   };
 
@@ -237,7 +239,7 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
       await fetch(`/api/notes/attachments?id=${attId}`, { method: "DELETE" });
       fetchNotes();
     } catch (err) {
-      console.error("Failed to delete attachment:", err);
+      console.error(t("notes.failed_delete_attachment", "Failed to delete attachment"), err);
     }
   };
 
@@ -692,7 +694,7 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
                   background: "none", border: "none", cursor: "pointer",
                   color: "var(--text-muted)", padding: "6px 2px", flexShrink: 0,
                 }}
-                title="Attach files"
+                title={t("notes.attach_files", "Attach files")}
               >
                 <Icon name="upload" size={18} />
               </button>
@@ -710,7 +712,7 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
                 value={text}
                 onChange={handleTextChange}
                 onKeyDown={handleKeyDown}
-                placeholder="Type a note... Use @ to mention"
+                placeholder={t("notes.placeholder", "Type a note... Use @ to mention")}
                 rows={1}
                 style={{
                   flex: 1, resize: "none", border: "1px solid var(--border)",

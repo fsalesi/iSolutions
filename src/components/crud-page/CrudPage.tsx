@@ -7,6 +7,7 @@ import { CrudToolbar, type CrudAction } from "@/components/crud-toolbar/CrudTool
 import { Icon } from "@/components/icons/Icon";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useAuth } from "@/context/AuthContext";
+import { useT } from "@/context/TranslationContext";
 import { AppShell } from "@/components/shell";
 import { AuditPanel } from "@/components/audit-panel/AuditPanel";
 import { NotesPanel } from "@/components/notes-panel/NotesPanel";
@@ -15,14 +16,15 @@ import { NotesPanel } from "@/components/notes-panel/NotesPanel";
 function InlineConfirm({ message, onConfirm, onCancel }: {
   message: string; onConfirm: () => void; onCancel: () => void;
 }) {
+  const t = useT();
   return (
     <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
       style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
       <span style={{ color: "var(--text-primary)" }}>{message}</span>
       <button onClick={onConfirm} className="px-2.5 py-1 rounded font-medium text-white"
-        style={{ background: "#ef4444", fontSize: 11 }}>Delete</button>
+        style={{ background: "#ef4444", fontSize: 11 }}>{t("crud.delete", "Delete")}</button>
       <button onClick={onCancel} className="px-2.5 py-1 rounded font-medium"
-        style={{ color: "var(--text-muted)", fontSize: 11 }}>Cancel</button>
+        style={{ color: "var(--text-muted)", fontSize: 11 }}>{t("crud.cancel", "Cancel")}</button>
     </div>
   );
 }
@@ -42,6 +44,7 @@ function AuditFooter({ row, onAuditClick }: {
   row: Record<string, any>;
   onAuditClick?: () => void;
 }) {
+  const t = useT();
   const created = fmtStamp(row.created_at);
   const updated = fmtStamp(row.updated_at);
   const createdBy = row.created_by || "";
@@ -56,12 +59,12 @@ function AuditFooter({ row, onAuditClick }: {
     >
       {created && (
         <span>
-          Created {created}{createdBy ? ` by ${createdBy}` : ""}
+          {t("crud.created", "Created")} {created}{createdBy ? ` by ${createdBy}` : ""}
         </span>
       )}
       {updated && (
         <span>
-          Updated {updated}{updatedBy ? ` by ${updatedBy}` : ""}
+          {t("crud.updated", "Updated")} {updated}{updatedBy ? ` by ${updatedBy}` : ""}
           {onAuditClick && (
             <button
               onClick={onAuditClick}
@@ -70,7 +73,7 @@ function AuditFooter({ row, onAuditClick }: {
               onMouseEnter={e => { e.currentTarget.style.color = "var(--accent-hover)"; }}
               onMouseLeave={e => { e.currentTarget.style.color = "var(--accent)"; }}
             >
-              View history
+              {t("crud.view_history", "View history")}
             </button>
           )}
         </span>
@@ -80,12 +83,7 @@ function AuditFooter({ row, onAuditClick }: {
 }
 
 // ── Standard audit columns for DataGrid ─────────────────────────
-const AUDIT_GRID_COLUMNS: ColumnDef<any>[] = [
-  { key: "created_at", label: "Created" },
-  { key: "created_by", label: "Created By" },
-  { key: "updated_at", label: "Updated" },
-  { key: "updated_by", label: "Updated By" },
-];
+// AUDIT_GRID_COLUMNS moved inside CrudPage for i18n access
 
 // ── Config types ────────────────────────────────────────────────
 
@@ -136,6 +134,14 @@ export function CrudPage<TRow extends { oid: string }>({
 }) {
   const isMobile = useIsMobile();
   const { user } = useAuth();
+  const t = useT();
+
+  const AUDIT_GRID_COLUMNS: ColumnDef<any>[] = useMemo(() => [
+    { key: "created_at", label: t("crud.created", "Created") },
+    { key: "created_by", label: t("crud.created_by", "Created By") },
+    { key: "updated_at", label: t("crud.updated", "Updated") },
+    { key: "updated_by", label: t("crud.updated_by", "Updated By") },
+  ], [t]);
 
   // ── Auto-derive everything from apiPath ──
   const tableName = config.apiPath.replace("/api/", "");
@@ -144,11 +150,11 @@ export function CrudPage<TRow extends { oid: string }>({
   const colTypesUrl = `/api/columns?table=${tableName}`;
   const searchPlaceholder = `Search ${config.title.toLowerCase()}...`;
   const emptyIcon = "database";
-  const emptyText = "No records found.";
+  const emptyText = t("crud.no_records", "No records found.");
   const defaultVisible = config.columns.slice(0, 4).map(c => String(c.key));
   const firstCol = String(config.columns[0]?.key || "oid");
   const deleteLabel = (row: TRow) => String((row as any)[firstCol] || row.oid);
-  const detailTitle = (row: TRow) => String((row as any)[firstCol] || "New");
+  const detailTitle = (row: TRow) => String((row as any)[firstCol] || t("crud.new", "New"));
   const searchCols = config.columns.filter(c => typeof c.key === "string").slice(0, 3).map(c => String(c.key));
   const exportCfg = { table: tableName, searchFields: searchCols, filename: `${tableName}-export` };
   const emptyRow = () => {
@@ -250,7 +256,7 @@ export function CrudPage<TRow extends { oid: string }>({
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || "Save failed"); setSaving(false); return; }
+      if (!res.ok) { setError(data.error || t("crud.save_failed", "Save failed")); setSaving(false); return; }
       const rec = xform(data);
       setSelectedRec(rec);
       setForm(rec);
@@ -288,7 +294,7 @@ export function CrudPage<TRow extends { oid: string }>({
   // ── Auto-inject audit columns into DataGrid ────────────────
   const allColumns = useMemo(() => {
     const existing = new Set(config.columns.map(c => c.key));
-    const extra = AUDIT_GRID_COLUMNS.filter(c => !existing.has(c.key));
+    const extra = AUDIT_GRID_COLUMNS.filter(c => !existing.has(c.key as any));
     return [...config.columns, ...extra] as ColumnDef<TRow>[];
   }, [config.columns]);
 
@@ -303,14 +309,14 @@ export function CrudPage<TRow extends { oid: string }>({
       filtered.push({
         key: "notes",
         icon: "messageSquare",
-        label: noteCount > 0 ? `Notes (${noteCount})` : "Notes",
+        label: noteCount > 0 ? `${t("crud.notes", "Notes")} (${noteCount})` : t("crud.notes", "Notes"),
         disabled: isNew || !selectedRec,
         onClick: () => setNotesOpen(true),
       });
       filtered.push({
         key: "audit",
         icon: "shield",
-        label: "Audit",
+        label: t("crud.audit", "Audit"),
         separator: true,
         disabled: isNew || !selectedRec,
         onClick: () => setAuditOpen(true),
@@ -318,7 +324,7 @@ export function CrudPage<TRow extends { oid: string }>({
       return filtered;
     }
     return actions;
-  }, [config.extraActions, auditTable, isNew, selectedRec, noteCount]);
+  }, [config.extraActions, auditTable, isNew, selectedRec, noteCount, t]);
 
   const auditRecordOid = useMemo(() => {
     if (!auditTable || !form) return "";
@@ -344,7 +350,7 @@ export function CrudPage<TRow extends { oid: string }>({
     ? config.renderTabs(detailProps)
     : (
       <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-        {config.renderDetail(detailProps)}
+        {config.renderDetail?.(detailProps)}
       </div>
     );
 

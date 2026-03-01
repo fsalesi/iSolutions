@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Icon } from "@/components/icons/Icon";
+import { useT } from "@/context/TranslationContext";
 
 type Notification = {
   id: number;
@@ -95,6 +96,7 @@ function ensureStyles() {
 
 export function NotificationBell({ onNavigate }: NotificationBellProps) {
   const [unread, setUnread] = useState(0);
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);

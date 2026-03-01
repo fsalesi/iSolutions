@@ -1,31 +1,12 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import { Sidebar, type NavSection } from "./Sidebar";
 import { Header } from "./Header";
 import { NotificationBell } from "./NotificationBell";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useT } from "@/context/TranslationContext";
 
-const NAV_SECTIONS: NavSection[] = [
-  { key: "admin", label: "Administration", icon: "settings", items: [
-    { key: "users", label: "Users and Groups", icon: "users" },
-    { key: "pasoe_brokers", label: "PASOE Brokers", icon: "server" },
-    { key: "settings", label: "System Settings", icon: "settings" },
-    { key: "jobs", label: "Jobs", icon: "clock" },
-    { key: "audit", label: "Audit Trail", icon: "shield" },
-    { key: "email", label: "Email Queue", icon: "mail" },
-    { key: "security", label: "Security", icon: "lock" },
-  ]},
-  { key: "ipurchase", label: "iPurchase", icon: "briefcase", items: [
-    { key: "requisitions", label: "Requisitions", icon: "briefcase" },
-    { key: "approvals", label: "Approvals", icon: "check" },
-    { key: "reports", label: "Reports", icon: "chart" },
-  ]},
-  { key: "iapprove", label: "iApprove", icon: "check", items: [
-    { key: "forms", label: "Workflow Forms", icon: "briefcase" },
-    { key: "rules", label: "Approval Rules", icon: "shield" },
-  ]},
-];
 
 interface AppShellProps {
   children: ReactNode;
@@ -42,6 +23,33 @@ export function AppShell({ children, title, subtitle, showBack, onBack, activeNa
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [internalNav, setInternalNav] = useState("users");
   const [domain, setDomain] = useState("DEMO1");
+
+  const t = useT();
+
+  const NAV_SECTIONS: NavSection[] = useMemo(() => [
+    { key: "admin", label: t("nav.administration", "Administration"), icon: "settings", items: [
+      { key: "users", label: t("nav.users", "Users and Groups"), icon: "users" },
+      { key: "pasoe_brokers", label: t("nav.pasoe_brokers", "PASOE Brokers"), icon: "server" },
+      { key: "settings", label: t("nav.settings", "System Settings"), icon: "settings" },
+      { key: "jobs", label: t("nav.jobs", "Jobs"), icon: "clock" },
+      { key: "audit", label: t("nav.audit", "Audit Trail"), icon: "shield" },
+      { key: "email", label: t("nav.email", "Email Queue"), icon: "mail" },
+      { key: "security", label: t("nav.security", "Security"), icon: "lock" },
+    ]},
+    { key: "ipurchase", label: t("nav.ipurchase", "iPurchase"), icon: "briefcase", items: [
+      { key: "requisitions", label: t("nav.requisitions", "Requisitions"), icon: "briefcase" },
+      { key: "approvals", label: t("nav.approvals", "Approvals"), icon: "check" },
+      { key: "reports", label: t("nav.reports", "Reports"), icon: "chart" },
+    ]},
+    { key: "iapprove", label: t("nav.iapprove", "iApprove"), icon: "check", items: [
+      { key: "forms", label: t("nav.forms", "Workflow Forms"), icon: "briefcase" },
+      { key: "rules", label: t("nav.rules", "Approval Rules"), icon: "shield" },
+    ]},
+    { key: "i18n", label: t("nav.i18n", "Internationalization"), icon: "globe", items: [
+      { key: "locales", label: t("nav.locales", "Locales"), icon: "globe" },
+      { key: "translations", label: t("nav.translations", "Translations"), icon: "messageSquare" },
+    ]},
+  ], [t]);
 
   const activeNav = controlledNav ?? internalNav;
   const handleNavigate = (key: string, recordOid?: string) => {

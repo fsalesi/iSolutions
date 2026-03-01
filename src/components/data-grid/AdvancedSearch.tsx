@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/icons/Icon";
+import { useT } from "@/context/TranslationContext";
 import type { ColumnDef } from "./DataGrid";
 
 // ── Types ─────────────────────────────────────────────────────────
@@ -140,6 +141,7 @@ function InlineConfirm({ message, onConfirm, onCancel }: {
 function InlineSaveName({ onSave, onCancel }: {
   onSave: (name: string) => void; onCancel: () => void;
 }) {
+  const t = useT();
   const [name, setName] = useState("");
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { ref.current?.focus(); }, []);
@@ -147,7 +149,7 @@ function InlineSaveName({ onSave, onCancel }: {
   return (
     <div className="flex items-center gap-2">
       <input ref={ref} type="text" value={name} onChange={e => setName(e.target.value)}
-        placeholder="Filter name…"
+        placeholder={t("filter.filter_name", "Filter name…")}
         className="text-xs px-2 py-1 rounded"
         style={{ ...SEL, flex: "0 1 160px", fontSize: 12 }}
         onKeyDown={e => { if (e.key === "Enter" && name.trim()) onSave(name.trim()); if (e.key === "Escape") onCancel(); }} />
@@ -163,10 +165,11 @@ function InlineSaveName({ onSave, onCancel }: {
 
 // ── Condition Row ─────────────────────────────────────────────────
 function ConditionRow({ cond, columns, colTypes, selected, onToggle, onUpdate, onRemove, onApply }: {
-  cond: FilterCondition; columns: ColumnDef[]; colTypes: Record<string, ColType>;
+  cond: FilterCondition; columns: ColumnDef<any>[]; colTypes: Record<string, ColType>;
   selected: boolean; onToggle: () => void;
   onUpdate: (p: Partial<FilterCondition>) => void; onRemove: () => void; onApply: () => void;
 }) {
+  const t = useT();
   const ct = colTypes[cond.field] || "text";
   const ops = opsForType(ct);
   const opDef = ops.find(o => o.value === cond.operator);
@@ -222,11 +225,12 @@ function ConditionRow({ cond, columns, colTypes, selected, onToggle, onUpdate, o
 
 // ── Group Node ────────────────────────────────────────────────────
 function GroupNode({ group, columns, colTypes, depth, selection, onSelect, onChange, onRemove, onApply, defaultField }: {
-  group: FilterGroup; columns: ColumnDef[]; colTypes: Record<string, ColType>; depth: number;
+  group: FilterGroup; columns: ColumnDef<any>[]; colTypes: Record<string, ColType>; depth: number;
   selection: Set<string>; onSelect: (ids: string[], c: boolean) => void;
   onChange: (g: FilterGroup) => void; onRemove: (() => void) | null;
   onApply: (tree?: FilterTree) => void; defaultField: string;
 }) {
+  const t = useT();
   const color = rc(depth);
   const allIds = collectIds(group);
   const allSel = allIds.every(id => selection.has(id));
@@ -245,7 +249,7 @@ function GroupNode({ group, columns, colTypes, depth, selection, onSelect, onCha
           title={`Switch to ${group.logic === "and" ? "OR" : "AND"}`}>{group.logic}</button>
         <div style={{ width: 3, flex: 1, background: color, borderRadius: 2, minHeight: 6 }} />
         <button onClick={() => onChange({ ...group, children: [...group.children, mkCondition(defaultField, colTypes)] })}
-          title="Add condition"
+          title={t("filter.add_condition", "Add condition")}
           className="rounded-full flex items-center justify-center mt-1 opacity-60 hover:opacity-100 transition-opacity"
           style={{ width: 18, height: 18, background: color, color: "#fff" }}>
           <Icon name="plus" size={10} />
@@ -349,6 +353,7 @@ function SavedFiltersBar({ saved, activeName, onLoad, onSave, onSaveAs, onDelete
   onSetDefault: (s: SavedFilter) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const t = useT();
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<SavedFilter | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -361,7 +366,7 @@ function SavedFiltersBar({ saved, activeName, onLoad, onSave, onSaveAs, onDelete
 
   return (
     <div className="flex items-center gap-2 px-5 py-2 flex-wrap" style={{ borderBottom: "1px solid var(--border)" }}>
-      <Icon name="save" size={14} style={{ color: "var(--text-muted)" } as any} />
+      <Icon name="save" size={14} />
       <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Saved:</span>
 
       {/* Dropdown */}
@@ -393,7 +398,7 @@ function SavedFiltersBar({ saved, activeName, onLoad, onSave, onSaveAs, onDelete
                       {s.name}
                       {s.is_default && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "var(--accent)", color: "#fff" }}>default</span>}
                     </span>
-                    <button onClick={e => { e.stopPropagation(); onSetDefault(s); }} title={s.is_default ? "Remove default" : "Set as default"}
+                    <button onClick={e => { e.stopPropagation(); onSetDefault(s); }} title={s.is_default ? t("filter.remove_default", "Remove default") : t("filter.set_default", "Set as default")}
                       className="opacity-0 group-hover:opacity-60 hover:!opacity-100 p-0.5 transition-opacity"
                       style={{ color: s.is_default ? "var(--accent)" : "var(--text-muted)" }}>
                       <Icon name="check" size={12} />
@@ -436,7 +441,7 @@ function SavedFiltersBar({ saved, activeName, onLoad, onSave, onSaveAs, onDelete
 
 // ── Main ──────────────────────────────────────────────────────────
 interface AdvancedSearchProps {
-  columns: ColumnDef[];
+  columns: ColumnDef<any>[];
   colTypes: Record<string, ColType>;
   filters: FilterTree;
   onChange: (f: FilterTree) => void;
@@ -447,6 +452,7 @@ interface AdvancedSearchProps {
 }
 
 export function AdvancedSearch({ columns, colTypes, filters, onChange, onApply, onClose, gridId, userId }: AdvancedSearchProps) {
+  const t = useT();
   const df = columns[0]?.key || "";
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const activeCount = filters ? countConditions(filters) : 0;
@@ -540,7 +546,7 @@ export function AdvancedSearch({ columns, colTypes, filters, onChange, onApply, 
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="flex items-center gap-2.5">
-          <Icon name="filter" size={18} style={{ color: "var(--accent)" } as any} />
+          <Icon name="filter" size={18} />
           <span className="font-semibold" style={{ color: "var(--text-primary)", fontSize: 15 }}>Advanced Search</span>
           {activeCount > 0 && (
             <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ background: "var(--accent)", color: "#fff" }}>
@@ -565,9 +571,9 @@ export function AdvancedSearch({ columns, colTypes, filters, onChange, onApply, 
       {/* Toolbar */}
       {filters && (
         <div className="flex items-center gap-2 px-5 py-2 flex-wrap" style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-surface-alt)" }}>
-          {tbtn("Group AND", "plus", () => doGroup("and"), selCount < 2)}
-          {tbtn("Group OR", "plus", () => doGroup("or"), selCount < 2)}
-          {tbtn("Ungroup", "expand", doUngroup, !hasSelGroups)}
+          {tbtn(t("filter.group_and", "Group AND"), "plus", () => doGroup("and"), selCount < 2)}
+          {tbtn(t("filter.group_or", "Group OR"), "plus", () => doGroup("or"), selCount < 2)}
+          {tbtn(t("filter.ungroup", "Ungroup"), "expand", doUngroup, !hasSelGroups)}
           <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 2px" }} />
           {tbtn("↑", "chevUp", () => doMove(-1), selCount !== 1)}
           {tbtn("↓", "chevDown", () => doMove(1), selCount !== 1)}

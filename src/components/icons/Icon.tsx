@@ -3,7 +3,7 @@
  * Uses Heroicons-style paths. Zero dependencies.
  * Usage: <Icon name="save" size={16} />
  */
-export function Icon({ name, size = 18, className = "" }: { name: string; size?: number; className?: string }) {
+export function Icon({ name, size = 18, className = "", style }: { name: string; size?: number; className?: string; style?: React.CSSProperties }) {
   const d = ICON_PATHS[name];
   if (!d) return null;
   return (
@@ -18,6 +18,7 @@ export function Icon({ name, size = 18, className = "" }: { name: string; size?:
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
+      style={style}
       aria-hidden="true"
     >
       {d.split(/(?=M)/).filter(Boolean).map((seg, i) => (
@@ -54,6 +55,7 @@ const ICON_PATHS: Record<string, string> = {
   chevLeft:   "M15 19l-7-7 7-7",
   chevFirst:  "M11 19l-7-7 7-7m8 14l-7-7 7-7",
   chevLast:   "M13 5l7 7-7 7M5 5l7 7-7 7",
+  globe:      "M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9",
   x:          "M6 18L18 6M6 6l12 12",
   check:      "M5 13l4 4L19 7",
   sortAsc:    "M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12",

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, type ReactNode } from "react";
 import { Icon } from "@/components/icons/Icon";
+import { useT } from "@/context/TranslationContext";
 import { AdvancedSearch, serializeFilters, countConditions, type FilterTree, type ColType } from "./AdvancedSearch";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
@@ -94,7 +95,7 @@ export function DataGrid<T extends { oid: string }>({
   const [filters, setFilters] = useState<FilterTree>(null);
   const [appliedFilters, setAppliedFilters] = useState<string>("");
   const [advSearchOpen, setAdvSearchOpen] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Sort
   const [sort, setSort] = useState<SortState>(
@@ -109,7 +110,7 @@ export function DataGrid<T extends { oid: string }>({
   const [hasUserPref, setHasUserPref] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const prefsLoaded = useRef(false);
   const [exportKeys, setExportKeys] = useState<string[]>([]);
   const [exportOpen, setExportOpen] = useState(false);
@@ -254,7 +255,7 @@ export function DataGrid<T extends { oid: string }>({
         }),
       });
 
-      if (!res.ok) throw new Error("Export failed");
+      if (!res.ok) throw new Error(t("grid.export_failed", "Export failed"));
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -272,6 +273,7 @@ export function DataGrid<T extends { oid: string }>({
   };
 
   // ── Infinite scroll state ────────────────────────────────────────
+  const t = useT();
   const [rows, setRows] = useState<T[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -427,7 +429,7 @@ export function DataGrid<T extends { oid: string }>({
             border: "1px solid var(--border)",
             color: appliedFilters ? "var(--accent)" : "var(--text-primary)",
           }}
-          title="Advanced search"
+          title={t("grid.advanced_search", "Advanced search")}
         >
           <Icon name="filter" size={18} />
           {appliedFilters && countConditions(filters) > 0 && (
@@ -448,7 +450,7 @@ export function DataGrid<T extends { oid: string }>({
               border: "1px solid var(--border)",
               color: "var(--text-primary)",
             }}
-            title={expanded ? "Collapse grid" : "Expand grid"}
+            title={expanded ? t("grid.collapse", "Collapse grid") : t("grid.expand", "Expand grid")}
           >
             <Icon name={expanded ? "collapse" : "expand"} size={18} />
           </button>
@@ -463,7 +465,7 @@ export function DataGrid<T extends { oid: string }>({
                 border: "1px solid var(--border)",
                 color: "var(--text-primary)",
               }}
-              title="Choose columns"
+              title={t("grid.choose_columns", "Choose columns")}
             >
               <Icon name="columns" size={18} />
             </button>
@@ -492,7 +494,7 @@ export function DataGrid<T extends { oid: string }>({
                 border: "1px solid var(--border)",
                 color: "var(--text-primary)",
               }}
-              title="Export to Excel"
+              title={t("grid.export", "Export to Excel")}
             >
               <Icon name="download" size={18} />
             </button>
@@ -543,7 +545,7 @@ export function DataGrid<T extends { oid: string }>({
                     }}
                   >
                     <Icon name="download" size={14} />
-                    {exporting ? "Exporting..." : `Export ${exportKeys.length} columns`}
+                    {exporting ? t("grid.exporting", "Exporting...") : `${t("grid.export", "Export")} ${exportKeys.length} columns`}
                   </button>
                 </div>
               </div>
@@ -666,7 +668,7 @@ export function DataGrid<T extends { oid: string }>({
         className="flex items-center justify-between px-3 py-2 text-xs flex-shrink-0"
         style={{ background: "var(--bg-surface-alt)", borderTop: "1px solid var(--border)", color: "var(--text-muted)" }}
       >
-        <span>{loading ? "Loading..." : total === 0 ? "No records" : `${rows.length} of ${total}`}</span>
+        <span>{loading ? t("crud.loading", "Loading...") : total === 0 ? t("grid.no_records", "No records") : `${rows.length} of ${total}`}</span>
         {hasMore && !loading && <span>↓ scroll for more</span>}
       </div>
     </div>

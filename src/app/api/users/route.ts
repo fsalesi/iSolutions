@@ -5,10 +5,10 @@ export const { GET, POST, PUT, DELETE } = createCrudRoutes({
   columns: [
     "user_id", "full_name", "email", "title", "company", "user_type",
     "is_disabled", "expire_date", "last_login", "failed_logins",
-    "domains", "phone", "fax", "carrier", "mobile_enabled",
+    "domains", "phone", "cell_phone", "carrier", "mobile_enabled",
     "street1", "street2", "city", "state", "postal_code", "country",
     "supervisor_id", "delegate_id", "approval_limit",
-    "employee_number", "erp_initials",
+    "employee_number", "erp_initials", "locale",
     "created_at", "created_by", "updated_at", "updated_by", "oid",
   ],
   colTypes: {

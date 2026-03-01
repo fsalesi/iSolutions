@@ -39,8 +39,13 @@
 │   │   │   └── PasoeBrokers.tsx
 │   │   ├── shell/                         # AppShell, Header, Sidebar
 │   │   ├── theme/                         # ThemeProvider, ThemeToggle
-│   │   └── ui/index.tsx                   # Primitives: Section, Field, Input, Select, Checkbox, Badge, TabBar
-│   ├── context/AuthContext.tsx
+│   │   ├── ui/index.tsx                   # Primitives: Section, Field, Input, Select, Checkbox, Badge, TabBar
+│   │   ├── ui/Flag.tsx                    # Inline SVG flags (shared)
+│   │   └── ui/LocaleSelect.tsx            # Flag dropdown for forms
+│   ├── context/
+│   │   ├── AuthContext.tsx                    # User session (fetches /api/auth/me)
+│   │   ├── TranslationContext.tsx              # i18n provider, useT() hook
+│   │   └── LocaleFromAuth.tsx                 # Bridges auth locale → translations
 │   ├── hooks/useIsMobile.ts
 │   └── lib/
 │       ├── db.ts                          # PostgreSQL pool (node-pg singleton)
@@ -57,34 +62,104 @@
 
 ## Database Standards
 
-### Every table MUST have these 5 audit columns
+### ⚠️ Primary key: `oid` (UUID) — ALWAYS
 
-| Column       | Type        | Default               | Purpose                                    |
-|--------------|-------------|-----------------------|--------------------------------------------|
-| `oid`        | UUID        | `gen_random_uuid()`   | Immutable unique ID. UNIQUE constraint.    |
-| `created_at` | TIMESTAMPTZ | `NOW()`               | Row creation timestamp                     |
-| `created_by` | citext      | `''`                  | User who created the row                   |
-| `updated_at` | TIMESTAMPTZ | `NOW()`               | Auto-set by trigger on every UPDATE        |
-| `updated_by` | citext      | `''`                  | User who last modified the row             |
+Every table uses `oid uuid DEFAULT gen_random_uuid()` as its **PRIMARY KEY**. No exceptions.
+
+- Natural keys (e.g. `user_id`, `locale + namespace + key`) become **UNIQUE constraints**, not PKs.
+- Serial/integer IDs are kept as regular columns if needed for display, never as PKs.
+- All CRUD operations (select, update, delete) use `WHERE oid = $1::uuid`.
+- The frontend identifies rows by `oid` — row types extend `{ oid: string }`.
+
+### Every table MUST have these 5 standard columns
+
+| Column       | Type           | Default               | Purpose                                    |
+|--------------|----------------|-----------------------|--------------------------------------------|
+| `oid`        | uuid           | `gen_random_uuid()`   | **PRIMARY KEY**. Immutable row identity.   |
+| `created_at` | timestamptz    | `now()`               | Row creation timestamp                     |
+| `created_by` | text           | `''`                  | User who created the row                   |
+| `updated_at` | timestamptz    | `now()`               | Auto-set by trigger on every UPDATE        |
+| `updated_by` | text           | `''`                  | User who last modified the row             |
 
 ### Database rules
 
-- Use `citext` for ALL text columns (case-insensitive by default).
 - The `set_updated_at()` trigger auto-updates `updated_at` — never set it manually in SQL.
 - API routes MUST set `created_by` and `updated_by` from the authenticated user.
-- Primary keys: natural key where one exists (e.g. `user_id`), otherwise `SERIAL id` + the `oid` UUID.
 - All new tables get a migration in `scripts/migrate/NNN_description.py` (Python, idempotent).
-- Table names: `snake_case`, descriptive names (e.g. `pasoe_brokers`, `users`, `audit_log`).
+- Table names: `snake_case`, descriptive names (e.g. `pasoe_brokers`, `users`, `translations`).
 - **One name everywhere**: The table name IS the nav key, API route folder, and grid ID. Example: table `pasoe_brokers` → nav key `pasoe_brokers`, API at `/api/pasoe_brokers`, `gridId: "pasoe_brokers"`. This eliminates mapping tables and keeps navigation, notifications, and audit trail simple.
 
-### Migration script pattern
+### Complete table creation template
+
+Every new table follows this exact pattern. Copy and adapt:
 
 ```python
 #!/usr/bin/env python3
-# scripts/migrate/NNN_description.py
-# Idempotent: CREATE TABLE IF NOT EXISTS, ADD COLUMN IF NOT EXISTS
-# Always include the 5 audit columns (oid, created_at, created_by, updated_at, updated_by)
-# Always create the set_updated_at trigger for the table
+\"\"\"Migration NNN: Create my_table.\"\"\"
+
+import psycopg2
+
+conn = psycopg2.connect(dbname="isolutions", user="ipurchase", password="ipurchase", host="localhost")
+conn.autocommit = True
+cur = conn.cursor()
+
+cur.execute(\"\"\"
+CREATE TABLE IF NOT EXISTS my_table (
+  -- Business columns
+  name            text NOT NULL DEFAULT '',
+  description     text NOT NULL DEFAULT '',
+  is_active       boolean NOT NULL DEFAULT true,
+
+  -- Standard columns (MANDATORY on every table)
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  created_by      text NOT NULL DEFAULT '',
+  updated_at      timestamptz NOT NULL DEFAULT now(),
+  updated_by      text NOT NULL DEFAULT '',
+  oid             uuid NOT NULL DEFAULT gen_random_uuid(),
+
+  -- PK is ALWAYS oid
+  PRIMARY KEY (oid)
+
+  -- Natural keys become UNIQUE constraints (if applicable)
+  -- UNIQUE (name)
+  -- UNIQUE (locale, namespace, key)
+);
+\"\"\")
+print("✓ my_table created")
+
+# Indexes (add as needed for query patterns)
+cur.execute("CREATE INDEX IF NOT EXISTS idx_my_table_name ON my_table(name);")
+print("✓ indexes created")
+
+# Auto-update trigger (MANDATORY on every table)
+cur.execute(\"\"\"
+    CREATE OR REPLACE FUNCTION my_table_set_updated_at()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        NEW.updated_at = now();
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+    DROP TRIGGER IF EXISTS trg_my_table_updated_at ON my_table;
+    CREATE TRIGGER trg_my_table_updated_at
+        BEFORE UPDATE ON my_table
+        FOR EACH ROW EXECUTE FUNCTION my_table_set_updated_at();
+\"\"\")
+print("✓ audit trigger created")
+
+cur.close()
+conn.close()
+print("\\n✅ Migration NNN complete")
+```
+
+### Column comments (for future i18n)
+
+Use PostgreSQL `COMMENT ON COLUMN` to store display labels. These will be used by the translation system when it's wired up:
+
+```sql
+COMMENT ON COLUMN my_table.name IS 'Name';
+COMMENT ON COLUMN my_table.is_active IS 'Active';
 ```
 
 ---
@@ -161,154 +236,122 @@ Do NOT hand-roll AppShell + DataGrid + detail panel layouts. The scaffold guaran
 - Detail right panel: CrudToolbar, error bar, delete confirmation, scrollable form
 - Audit footer: created/updated timestamps and user, with "View history" link
 - Audit grid columns: `created_at`, `created_by`, `updated_at`, `updated_by` auto-injected
-- Audit button + panel: auto-wired when `exportConfig.table` is set
+- Audit button + panel: auto-wired from `apiPath`
 - Desktop: grid starts expanded, collapses to 420px when a record is selected
 - Mobile: full-screen grid → full-screen detail with back arrow
 - All state management: selection, dirty tracking, save/delete/new/copy handlers
 
+**CrudPage auto-derives everything from `apiPath`:**
+- `fetchPage` — generic fetch from `apiPath` with offset/limit/search/sort/filters
+- `gridId` — table name from apiPath (e.g. `/api/users` → `users`)
+- `colTypes` — fetched from `/api/columns?table={tableName}`
+- `emptyRow` — built from column definitions with `oid: ""`
+- `deleteLabel` — first column value of the selected row
+- `detailTitle` — first column value of the selected row
+- `defaultVisible` — first 4 columns
+- `searchPlaceholder` — `"Search {title}..."`
+- `exportConfig` — derived from table name + first 3 searchable columns
+- `copyRow` — spreads row with `oid: ""`
+- Save: `POST apiPath` (new) or `PUT apiPath` (existing, identified by `oid`)
+- Delete: `DELETE apiPath?oid=X`
+- Select: `GET apiPath?oid=X&limit=1`
+
+**Pages are config-only. No CRUD logic, no fetch functions, no type definitions.**
+
 ### How to create a new CRUD page
 
-#### Step 1: Define your row type
+A page is just **config + detail form**. No CRUD logic, no fetch functions, no type definitions.
+
+#### Step 1: Create the API route (1 file, ~15 lines)
 
 ```typescript
-// The row type MUST have an `id: string` field — CrudPage uses it for selection.
-// Include `oid: string` for audit trail support.
-// Map your primary key to `id` in the fetchPage/fetchOne functions.
-type MyRow = {
-  id: string;
-  oid: string;
-  name: string;
-  // ... your fields
-  created_at: string;
-  created_by: string;
-  updated_at: string;
-  updated_by: string;
-};
+// src/app/api/my_table/route.ts
+import { createCrudRoutes } from "@/lib/crud-route";
+
+export const { GET, POST, PUT, DELETE } = createCrudRoutes({
+  table: "my_table",
+  columns: ["name", "description", "is_active"],
+  colTypes: { is_active: "boolean" },
+  defaultSort: "name",
+  searchColumns: ["name", "description"],
+  requiredFields: ["name"],
+});
 ```
 
-#### Step 2: Create the CrudPageConfig
+#### Step 2: Create the page component
 
 ```typescript
-const config: CrudPageConfig<MyRow> = {
-  // ── Page metadata ──
-  title: "My Entity",
-  emptyIcon: "server",                    // Icon name (see Icon Reference below)
-  emptyText: "Select a record",
-  detailTitle: (row) => row.name,         // Shown in mobile detail header
+// src/components/pages/MyTable.tsx
+"use client";
+import { useMemo } from "react";
+import { CrudPage, type CrudPageConfig } from "@/components/crud-page/CrudPage";
+import type { ColumnDef } from "@/components/data-grid/DataGrid";
+import { Section, Field, Input, Checkbox } from "@/components/ui";
 
-  // ── DataGrid ──
-  columns: [
-    { key: "name", header: "Name", locked: true },
-    { key: "status", header: "Status", render: (v) => <Badge variant={...}>{v}</Badge> },
-  ],
-  // Note: created_at, created_by, updated_at, updated_by are auto-injected — don't add them
-  defaultVisible: ["name", "status"],
-  fetchPage: async ({ offset, limit, search, sort, dir, filters }) => {
-    const params = new URLSearchParams({ offset, limit, search, sort, dir, filters });
-    const res = await fetch(`/api/myentity?${params}`);
-    const data = await res.json();
-    return { rows: data.rows.map(r => ({ ...r, id: String(r.id) })), total: data.total };
-  },
-  searchPlaceholder: "Search...",
-  gridId: "myentity",                     // For persisting column preferences
-  colTypesUrl: "/api/myentity/columns",
-  exportConfig: { table: "my_table", searchFields: ["name"], filename: "myentity" },
-  // ↑ exportConfig.table also drives the audit button + panel automatically
+type Row = { oid: string; [key: string]: any };
 
-  // ── Mobile card renderer ──
-  renderCard: (row, isSelected) => (
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <Icon name="server" size={20} />
-      <div>
-        <div style={{ fontWeight: 600 }}>{row.name}</div>
-        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{row.status}</div>
-      </div>
-    </div>
-  ),
+const COLUMNS: ColumnDef<Row>[] = [
+  { key: "name", label: "Name", locked: true },
+  { key: "description", label: "Description" },
+  { key: "is_active", label: "Active" },
+];
 
-  // ── Detail panel (choose ONE) ──
-  // Option A: Simple form (CrudPage wraps in scrollable container)
-  renderDetail: ({ row, onChange }) => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-      <Section title="General">
-        <Field label="Name" required>
-          <Input value={row.name} onChange={v => onChange({ ...row, name: v })} />
-        </Field>
-      </Section>
-    </div>
-  ),
-  // Option B: Tabs (you own the scroll area; set renderDetail: () => null)
-  // renderTabs: ({ row, onChange }) => <MyTabbedForm row={row} onChange={onChange} />,
-
-  // ── Extra toolbar actions ──
-  extraActions: [
-    { key: "notes", icon: "messageSquare", label: "Notes", onClick: () => {} },
-  ],
-  // Note: Audit button is auto-injected — don't add it manually
-
-  // ── CRUD operations ──
-  fetchOne: async (id) => {
-    const res = await fetch(`/api/myentity?id=${id}`);
-    const data = await res.json();
-    return { ...data, id: String(data.id) };
-  },
-  create: async (row) => {
-    const res = await fetch("/api/myentity", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(row) });
-    if (!res.ok) throw new Error((await res.json()).error);
-    const data = await res.json();
-    return { ...data, id: String(data.id) };
-  },
-  update: async (row) => {
-    const res = await fetch("/api/myentity", { method: "PUT", headers: {"Content-Type":"application/json"}, body: JSON.stringify(row) });
-    if (!res.ok) throw new Error((await res.json()).error);
-    const data = await res.json();
-    return { ...data, id: String(data.id) };
-  },
-  remove: async (row) => {
-    await fetch(`/api/myentity?id=${row.id}`, { method: "DELETE" });
-  },
-  emptyRow: () => ({ id: "", oid: "", name: "", status: "", created_at: "", created_by: "", updated_at: "", updated_by: "" }),
-  copyRow: (row) => ({ ...row, id: "", oid: "", name: row.name + " (copy)" }),
-  isNewRow: (row) => !row.id,
-  deleteLabel: (row) => row.name,
-
-  // ── Validation ──
-  validate: (row) => {
-    if (!row.name?.trim()) return "Name is required";
-    return null; // null = valid
-  },
-};
-```
-
-#### Step 3: Export the component
-
-```typescript
-export function MyPage({ activeNav, onNavigate }: {
-  activeNav: string; onNavigate: (k: string) => void;
+function Detail({ row, isNew, onChange }: {
+  row: Row; isNew: boolean; onChange: (field: keyof Row, value: any) => void;
 }) {
-  const renderCard = useCallback((row: MyRow, sel: boolean) => (...), []);
-  const config = useMemo<CrudPageConfig<MyRow>>(() => ({ ... }), [renderCard]);
-  return <CrudPage config={config} activeNav={activeNav} onNavigate={onNavigate} />;
+  return (
+    <Section title="General">
+      <Field label="Name"><Input value={row.name} onChange={v => onChange("name", v)} autoFocus={isNew} /></Field>
+      <Field label="Description"><Input value={row.description} onChange={v => onChange("description", v)} /></Field>
+      <Field label="Active"><Checkbox checked={row.is_active} onChange={v => onChange("is_active", v)} /></Field>
+    </Section>
+  );
+}
+
+export default function MyTable({ activeNav, onNavigate, selectRecordOid, selectSeq }: {
+  activeNav: string; onNavigate: (k: string, oid?: string) => void; selectRecordOid?: string; selectSeq?: number;
+}) {
+  const config = useMemo((): CrudPageConfig<Row> => ({
+    title: "My Table",
+    apiPath: "/api/my_table",
+    columns: COLUMNS,
+    renderDetail: (props) => <Detail {...props} />,
+  }), []);
+
+  return <CrudPage config={config} activeNav={activeNav} onNavigate={onNavigate}
+    selectRecordOid={selectRecordOid} selectSeq={selectSeq} />;
 }
 ```
 
-#### Step 4: Register in the router
+That's it. **4 required config fields**: `title`, `apiPath`, `columns`, `renderDetail`.
+
+#### Step 3: Register in the router
 
 In `src/app/page.tsx`:
 ```typescript
-if (activeNav === "my_table") return <MyPage activeNav={activeNav} onNavigate={setActiveNav} />;
+import MyTable from "@/components/pages/MyTable";
+// ...
+if (activeNav === "my_table") return <MyTable activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={recordOid} selectSeq={selectSeq} />;
 ```
 
 And add a nav entry in `src/components/shell/Sidebar.tsx`.
+
+#### Optional page features
+
+| Feature | How |
+|---------|-----|
+| Tabbed detail form | Provide `renderTabs` instead of `renderDetail` |
+| Custom list card | Provide `renderCard` |
+| Extra toolbar buttons | Provide `extraActions` |
 
 ### renderDetail vs renderTabs
 
 | Mode | When to use | Who owns scroll? |
 |------|-------------|------------------|
-| `renderDetail` | Simple form, no tabs | CrudPage wraps in `<div class="flex-1 overflow-y-auto p-4 sm:p-5">` |
-| `renderTabs` | Tabbed interface | YOU own the scroll container. Render `<TabBar>` + your own scrollable content. |
+| `renderDetail` | Simple form, no tabs | CrudPage wraps in scrollable container |
+| `renderTabs` | Tabbed interface | YOU own the scroll. Render `<TabBar>` + scrollable content. |
 
-When using `renderTabs`, set `renderDetail: () => null` (it's ignored but TypeScript wants it).
+When using `renderTabs`, `renderDetail` can be omitted.
 
 ---
 
@@ -401,7 +444,7 @@ export async function DELETE(req: NextRequest) {
 - POST returns **201**, PUT returns **200**, unique violations return **409**
 - NEVER set `updated_at` in SQL — the trigger handles it
 
-### 2. `/api/{entity}/columns/route.ts` — Column type metadata
+### 2. `/api/columns?table={entity}` — Column type metadata (generic)
 
 ```typescript
 import { NextResponse } from "next/server";
@@ -484,30 +527,204 @@ Status:      --danger-text
 
 ## Current Tables
 
-| Table | Purpose | Screen |
-|-------|---------|--------|
-| `users` | User accounts, profiles, permissions | UsersPage |
-| `pasoe_brokers` | PASOE/QAD broker connection configs | PasoeBrokers |
-| `audit_log` | Field-level change history (auto-populated by triggers) | AuditPanel (shared) |
-| `sessions` | Auth sessions | — |
-| `grid_prefs` | Per-user DataGrid column visibility prefs | — |
+| Table | Purpose | PK | Natural Key |
+|-------|---------|-----|-------------|
+| `users` | User accounts, profiles, permissions | `oid` | `user_id` (UNIQUE) |
+| `pasoe_brokers` | PASOE/QAD broker connection configs | `oid` | — |
+| `audit_log` | Field-level change history | `oid` | — |
+| `grid_defaults` | Default grid column visibility | `oid` | `grid_id` (UNIQUE) |
+| `grid_user_prefs` | Per-user grid column prefs | `oid` | `(grid_id, user_id)` (UNIQUE) |
+| `saved_filters` | Saved advanced search filters | `oid` | — |
+| `notes` | Notes/comments on any record | `id` (serial) | — |
+| `note_attachments` | File attachments on notes | `id` (serial) | — |
+| `note_mentions` | @mention tracking for notifications | `id` (serial) | — |
+| `notifications` | User notification queue | `oid` | — |
+| `locales` | Language definitions (date/number format) | `oid` | `code` (UNIQUE) |
+| `translations` | i18n string translations | `oid` | `(locale, namespace, key)` (UNIQUE) |
 
 ---
 
 ## Anti-Patterns — DO NOT
 
 - Hand-roll AppShell + DataGrid + detail layouts — use CrudPage scaffold
-- Put layout or state management code in page components — pages are config-only
+- Put CRUD logic in page components — pages are config-only (title, apiPath, columns, renderDetail)
+- Define TypeScript types that duplicate DB schema — use `{ oid: string; [key: string]: any }`
+- Define `fetchPage`, `emptyRow`, `deleteLabel`, `gridId`, `exportConfig` in page config — CrudPage auto-derives all of these from `apiPath`
+- Use anything other than `oid` as a primary key
+- Use natural keys as primary keys — they become UNIQUE constraints
 - Hardcode colors — use CSS custom properties
-- Skip audit columns on any table
+- Skip the 5 standard columns on any table (`oid`, `created_at`, `created_by`, `updated_at`, `updated_by`)
 - Add created/updated fields to detail forms — the CrudPage footer handles it automatically
-- Add `auditConfig` to page configs — audit auto-derives from `exportConfig.table` + `row.oid`
-- Manually define `created_at`/`created_by`/`updated_at`/`updated_by` grid columns — CrudPage auto-injects them
 - Interpolate user input into SQL — use parameterized queries
 - Set `updated_at` manually — the trigger handles it
-- Create API routes without `ALLOWED_COLUMNS` whitelist
-- Use `LIMIT` without `OFFSET` — always support pagination
-- Forget the `/columns` route — DataGrid needs it for AdvancedSearch filter types
 - Return 200 from POST — use 201 for creation
-- Hardcode table names in audit-log API whitelist — it dynamically checks for triggers
 - Use different names for table vs nav key vs API route vs gridId — they must all match the table name
+
+---
+
+## Internationalization (i18n)
+
+### Architecture Overview
+
+The i18n system is database-driven with a React context that provides reactive translations. Locale switching is instant (no page reload) and persists across sessions.
+
+```
+User refreshes → AuthProvider fetches GET /api/auth/me → user.locale
+  → LocaleFromAuth passes locale to TranslationProvider
+    → TranslationProvider fetches GET /api/translations/bundle?locale=fr
+      → All components re-render with translated strings
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `src/context/TranslationContext.tsx` | `TranslationProvider`, `useTranslation()`, `useT()` hooks |
+| `src/context/LocaleFromAuth.tsx` | Bridges AuthContext locale → TranslationProvider |
+| `src/context/AuthContext.tsx` | Fetches user profile (including locale) from `/api/auth/me` |
+| `src/components/shell/LocalePicker.tsx` | Header locale switcher (flag + dropdown) |
+| `src/components/ui/Flag.tsx` | Shared inline SVG flag component (works on Windows) |
+| `src/components/ui/LocaleSelect.tsx` | Dropdown with flags for forms (used in user profile) |
+| `src/app/api/translations/bundle/route.ts` | Returns flat `{ "namespace.key": "value" }` map for a locale |
+| `src/app/api/translations/inline/route.ts` | PUT endpoint for inline translation editing |
+| `src/app/api/users/locale/route.ts` | PUT endpoint to persist user's locale preference |
+| `src/app/api/auth/me/route.ts` | Returns authenticated user's profile including saved locale |
+
+### Database Tables
+
+**`locales`** — Language definitions
+- `code` (text, UNIQUE) — e.g. `en-us`, `fr`, `ja`
+- `description` (text) — e.g. `English (US)`, `French`
+- `date_format`, `number_format`, `is_active`
+
+**`translations`** — All translated strings
+- `locale` (text) — locale code
+- `namespace` (text) — grouping key (e.g. `users`, `nav`, `crud`)
+- `key` (text) — field key within namespace (e.g. `full_name`, `save`)
+- `value` (text) — translated string
+- UNIQUE constraint on `(locale, namespace, key)`
+
+### How to Use Translations in Components
+
+```typescript
+import { useT } from "@/context/TranslationContext";
+
+function MyComponent() {
+  const t = useT();
+  return <span>{t("users.full_name", "Full Name")}</span>;
+  //                ^^ namespace.key    ^^ fallback (English)
+}
+```
+
+**Rules:**
+- Always provide an English fallback as the second argument
+- Key format: `namespace.key` (e.g. `users.email`, `nav.settings`, `crud.save`)
+- The fallback ensures the UI is always readable, even before translations load
+
+### Making Dynamic Content Reactive to Locale Changes
+
+When labels are computed in `useMemo` or module-level constants, they won't update when the locale changes. Fix:
+
+**Problem — module-level constant (not reactive):**
+```typescript
+// ❌ BAD: Never re-evaluates when locale changes
+const COLUMNS = [
+  { key: "name", label: "Name" },
+];
+```
+
+**Solution — inside component with `useMemo([t])`:**
+```typescript
+// ✅ GOOD: Re-computes when translations change
+function MyPage() {
+  const t = useT();
+  const columns = useMemo(() => [
+    { key: "name", label: t("my_table.name", "Name") },
+  ], [t]);
+}
+```
+
+**Same pattern for nav items, extra actions, tab definitions** — anything with user-visible labels must have `t` in its dependency array.
+
+### Sub-Components Need Their Own `useT()`
+
+React hooks must be called at the top level of each component. If a parent and child both need `t()`, each must call `useT()` independently:
+
+```typescript
+// ❌ BAD: t is not defined in this scope
+function ChildComponent() {
+  return <span>{t("key", "fallback")}</span>;
+}
+
+// ✅ GOOD: Each component calls the hook
+function ChildComponent() {
+  const t = useT();
+  return <span>{t("key", "fallback")}</span>;
+}
+```
+
+### Locale Persistence Flow
+
+1. **User changes language** via LocalePicker or profile form
+2. `setLocale(code)` updates TranslationContext immediately (instant UI switch)
+3. `PUT /api/users/locale` persists the choice to the `users` table
+4. **On next refresh/login**: `GET /api/auth/me` returns saved `locale`
+5. `LocaleFromAuth` passes it to `TranslationProvider` as `defaultLocale`
+6. `TranslationProvider` syncs via `useEffect([defaultLocale])` when auth loads
+
+### Adding a New Locale
+
+1. Insert into `locales` table: `INSERT INTO locales (code, description) VALUES ('xx', 'Language Name')`
+2. Add translations to `translations` table for all namespaces/keys
+3. Add flag SVG to `src/components/ui/Flag.tsx`
+4. The locale automatically appears in LocalePicker and LocaleSelect
+
+### Adding Translations for a New Page
+
+When creating a new CRUD page, add translation keys for:
+- Column labels: `{table}.{column_name}` (e.g. `my_table.name`)
+- Section titles: `{table}.section_{name}` (e.g. `my_table.section_general`)
+- Any custom labels: `{table}.{descriptive_key}`
+
+Insert for all active locales:
+```sql
+INSERT INTO translations (locale, namespace, key, value) VALUES
+  ('en-us', 'my_table', 'name', 'Name'),
+  ('fr',    'my_table', 'name', 'Nom'),
+  -- ... for each locale
+```
+
+### Shared Translation Namespaces
+
+| Namespace | Used for | Examples |
+|-----------|----------|----------|
+| `crud` | CrudPage toolbar/scaffold | `crud.save`, `crud.delete`, `crud.new`, `crud.confirm_delete` |
+| `nav` | Sidebar navigation labels | `nav.users`, `nav.settings`, `nav.approvals` |
+| `grid` | DataGrid UI | `grid.search`, `grid.columns`, `grid.export` |
+| `filter` | Advanced search | `filter.add_condition`, `filter.apply`, `filter.clear` |
+| `users` | Users page fields | `users.full_name`, `users.email`, `users.cell_phone` |
+
+### Flag Component
+
+`<Flag code="fr" size={16} />` renders an inline SVG flag. Supported codes: `en-us`, `en-uk`, `es`, `fr`, `de`, `it-it`, `pt`, `nl`, `pl`, `ru`, `cs`, `ja`, `ko`, `zh-cn`, `zh-tw`, `he`. Unknown codes fall back to a globe icon.
+
+Flags are SVG (not emoji) because Windows doesn't render flag emoji.
+
+### LocaleSelect Component
+
+For forms that need a language picker with flags:
+
+```typescript
+import { LocaleSelect } from "@/components/ui/LocaleSelect";
+
+<LocaleSelect
+  value={user.locale}
+  onChange={v => onChange("locale", v)}
+  options={localeOpts}  // { value: "fr", label: "fr — French" }[]
+/>
+```
+
+Displays: 🇫🇷 French (flag + description, no code prefix).
+
+---
+

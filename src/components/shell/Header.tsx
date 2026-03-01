@@ -2,6 +2,7 @@
 
 import { Icon } from "@/components/icons/Icon";
 import { ThemeToggle } from "@/components/theme";
+import { LocalePicker } from "./LocalePicker";
 import type { ReactNode } from "react";
 
 interface HeaderProps {
@@ -52,6 +53,8 @@ export function Header({
       <div className="flex-1" />
 
       <ThemeToggle />
+
+      <LocalePicker />
 
       {notificationSlot}
 
