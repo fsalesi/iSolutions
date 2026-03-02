@@ -967,8 +967,10 @@ All colors are defined as CSS custom properties in `src/app/globals.css` with li
 6. [ ] **Page component**: `src/components/pages/MyPage.tsx` — config-only, uses `<CrudPage>`
 7. [ ] **Router entry**: `if (activeNav === "x")` in `src/app/page.tsx`
 8. [ ] **Sidebar entry**: Nav item in `src/components/shell/Sidebar.tsx` — key MUST match table name
-9. [ ] **Verify**: Grid loads, search works, select shows detail, save/new/delete/copy all work
-10. [ ] **Verify audit**: Footer shows timestamps, Audit button opens panel, changes are tracked
+9. [ ] **Translations**: Add `{table}.field.{column}` rows for ALL columns (including `created_at`, `created_by`, `updated_at`, `updated_by`) × all 16 locales. See "Column Label Translations" below.
+10. [ ] **Verify**: Grid loads, search works, select shows detail, save/new/delete/copy all work
+11. [ ] **Verify audit**: Footer shows timestamps, Audit button opens panel, changes are tracked
+12. [ ] **Verify i18n**: Switch to non-English locale, confirm all column headers in grid/column picker/advanced search are translated
 
 ---
 
@@ -1241,6 +1243,28 @@ INSERT INTO translations (locale, namespace, key, value) VALUES
   ('fr',    'my_table', 'field.name', 'Nom'),
   -- ... for each locale
 ```
+
+### Column Label Translations (CRITICAL)
+
+**Every column** visible in the grid needs a `{table}.field.{column}` translation for each of the 16 locales. This includes the 4 audit columns that appear on every table.
+
+**How it works:** `useSchemaDiscovery` fetches columns from `/api/columns?table={table}`, then resolves labels via `t("{table}.field.{column}", humanize(column))`. If no translation exists, the humanized fallback shows in English regardless of locale.
+
+**Required for every CrudPage table** (16 locales × every column):
+```
+{table}.field.{column}          — one per column per locale
+{table}.field.created_at        — "Created" / "Creato" / "Erstellt" / ...
+{table}.field.created_by        — "Created By" / "Creato da" / ...
+{table}.field.updated_at        — "Updated" / "Aggiornato" / ...
+{table}.field.updated_by        — "Updated By" / "Aggiornato da" / ...
+```
+
+**When adding/removing a DB column:**
+- Adding a column → add `{table}.field.{column}` translations for all 16 locales
+- Removing a column → delete the corresponding translations
+- Removing from route only → no translation cleanup needed (column still in DB)
+
+**Active locales** (16): en-us, en-uk, es, de, fr, it-it, pt, nl, pl, ru, zh-cn, zh-tw, ja, ko, cs, he
 
 ### Shared Translation Namespaces
 
