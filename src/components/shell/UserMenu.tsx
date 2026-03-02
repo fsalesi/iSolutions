@@ -95,11 +95,11 @@ export function UserMenu({ onNavigate }: UserMenuProps) {
         onClick={() => { setOpen(o => !o); setLangOpen(false); }}
         className="flex items-center gap-2 px-1.5 py-1 rounded-md transition-colors"
         style={{
-          background: open ? "var(--bg-hover)" : "transparent",
-          color: "var(--text-secondary)",
+          background: open ? "rgba(255,255,255,0.1)" : "transparent",
+          color: "var(--header-text)",
         }}
-        onMouseEnter={e => { if (!open) e.currentTarget.style.background = "var(--bg-hover)"; }}
-        onMouseLeave={e => { if (!open) e.currentTarget.style.background = open ? "var(--bg-hover)" : "transparent"; }}
+        onMouseEnter={e => { if (!open) e.currentTarget.style.background = "rgba(255,255,255,0.1)"; }}
+        onMouseLeave={e => { if (!open) e.currentTarget.style.background = open ? "rgba(255,255,255,0.1)" : "transparent"; }}
       >
         <span className="hidden md:inline text-xs">{user.fullName || user.userId}</span>
         <UserAvatar oid={user.oid} initials={userInitials} size={28} />

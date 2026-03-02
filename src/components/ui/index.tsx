@@ -10,7 +10,7 @@ export function Section({ title, children }: { title: string; children: ReactNod
     <div>
       <h3
         className="text-xs font-semibold uppercase tracking-wider mb-3"
-        style={{ color: "var(--text-muted)" }}
+        style={{ color: "var(--section-title)" }}
       >
         {title}
       </h3>

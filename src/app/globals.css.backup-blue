@@ -9,43 +9,37 @@
   color-scheme: light;
 
   /* ── Surface / Background ── */
-  --bg-body:        #f5f5f5;
+  --bg-body:        #f8fafc;
   --bg-surface:     #ffffff;
-  --bg-surface-alt: #f0f0f2;
-  --bg-hover:       #f0f0f2;
-  --bg-selected:    #eef3f9;
+  --bg-surface-alt: #f1f5f9;
+  --bg-hover:       #f1f5f9;
+  --bg-selected:    #eff6ff;
   --bg-overlay:     rgba(0,0,0,0.4);
 
-  /* ── Sidebar (ISS dark navy) ── */
-  --sidebar-bg:         #141937;
-  --sidebar-text:       #8b92b3;
+  /* ── Sidebar ── */
+  --sidebar-bg:         #0f172a;
+  --sidebar-text:       #94a3b8;
   --sidebar-text-hover: #ffffff;
-  --sidebar-active-bg:  rgba(230,57,70,0.18);
-  --sidebar-active-text:#ff6b7a;
-  --sidebar-border:     rgba(60,65,100,0.5);
-  --sidebar-section:    #5c6280;
-
-  /* ── Header (ISS navy bar) ── */
-  --header-bg:          #1b2159;
-  --header-text:        #ffffff;
-  --header-text-muted:  #a0a8c8;
-  --header-border:      rgba(255,255,255,0.08);
+  --sidebar-active-bg:  rgba(37,99,235,0.15);
+  --sidebar-active-text:#60a5fa;
+  --sidebar-border:     rgba(51,65,85,0.5);
+  --sidebar-section:    #64748b;
 
   /* ── Text ── */
-  --text-primary:   #1b2159;
-  --text-secondary: #4a4f6e;
-  --text-muted:     #8b92b3;
+  --text-primary:   #0f172a;
+  --text-secondary: #475569;
+  --text-muted:     #94a3b8;
   --text-inverse:   #ffffff;
 
   /* ── Borders ── */
-  --border:         #dfe1e8;
-  --border-light:   #eeeff3;
-  --border-focus:   #3a86c4;
+  --border:         #e2e8f0;
+  --border-light:   #f1f5f9;
+  --border-focus:   #60a5fa;
 
-  /* ── Accent (ISS red) ── */
-  --accent:         #e63946;
-  --accent-hover:   #cf2f3c;
-  --accent-light:   #fde8ea;
+  /* ── Accent (blue) ── */
+  --accent:         #2563eb;
+  --accent-hover:   #1d4ed8;
+  --accent-light:   #dbeafe;
   --accent-text:    #ffffff;
 
   /* ── Status ── */
@@ -59,16 +53,13 @@
 
   /* ── Form ── */
   --input-bg:       #ffffff;
-  --input-border:   #c8cad4;
-  --input-bg-ro:    #f5f5f7;
-  --input-border-ro:#dfe1e8;
-
-  /* ── Section Headers (ISS teal-blue) ── */
-  --section-title:  #0e86ca;
+  --input-border:   #cbd5e1;
+  --input-bg-ro:    #f8fafc;
+  --input-border-ro:#e2e8f0;
 
   /* ── Misc ── */
-  --ring-focus:     rgba(58,134,196,0.25);
-  --shadow-sm:      0 1px 2px rgba(0,0,0,0.06);
+  --ring-focus:     rgba(59,130,246,0.2);
+  --shadow-sm:      0 1px 2px rgba(0,0,0,0.05);
   --shadow-md:      0 4px 6px -1px rgba(0,0,0,0.1);
 
   /* ── Layout ── */
@@ -95,12 +86,6 @@
   --sidebar-active-text:#60a5fa;
   --sidebar-border:     rgba(30,41,59,0.8);
   --sidebar-section:    #475569;
-
-  /* ── Header ── */
-  --header-bg:          #0d1020;
-  --header-text:        #e2e8f0;
-  --header-text-muted:  #64748b;
-  --header-border:      rgba(255,255,255,0.06);
 
   /* ── Text ── */
   --text-primary:   #e2e8f0;
@@ -133,9 +118,6 @@
   --input-border:   #2d3754;
   --input-bg-ro:    #151927;
   --input-border-ro:#1e293b;
-
-  /* ── Section Headers ── */
-  --section-title:  #38bdf8;
 
   /* ── Misc ── */
   --ring-focus:     rgba(59,130,246,0.3);

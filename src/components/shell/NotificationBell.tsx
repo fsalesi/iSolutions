@@ -198,7 +198,7 @@ export function NotificationBell({ onNavigate }: NotificationBellProps) {
         className={bellAnim ? "notif-bell-swing" : ""}
         style={{
           background: "none", border: "none", cursor: "pointer",
-          position: "relative", padding: 6, color: "var(--text-secondary)",
+          position: "relative", padding: 6, color: "var(--header-text-muted)",
           transformOrigin: "top center",
         }}
         title="Notifications"
