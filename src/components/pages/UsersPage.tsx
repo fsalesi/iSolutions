@@ -96,7 +96,7 @@ function ProfileTab({ user, onChange, isNew, colTypes, colScales, requiredFields
     <div className="space-y-6">
       <Section title={t("users.section_status", "Status")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-          {field("is_active", { colorOn: "var(--success-text)", colorOff: "var(--danger-text)" })}
+          {field("is_active", { colorOn: "var(--success-text)" })}
         </div>
       </Section>
       <Section title={t("users.section_identity", "Identity")}>
@@ -106,7 +106,10 @@ function ProfileTab({ user, onChange, isNew, colTypes, colScales, requiredFields
           {field("email", { type: "email" })}
           {field("company")}
           {field("title")}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 mt-4">
           {field("domains", { type: "lookup", lookup: DomainLookup({ multiple: true }) })}
+          {!isNew && <UserGroupsField userId={user.user_id} />}
         </div>
       </Section>
       <Section title={t("users.section_contact", "Contact")}>
@@ -125,13 +128,7 @@ function ProfileTab({ user, onChange, isNew, colTypes, colScales, requiredFields
         {field("expire_date")}
         {field("locale", { type: "lookup", lookup: LocaleLookup({ dropdownColumns: [{ key: "flag_svg", type: "flag" }, "description"] }) })}
       </div>
-      {!isNew && (
-        <Section title={t("users.section_groups", "Groups")}>
-          <div>
-            <UserGroupsField userId={user.user_id} />
-          </div>
-        </Section>
-      )}
+
     </div>
   );
 }

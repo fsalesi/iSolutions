@@ -42,10 +42,10 @@
   --border-light:   #eeeff3;
   --border-focus:   #3a86c4;
 
-  /* ── Accent (ISS red) ── */
-  --accent:         #e63946;
-  --accent-hover:   #cf2f3c;
-  --accent-light:   #fde8ea;
+  /* ── Accent (ISS blue) ── */
+  --accent:         #0e86ca;
+  --accent-hover:   #0b6fa8;
+  --accent-light:   #e6f3fb;
   --accent-text:    #ffffff;
 
   /* ── Status ── */

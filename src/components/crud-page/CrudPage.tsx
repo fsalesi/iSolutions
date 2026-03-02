@@ -8,6 +8,7 @@ import { Icon } from "@/components/icons/Icon";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSession } from "@/context/SessionContext";
 import { useT } from "@/context/TranslationContext";
+import { useConfirm } from "@/context/ConfirmContext";
 import { AppShell } from "@/components/shell";
 import { AuditPanel } from "@/components/audit-panel/AuditPanel";
 import { NotesPanel } from "@/components/notes-panel/NotesPanel";
@@ -190,6 +191,7 @@ export interface CrudPageConfig<TRow extends { oid: string }> {
     onChange: (field: keyof TRow, value: any) => void;
     colTypes: Record<string, string>;
     colScales: Record<string, number>;
+    requiredFields: string[];
   }) => ReactNode;
 
 
@@ -203,6 +205,7 @@ export interface CrudPageConfig<TRow extends { oid: string }> {
     onChange: (field: keyof TRow, value: any) => void;
     colTypes: Record<string, string>;
     colScales: Record<string, number>;
+    requiredFields: string[];
   }) => ReactNode;
   /** Extra toolbar actions beyond the defaults */
   extraActions?: CrudAction[];
@@ -235,6 +238,7 @@ export function CrudPage<TRow extends { oid: string }>({
   const isMobile = useIsMobile();
   const { user } = useSession();
   const t = useT();
+  const confirm = useConfirm();
 
   const AUDIT_GRID_COLUMNS: ColumnDef<any>[] = useMemo(() => [
     { key: "created_at" },
@@ -245,6 +249,8 @@ export function CrudPage<TRow extends { oid: string }>({
 
   const [colTypes, setColTypes] = useState<Record<string, ColType>>({});
   const [colScales, setColScales] = useState<Record<string, number>>({});
+  const [requiredFields, setRequiredFields] = useState<string[]>([]);
+  const requiredFieldsSet = useRef(false);
 
   // ── Auto-derive everything from apiPath ──
   const tableName = config.apiPath.replace("/api/", "");
@@ -302,7 +308,14 @@ export function CrudPage<TRow extends { oid: string }>({
     const res = await fetch(`${config.apiPath}?${params}`);
     return res.json();
   };
-  const fetchPage = genericFetchPage;
+  const fetchPage: FetchPage<TRow> = async (params) => {
+    const result = await genericFetchPage(params);
+    if (result.requiredFields && !requiredFieldsSet.current) {
+      requiredFieldsSet.current = true;
+      setRequiredFields(result.requiredFields);
+    }
+    return result;
+  };
 
 
 
@@ -320,6 +333,8 @@ export function CrudPage<TRow extends { oid: string }>({
 
   const [form, setForm] = useState<TRow>(emptyRow());
   const [isDirty, setIsDirty] = useState(false);
+  const dirtyRef = useRef(false);
+  useEffect(() => { dirtyRef.current = isDirty; }, [isDirty]);
   const [isNew, setIsNew] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -330,7 +345,23 @@ export function CrudPage<TRow extends { oid: string }>({
   const [noteCount, setNoteCount] = useState(0);
 
 
-  const handleSelect = useCallback((oid: string) => {
+  // ── Dirty-form guard ──
+  const confirmDiscard = useCallback(async () => {
+    if (!dirtyRef.current) return true;
+    return confirm({ message: t("crud.unsaved_warning", "You have unsaved changes. Discard them?"), confirmLabel: t("crud.discard", "Discard") });
+  }, [t, confirm]);
+
+  // Browser close / refresh guard
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirtyRef.current) { e.preventDefault(); }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
+
+  const handleSelect = useCallback(async (oid: string) => {
+    if (!(await confirmDiscard())) return;
     setSelectedOid(oid);
     setIsNew(false);
     setIsDirty(false);
@@ -347,7 +378,7 @@ export function CrudPage<TRow extends { oid: string }>({
       });
     if (isMobile) setMobileShowDetail(true);
     else setExpanded(false);
-  }, [isMobile, config]);
+  }, [isMobile, config, confirmDiscard]);
 
   // ── Select record by OID (deep link / notification click) ──
   useEffect(() => {
@@ -365,7 +396,8 @@ export function CrudPage<TRow extends { oid: string }>({
 
   const handleBack = useCallback(() => setMobileShowDetail(false), []);
 
-  const handleNew = useCallback(() => {
+  const handleNew = useCallback(async () => {
+    if (!(await confirmDiscard())) return;
     setSelectedOid(null);
     setSelectedRec(null);
     setForm(emptyRow());
@@ -378,7 +410,7 @@ export function CrudPage<TRow extends { oid: string }>({
     document.querySelectorAll('.fld-err-msg').forEach(el => el.remove());
     if (isMobile) setMobileShowDetail(true);
     else setExpanded(false);
-  }, [isMobile, config]);
+  }, [isMobile, config, confirmDiscard]);
 
   const handleSave = useCallback(async () => {
     // DOM-based required field validation
@@ -526,7 +558,7 @@ export function CrudPage<TRow extends { oid: string }>({
     };
   });
 
-  const detailProps = { row: form, isNew, onChange: handleFieldChange, colTypes, colScales };
+  const detailProps = { row: form, isNew, onChange: handleFieldChange, colTypes, colScales, requiredFields };
 
   // Detail content: renderTabs owns the full area, renderDetail gets a scrollable wrapper.
   // In both cases, the footer is rendered OUTSIDE / AFTER the scrollable area.
@@ -542,7 +574,7 @@ export function CrudPage<TRow extends { oid: string }>({
   const showFooter = hasRecord && !isNew && !!form.oid;
 
   return (
-    <AppShell title={shellTitle} showBack={mobileShowDetail} onBack={handleBack} activeNav={activeNav} onNavigate={onNavigate}>
+    <AppShell title={shellTitle} showBack={mobileShowDetail} onBack={handleBack} activeNav={activeNav} onNavigate={async (k: string, oid?: string) => { if (!(await confirmDiscard())) return; onNavigate(k, oid); }}>
       <div ref={containerRef} className="flex flex-col lg:flex-row h-full overflow-hidden">
 
         {/* Left: Data Grid */}
