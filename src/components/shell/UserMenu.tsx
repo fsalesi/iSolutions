@@ -199,8 +199,8 @@ export function UserMenu({ onNavigate }: UserMenuProps) {
 
 function UserAvatar({ oid, initials, size }: { oid: string; initials: string; size: number }) {
   const [error, setError] = React.useState(false);
-  const src = oid ? `/api/users/photo?oid=${oid}&t=${Date.now()}` : "";
-  React.useEffect(() => { setError(false); }, [src]);
+  const src = oid ? `/api/users/photo?oid=${oid}` : "";
+  React.useEffect(() => { setError(false); }, [oid]);
 
   if (!src || error) {
     return (
