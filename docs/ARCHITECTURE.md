@@ -3,6 +3,25 @@
 > **This document is the single source of truth for AI assistants building iSolutions pages.**
 > Read it BEFORE writing any code. Follow every pattern exactly.
 
+## Table of Contents
+
+- [Tech Stack](#tech-stack)
+- [Project Layout](#project-layout)
+- [Database Standards](#database-standards)
+- [Audit Trail System](#audit-trail-system)
+- [Frontend Architecture](#frontend-architecture)
+- [API Route Pattern](#api-route-pattern)
+- [UI Component Reference](#ui-component-reference)
+- [Checklist: Adding a New CRUD Screen](#checklist-adding-a-new-crud-screen)
+- [Current Tables](#current-tables)
+- [Settings Helpers (`src/lib/settings.ts`)](#settings-helpers-srclibsettingsts)
+- [Lookup System (Autocomplete + Browse)](#lookup-system-autocomplete-browse)
+- [Groups & Group Members](#groups-group-members)
+- [Anti-Patterns — DO NOT](#anti-patterns-do-not)
+- [Internationalization (i18n)](#internationalization-i18n)
+
+---
+
 ## Tech Stack
 
 - **Framework**: Next.js 15 (App Router), React 19, TypeScript
@@ -36,9 +55,25 @@
 │   │   ├── icons/Icon.tsx                 # SVG icon system
 │   │   ├── pages/                         # One file per screen (config-only, zero layout)
 │   │   │   ├── UsersPage.tsx
-│   │   │   └── PasoeBrokers.tsx
+│   │   │   ├── GroupsPage.tsx
+│   │   │   ├── Settings.tsx
+│   │   │   ├── PasoeBrokers.tsx
+│   │   │   ├── Locales.tsx
+│   │   │   ├── Translations.tsx
+│   │   │   └── Profile.tsx
 │   │   ├── shell/                         # AppShell, Header, Sidebar
 │   │   ├── theme/                         # ThemeProvider, ThemeToggle
+│   │   ├── lookup/                         # Lookup (autocomplete + browse) system
+│   │   │   ├── Lookup.tsx                 # Main component: dropdown + search + browse
+│   │   │   ├── LookupBrowseModal.tsx      # Full-screen modal with DataGrid for browsing
+│   │   │   ├── LookupTypes.ts             # LookupConfig interface
+│   │   │   └── presets/                   # Pre-configured lookup factories
+│   │   │       ├── UserLookup.ts          # Users (with browse modal)
+│   │   │       ├── ActiveUserLookup.ts    # Active users only (extends UserLookup)
+│   │   │       ├── DomainLookup.ts        # Domains from ALLOWED_DOMAINS setting
+│   │   │       ├── GroupLookup.ts         # Groups (preloaded)
+│   │   │       └── LocaleLookup.ts        # Locales with flag icons
+│   │   ├── ui/useFieldHelper.tsx           # Auto-wired form field helper
 │   │   ├── ui/index.tsx                   # Primitives: Section, Field, Input, Select, Checkbox, Badge, TabBar
 │   │   ├── ui/Flag.tsx                    # Inline SVG flags (shared)
 │   │   └── ui/LocaleSelect.tsx            # Flag dropdown for forms
@@ -50,17 +85,27 @@
 │   └── lib/
 │       ├── db.ts                          # PostgreSQL pool (node-pg singleton)
 │       ├── config.ts                      # Environment config
+│       ├── auth.ts                        # getCurrentUser() for auth context
 │       ├── filter-sql.ts                  # Advanced filter → parameterized SQL
 │       ├── substitute.ts                   # {named} param substitution for i18n
-│       ├── crud-route.ts                  # Generic CRUD handler + ValidationError + backend i18n helpers
+│       ├── translate.ts                   # Backend i18n: translateMessage, getUserLocale
+│       ├── settings.ts                    # Setting cascade: getSetting, getSystemSetting, etc.
+│       ├── crud-route.ts                  # Generic CRUD handler factory (createCrudRoutes)
 │       └── hooks/                         # Server-side CRUD hooks (per-entity validation/logic)
-│           ├── index.ts                   # Hook registry (getHooks)
-│           ├── users-hooks.ts             # Users: delegate validation, etc.
-│           └── customers-hooks.ts         # Customers: custom validation
+│           ├── index.ts                   # Hook registry (getHooks) + ValidationError
+│           └── users-hooks.ts             # Users: delegate validation, etc.
 ├── scripts/migrate/                       # Numbered Python migration scripts
-│   ├── 001_initial.py                     # Users table, sessions, etc.
+│   ├── 001_users.py                       # Users table, sessions, etc.
 │   ├── 002_audit_columns.py              # Adds 5 audit columns to all tables
-│   └── 003_audit_log.py                  # Audit trail table + triggers
+│   ├── 003_audit_log.py                  # Audit trail table + triggers
+│   ├── 004_notes.py                      # Notes, attachments, mentions
+│   ├── 005_oid_primary_keys.py           # Migrate all PKs to oid (UUID)
+│   ├── 006_translations.py              # Locales + translations tables
+│   ├── 007_dates_to_timestamptz.py       # Date columns → timestamptz
+│   ├── 008_locale_flags.py              # Flag SVGs for locales
+│   ├── 009_settings.py                  # System settings table
+│   ├── 010_user_photo.py               # User profile photos
+│   └── 011_groups.py                    # Groups + group_members tables
 └── docs/ARCHITECTURE.md                   # ← YOU ARE HERE
 ```
 
@@ -92,7 +137,66 @@ Every table uses `oid uuid DEFAULT gen_random_uuid()` as its **PRIMARY KEY**. No
 - The `set_updated_at()` trigger auto-updates `updated_at` — never set it manually in SQL.
 - API routes MUST set `created_by` and `updated_by` from the authenticated user.
 - All new tables get a migration in `scripts/migrate/NNN_description.py` (Python, idempotent).
-- **Use `citext` for business/key columns** (IDs, names, codes, descriptions). The `citext` extension provides case-insensitive text comparisons at the column level, so `WHERE group_id = 'admin'` matches `'Admin'` without `LOWER()` hacks. Reserve plain `text` for audit columns (`created_by`, `updated_by`) and internal fields where case sensitivity is acceptable.
+### Column Type Conventions
+
+**Case-insensitive text (`citext`) — default for business columns:**
+
+The `citext` extension provides case-insensitive comparisons at the column level, so `WHERE group_id = 'admin'` matches `'Admin'` without `LOWER()` hacks.
+
+| Use `citext` for | Use plain `text` for |
+|------------------|---------------------|
+| IDs, names, codes, descriptions | Audit columns (`created_by`, `updated_by`) |
+| Email, phone, address fields | Internal/system fields |
+| Any column users search or filter on | JSON blobs, freeform notes |
+| Foreign key references to citext columns | Columns where case matters |
+
+**NOT NULL with empty defaults — the standard pattern:**
+
+All business text columns use `NOT NULL DEFAULT ''`. This eliminates null-vs-empty ambiguity throughout the stack — the frontend never has to distinguish between `null` and `""`.
+
+```sql
+-- CORRECT: standard pattern
+name        citext NOT NULL DEFAULT '',
+description citext NOT NULL DEFAULT '',
+domain      citext NOT NULL DEFAULT '*',
+
+-- WRONG: nullable text columns
+name        citext,              -- allows NULL ← avoid this
+description text DEFAULT NULL,   -- ambiguous ← avoid this
+```
+
+**Boolean columns** always use `NOT NULL DEFAULT false` (or `DEFAULT true` for opt-out flags like `is_active`):
+
+```sql
+is_active   boolean NOT NULL DEFAULT true,
+is_excluded boolean NOT NULL DEFAULT false,
+cacheable   boolean NOT NULL DEFAULT false,
+```
+
+**Numeric columns** use `NOT NULL DEFAULT 0` when a zero default makes sense:
+
+```sql
+approval_limit numeric(15,2) NOT NULL DEFAULT 0,
+failed_logins  integer NOT NULL DEFAULT 0,
+```
+
+### Uppercase Transforms (Domain Fields)
+
+Fields that must be stored uppercase (like `domain`) use `transforms` in `createCrudRoutes()` rather than database-level enforcement. This keeps the database layer clean and the transform visible in the route config:
+
+```typescript
+export const { GET, POST, PUT, DELETE } = createCrudRoutes({
+  table: "settings",
+  columns: ["owner", "setting_name", "domain", "form", "value"],
+  transforms: { domain: (v: string) => v?.trim().toUpperCase() },
+  // ...
+});
+```
+
+Currently used on: `pasoe_brokers` (domain), `settings` (domain). Add transforms for any field that needs normalization before save.
+
+### Table Naming & Identity
+
 - Table names: `snake_case`, descriptive names (e.g. `pasoe_brokers`, `users`, `translations`).
 - **One name everywhere**: The table name IS the nav key, API route folder, and grid ID. Example: table `pasoe_brokers` → nav key `pasoe_brokers`, API at `/api/pasoe_brokers`, `gridId: "pasoe_brokers"`. This eliminates mapping tables and keeps navigation, notifications, and audit trail simple.
 
@@ -303,11 +407,11 @@ const COLUMNS: ColumnDef<Row>[] = [
   { key: "name", locked: true },
 ];
 
-function Detail({ row, isNew, onChange, colTypes, colScales }: {
+function Detail({ row, isNew, onChange, colTypes, colScales, requiredFields }: {
   row: Row; isNew: boolean; onChange: (field: keyof Row, value: any) => void;
-  colTypes: Record<string, string>; colScales: Record<string, number>;
+  colTypes: Record<string, string>; colScales: Record<string, number>; requiredFields?: string[];
 }) {
-  const { field } = useFieldHelper({ row, onChange, table: "my_table", colTypes: colTypes as any, colScales });
+  const { field } = useFieldHelper({ row, onChange, table: "my_table", colTypes: colTypes as any, colScales, requiredFields });
   return (
     <Section title="General">
       {field("name", { autoFocus: isNew })}
@@ -369,120 +473,59 @@ When using `renderTabs`, `renderDetail` can be omitted.
 
 ## API Route Pattern
 
-Every entity needs **two** route files:
+### `createCrudRoutes` — The Standard Way
 
-### 1. `/api/{entity}/route.ts` — Full CRUD
+Every entity's API route uses the generic `createCrudRoutes()` factory from `src/lib/crud-route.ts`. **Do NOT hand-roll CRUD handlers.** The factory automatically provides: parameterized queries, column whitelisting, search, advanced filters, sort, pagination, oid-based select, type coercion, `created_by`/`updated_by` stamping, `requiredFields` validation, hooks, and i18n error translation.
 
 ```typescript
-import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { buildFilterWhere } from "@/lib/filter-sql";
+// src/app/api/my_table/route.ts
+import { createCrudRoutes } from "@/lib/crud-route";
 
-const ALLOWED_COLUMNS = new Set(["id","name","domain","created_at","updated_at"]);
-const COL_TYPES: Record<string,"text"|"number"|"boolean"|"date"|"datetime"> = {
-  id: "number", created_at: "datetime", updated_at: "datetime",
-};
-
-export async function GET(req: NextRequest) {
-  const url = req.nextUrl;
-  const offset = Math.max(0, parseInt(url.searchParams.get("offset") || "0"));
-  const limit  = Math.min(200, Math.max(1, parseInt(url.searchParams.get("limit") || "50")));
-  const search = url.searchParams.get("search")?.trim() || "";
-  const filtersJson = url.searchParams.get("filters") || "";
-  const sortCol = url.searchParams.get("sort") || "name";
-  const sortDir = url.searchParams.get("dir") === "desc" ? "DESC" : "ASC";
-  const safeSort = ALLOWED_COLUMNS.has(sortCol) ? sortCol : "name";
-
-  const conditions: string[] = [];
-  const params: any[] = [];
-  let pi = 1;
-
-  if (search) {
-    conditions.push(`("name"::text ILIKE $${pi} OR "domain"::text ILIKE $${pi})`);
-    params.push(`%${search}%`); pi++;
-  }
-  if (filtersJson) {
-    const fr = buildFilterWhere(filtersJson, pi, COL_TYPES, ALLOWED_COLUMNS);
-    if (fr.sql) { conditions.push(fr.sql); params.push(...fr.params); pi = fr.nextIdx; }
-  }
-
-  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-  const countR = await db.query(`SELECT COUNT(*)::int AS total FROM my_table ${where}`, params);
-  const dataR = await db.query(
-    `SELECT * FROM my_table ${where}
-     ORDER BY "${safeSort}" ${sortDir} LIMIT $${pi} OFFSET $${pi+1}`,
-    [...params, limit, offset]
-  );
-  return NextResponse.json({ rows: dataR.rows, total: countR.rows[0].total, offset, limit });
-}
-
-export async function POST(req: NextRequest) {
-  const body = await req.json();
-  // Validate required fields
-  if (!body.name?.trim()) return NextResponse.json({ error: "Name is required" }, { status: 400 });
-  const res = await db.query(
-    `INSERT INTO my_table (name, domain, created_by, updated_by)
-     VALUES ($1, $2, $3, $3) RETURNING *`,
-    [body.name.trim(), body.domain || "", "current_user"]  // TODO: real auth user
-  );
-  return NextResponse.json(res.rows[0], { status: 201 });
-}
-
-export async function PUT(req: NextRequest) {
-  const body = await req.json();
-  if (!body.id) return NextResponse.json({ error: "id required" }, { status: 400 });
-  const res = await db.query(
-    `UPDATE my_table SET name=$1, domain=$2, updated_by=$3
-     WHERE id=$4 RETURNING *`,
-    [body.name, body.domain, "current_user", body.id]  // TODO: real auth user
-  );
-  if (!res.rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(res.rows[0]);
-}
-
-export async function DELETE(req: NextRequest) {
-  const id = req.nextUrl.searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
-  await db.query("DELETE FROM my_table WHERE id=$1", [id]);
-  return NextResponse.json({ ok: true });
-}
+export const { GET, POST, PUT, DELETE } = createCrudRoutes({
+  table: "my_table",
+  columns: ["name", "domain", "description", "is_active"],
+  defaultSort: "name",
+  searchColumns: ["name", "description"],
+  requiredFields: ["name"],
+});
 ```
+
+**`CrudRouteConfig` options:**
+
+| Option | Type | Default | Purpose |
+|--------|------|---------|---------|
+| `table` | `string` | *required* | PostgreSQL table name |
+| `columns` | `string[]` | *required* | Columns exposed to the API (whitelist for search/sort/filter) |
+| `defaultSort` | `string` | `columns[0]` | Default ORDER BY column |
+| `searchColumns` | `string[]` | all `columns` | Columns searched by the `?search=` parameter |
+| `requiredFields` | `string[]` | `[]` | Fields validated on POST/PUT; also exposed in GET response for frontend auto-asterisks |
+| `writableFields` | `string[]` | `columns` minus system cols | Fields allowed in INSERT/UPDATE (subset of columns) |
+| `transforms` | `Record<string, (v) => any>` | `{}` | Per-field transform functions applied before save |
+| `uniqueErrorMsg` | `(body) => string` | generic | Custom 409 conflict message |
+
+**What the factory provides for each verb:**
+
+| Verb | Behavior |
+|------|----------|
+| **GET** | Paginated list with `?offset=&limit=&search=&sort=&dir=&filters=`. Single-record select with `?oid=`. Returns `{ rows, total, offset, limit, requiredFields }`. Auto-discovers column types from `information_schema`. |
+| **POST** | Insert with `created_by`/`updated_by` from auth. Validates `requiredFields`. Coerces types. Runs `beforeSave`/`afterSave` hooks. Returns 201. Catches unique violations → 409. |
+| **PUT** | Update by `oid`. Validates `requiredFields` (only for fields present in body). Coerces types. Runs hooks. Returns 200. |
+| **DELETE** | Delete by `?oid=`. Runs `beforeDelete` hook. Returns `{ ok: true }`. |
 
 **Critical rules:**
-- ALWAYS use parameterized queries (`$1`, `$2`) — NEVER interpolate user input into SQL
-- ALWAYS whitelist sort columns via `ALLOWED_COLUMNS`
-- ALWAYS use `buildFilterWhere()` from `@/lib/filter-sql.ts`
-- POST/PUT MUST set `created_by` / `updated_by`
+- All queries are parameterized — the factory handles this automatically
+- Column types are auto-discovered from `information_schema` — no separate per-entity columns route needed
+- POST/PUT automatically set `created_by` / `updated_by` from the authenticated user
 - POST returns **201**, PUT returns **200**, unique violations return **409**
-- NEVER set `updated_at` in SQL — the trigger handles it
+- `updated_at` is handled by the database trigger — never set it in code
+- `requiredFields` are validated server-side on POST (all fields) and PUT (only fields present in body)
 
-### 2. `/api/columns?table={entity}` — Column type metadata (generic)
+### Column Type Metadata
 
-```typescript
-import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
-
-export async function GET() {
-  const res = await db.query(`
-    SELECT column_name, data_type FROM information_schema.columns
-    WHERE table_name = 'my_table' AND table_schema = 'public'
-  `);
-  const map: Record<string, string> = {};
-  for (const r of res.rows) {
-    const dt = r.data_type.toLowerCase();
-    if (dt.includes("int") || dt.includes("numeric") || dt.includes("float")) map[r.column_name] = "number";
-    else if (dt === "boolean") map[r.column_name] = "boolean";
-    else if (dt.includes("timestamp")) map[r.column_name] = "datetime";
-    else if (dt === "date") map[r.column_name] = "date";
-    else map[r.column_name] = "text";
-  }
-  return NextResponse.json(map);
-}
-```
-
-The DataGrid uses this to offer type-appropriate filter operators in AdvancedSearch.
+Column types are auto-discovered by the GET handler using `information_schema.columns`. A shared `/api/columns?table={name}` endpoint also exists for the DataGrid to use in advanced search filter operators. No per-entity columns route is needed.
 
 ---
+
 
 ## UI Component Reference
 
@@ -663,8 +706,8 @@ The `useFieldHelper` hook eliminates form field boilerplate. Instead of manually
 
 **Setup in a detail component:**
 ```tsx
-function Detail({ row, isNew, onChange, colTypes, colScales }) {
-  const { field } = useFieldHelper({ row, onChange, table: "my_table", colTypes, colScales });
+function Detail({ row, isNew, onChange, colTypes, colScales, requiredFields }) {
+  const { field } = useFieldHelper({ row, onChange, table: "my_table", colTypes, colScales, requiredFields });
   return (
     <Section title="General">
       {field("name", { autoFocus: isNew })}
@@ -678,13 +721,37 @@ function Detail({ row, isNew, onChange, colTypes, colScales }) {
 ```
 
 
-**Validation:**
+**Required Fields — Auto-Derived from Backend:**
 
-`useFieldHelper` returns `{ field, validate }`. Required field validation is automatic — CrudPage checks all fields marked `required: true` before save:
+Required field indicators (red asterisks) are **automatically derived** from the backend `requiredFields` array — no frontend annotation needed for most fields.
+
+**How it works:**
+1. The API route declares `requiredFields: ["user_id", "full_name", "email"]` in `createCrudRoutes()`
+2. The GET response includes `requiredFields` alongside `rows` and `total`
+3. CrudPage captures `requiredFields` from the first fetch and passes it to `renderDetail`/`renderTabs`
+4. Detail components pass `requiredFields` to `useFieldHelper()`
+5. `field("full_name")` auto-shows a red asterisk because `"full_name"` is in the backend list
+
+**Override precedence:** Explicit `required: true/false` in a field override always wins over the backend list. This means you can suppress an asterisk with `required: false` or add one not in the backend list with `required: true`.
+
+```tsx
+// Auto-derived: asterisk shown because "full_name" is in backend requiredFields
+{field("full_name")}
+
+// Explicit override: suppresses asterisk even if in backend list
+{field("full_name", { required: false })}
+
+// Explicit override: adds asterisk for a field NOT in backend list
+{field("notes", { required: true })}
+```
+
+**Validation on save:**
+
+`useFieldHelper` returns `{ field, validate }`. CrudPage checks all fields marked required before save:
 
 - **On save**: Empty required fields get a red border and "Required" message below
 - **On edit**: Error clears as soon as the user modifies the field
-- **No page code needed**: Just add `required: true` to the field override
+- **No page code needed**: Required fields are enforced both client-side (asterisk + validation) and server-side (400 error on blank)
 
 The validation is DOM-based using `data-required` attributes. CrudPage scans for `[data-required]` elements, checks their input values, and blocks save if any are empty. The "Required" message is i18n via `t("validation.required", "Required")`.
 
@@ -749,7 +816,7 @@ Available `type` values: `"input"`, `"email"`, `"select"`, `"checkbox"`, `"toggl
 |----------|------|---------|
 | `type` | `FieldType` | All — override auto-detected component |
 | `label` | `string` | All — override translated label |
-| `required` | `boolean` | All — shows asterisk on Field |
+| `required` | `boolean` | All — shows asterisk. Auto-derived from backend `requiredFields`; explicit override wins. |
 | `readOnly` | `boolean` | All — disables editing |
 | `autoFocus` | `boolean` | Input, EmailInput |
 | `placeholder` | `string` | Input, EmailInput, NumberInput |
@@ -766,7 +833,7 @@ Available `type` values: `"input"`, `"email"`, `"select"`, `"checkbox"`, `"toggl
 
 **CrudPage integration:**
 
-CrudPage automatically passes `colTypes` and `colScales` to `renderDetail` and `renderTabs` props, so detail components always have type metadata available. No extra wiring needed.
+CrudPage automatically passes `colTypes`, `colScales`, and `requiredFields` to `renderDetail` and `renderTabs` props, so detail components always have type metadata and required field indicators available. No extra wiring needed.
 
 ### Type Coercion in CRUD Routes
 
@@ -990,6 +1057,9 @@ All colors are defined as CSS custom properties in `src/app/globals.css` with li
 | `notifications` | User notification queue | `oid` | — |
 | `locales` | Language definitions (date/number format) | `oid` | `code` (UNIQUE) |
 | `translations` | i18n string translations | `oid` | `(locale, namespace, key)` (UNIQUE) |
+| `settings` | System & user configuration key-value pairs | `oid` | `(owner, setting_name, domain, form)` (UNIQUE) |
+| `groups` | User groups for approval routing & permissions | `oid` | `group_id` (UNIQUE) |
+| `group_members` | User-to-group membership (with include/exclude) | `oid` | `(group_id, member_id)` (UNIQUE) |
 
 ---
 
@@ -1067,9 +1137,129 @@ Settings are stored in the `settings` table with natural key: `(owner, setting_n
 | `value` | Setting value (text) |
 | `help_text` | Description of the setting |
 
+
+## Lookup System (Autocomplete + Browse)
+
+The Lookup component provides a searchable autocomplete dropdown with an optional full-screen browse modal. It replaces plain `<Select>` for any field that references another entity.
+
+### Architecture
+
+```
+Lookup.tsx          ← Main component: text input + dropdown + browse button
+LookupBrowseModal   ← Full-screen DataGrid modal for browsing all records
+LookupTypes.ts      ← LookupConfig interface (data source, fields, display)
+presets/             ← Pre-configured factories for common entities
+```
+
+### Using Lookup with useFieldHelper
+
+```tsx
+import { ActiveUserLookup } from "@/components/lookup/presets";
+
+// In a detail component:
+{field("supervisor_id", { type: "lookup", lookup: ActiveUserLookup() })}
+{field("delegate_id", { type: "lookup", lookup: ActiveUserLookup() })}
+{field("domains", { type: "lookup", lookup: DomainLookup({ multiple: true }) })}
+```
+
+### LookupConfig Interface
+
+| Property | Type | Default | Purpose |
+|----------|------|---------|---------|
+| `apiPath` | `string` | — | API path for server-side search (e.g. `/api/users`) |
+| `fetchFn` | `(params) => Promise<{rows, total}>` | — | Custom fetch (overrides apiPath). For non-standard sources. |
+| `valueField` | `string` | *required* | Field stored as the value (e.g. `"user_id"`) |
+| `displayField` | `string` | *required* | Field shown in input when value selected |
+| `displayFormat` | `(record) => string` | — | Custom text formatter for selected value |
+| `searchColumns` | `string[]` | `[valueField, displayField]` | Fields searched when typing |
+| `dropdownColumns` | `DropdownColumn[]` | `[valueField, displayField]` | Columns shown in dropdown rows |
+| `dropdownLimit` | `number` | `10` | Max items in dropdown |
+| `preload` | `boolean` | `false` | Load all results on mount (for small lists) |
+| `browsable` | `boolean` | `true` | Show browse button for full-screen DataGrid |
+| `gridColumns` | `ColumnDef[]` | — | Grid columns for browse modal |
+| `multiple` | `boolean` | `false` | Multi-select mode (comma-separated values) |
+| `baseFilters` | `Record<string, any>` | — | Filters always applied (e.g. `{ is_active: true }`) |
+| `allOption` | `{ value, label }` | — | Prepend a wildcard/all option (e.g. `{ value: "*", label: "All" }`) |
+| `onSelect` | `(record) => void` | — | Callback for cascading other fields on selection |
+
+### Available Presets
+
+| Preset | Source | Key features |
+|--------|--------|--------------|
+| `UserLookup()` | `/api/users` | Searches user_id, full_name, email. Has browse modal with grid. |
+| `ActiveUserLookup()` | `/api/users` | Extends UserLookup with `baseFilters: { is_active: true }`. Use for supervisor, delegate, buyer. |
+| `DomainLookup()` | `ALLOWED_DOMAINS` setting | Preloaded, no browse. Parses comma-separated setting value. |
+| `GroupLookup()` | `/api/groups` | Preloaded. Shows `group_id — description` format. |
+| `LocaleLookup()` | `/api/locales` | Preloaded. Shows flag icons in dropdown via `DropdownColumn` type. |
+
+### Creating a Custom Preset
+
+```typescript
+// src/components/lookup/presets/VendorLookup.ts
+import type { LookupConfig } from "../LookupTypes";
+
+export const VendorLookup = (overrides?: Partial<LookupConfig>): LookupConfig => ({
+  apiPath: "/api/vendors",
+  valueField: "vendor_code",
+  displayField: "vendor_name",
+  searchColumns: ["vendor_code", "vendor_name"],
+  gridColumns: [
+    { key: "vendor_code", label: "Code" },
+    { key: "vendor_name", label: "Name" },
+    { key: "currency", label: "Currency" },
+  ],
+  placeholder: "Search vendors...",
+  ...overrides,
+});
+```
+
+Export from `presets/index.ts` and use in any page.
+
+---
+
+## Groups & Group Members
+
+### Database Schema
+
+**`groups`** — Group definitions for approval routing and permissions.
+- `group_id` (citext, UNIQUE) — Group identifier
+- `description` (citext) — Human-readable description
+
+**`group_members`** — Flat membership table (no nested groups).
+- `group_id` (citext, NOT NULL) — References groups
+- `member_id` (citext, NOT NULL) — User ID
+- `is_excluded` (boolean, DEFAULT false) — TRUE = user is excluded from group (for Can-Do list `!user` semantics)
+- UNIQUE constraint on `(group_id, member_id)`
+
+### GroupsPage
+
+The Groups page uses a tabbed detail form with two tabs:
+
+1. **General** — `group_id` (read-only after creation) and `description`
+2. **Members** — Interactive user checklist
+
+The Members tab reads/writes the `group_members` table via `/api/group_members`. It features:
+- Alphabetically sorted user checklist with checkboxes
+- Select All / Deselect All buttons
+- Optimistic updates (checkbox toggles immediately, API call in background)
+- Stable sort order (doesn't jump when toggling)
+- Hidden for unsaved (new) groups
+
+### UserGroupsField (on Users page)
+
+The Users page includes a `UserGroupsField` component on the Profile tab that shows which groups a user belongs to. It uses a multi-select `GroupLookup` to read/write `group_members` records for the selected user.
+
+- Reads: `GET /api/group_members?search={user_id}&limit=100`
+- Adds: `POST /api/group_members` with `{ group_id, member_id: user_id }`
+- Removes: `DELETE /api/group_members?oid={oid}`
+- Hidden for unsaved (new) users
+
+---
+
 ## Anti-Patterns — DO NOT
 
 - Hand-roll AppShell + DataGrid + detail layouts — use CrudPage scaffold
+- Hand-roll CRUD API routes — use `createCrudRoutes()` factory
 - Put CRUD logic in page components — pages are config-only (title, apiPath, columns, renderDetail)
 - Define TypeScript types that duplicate DB schema — use `{ oid: string; [key: string]: any }`
 - Define `fetchPage`, `emptyRow`, `deleteLabel`, `gridId`, `exportConfig` in page config — CrudPage auto-derives all of these from `apiPath`
@@ -1077,12 +1267,17 @@ Settings are stored in the `settings` table with natural key: `(owner, setting_n
 - Use `String()` to wrap field values in JSX — use `?? ""` or `?? 0` to handle null/undefined
 - Add manual `render` functions for standard number/boolean/date formatting — DataGrid auto-formats by type
 - Hardcode validation messages — use `t("validation.key", "Fallback")` with translations in DB
+- Hardcode `required: true` on fields when the backend `requiredFields` array covers them — let auto-derivation handle it
 - Write `<Field label={t("x","Y")}><Input value={row.x} onChange={v => onChange("x", v)} /></Field>` — use `useFieldHelper` and call `field("x")` instead
 - Use anything other than `oid` as a primary key
 - Use natural keys as primary keys — they become UNIQUE constraints
 - Hardcode colors — use CSS custom properties
 - Skip the 5 standard columns on any table (`oid`, `created_at`, `created_by`, `updated_at`, `updated_by`)
 - Add created/updated fields to detail forms — the CrudPage footer handles it automatically
+- Use nullable text columns — always use `NOT NULL DEFAULT ''` for text, `NOT NULL DEFAULT false` for booleans
+- Use plain `text` for business columns — use `citext` for anything users search or filter on
+- Use `LOWER()` or `ILIKE` hacks for case-insensitive matching — use `citext` columns instead
+- Enforce uppercase in the database (triggers, CHECK constraints) — use `transforms` in `createCrudRoutes()`
 - Interpolate user input into SQL — use parameterized queries
 - Set `updated_at` manually — the trigger handles it
 - Return 200 from POST — use 201 for creation
