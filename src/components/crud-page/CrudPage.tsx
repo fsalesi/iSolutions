@@ -6,7 +6,7 @@ import type { ColType } from "@/components/data-grid/AdvancedSearch";
 import { CrudToolbar, type CrudAction } from "@/components/crud-toolbar/CrudToolbar";
 import { Icon } from "@/components/icons/Icon";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useAuth } from "@/context/AuthContext";
+import { useSession } from "@/context/SessionContext";
 import { useT } from "@/context/TranslationContext";
 import { AppShell } from "@/components/shell";
 import { AuditPanel } from "@/components/audit-panel/AuditPanel";
@@ -118,6 +118,8 @@ export interface CrudPageConfig<TRow extends { oid: string }> {
   }) => ReactNode;
   /** Extra toolbar actions beyond the defaults */
   extraActions?: CrudAction[];
+  /** Default values for new rows (merged into emptyRow) */
+  defaultValues?: Partial<TRow>;
 
 }
 
@@ -143,7 +145,7 @@ export function CrudPage<TRow extends { oid: string }>({
   selectSeq?: number;
 }) {
   const isMobile = useIsMobile();
-  const { user } = useAuth();
+  const { user } = useSession();
   const t = useT();
 
   const AUDIT_GRID_COLUMNS: ColumnDef<any>[] = useMemo(() => [
@@ -180,7 +182,7 @@ export function CrudPage<TRow extends { oid: string }>({
   // config.columns are passed as overrides (locked, hidden, custom render, etc.)
   const columnOverrides = config.columns || [];
 
-  const searchPlaceholder = `Search ${config.title.toLowerCase()}...`;
+  const searchPlaceholder = t("crud.search_placeholder", "Search {title}...", { title: config.title.toLowerCase() });
   const emptyIcon = "database";
   const emptyText = t("crud.no_records", "No records found.");
   const defaultVisible = columnOverrides.length > 0
@@ -199,8 +201,9 @@ export function CrudPage<TRow extends { oid: string }>({
       else if (ct === "datetime" || ct === "date") row[key] = null;
       else row[key] = "";
     }
+    if (config.defaultValues) Object.assign(row, config.defaultValues);
     return row as TRow;
-  }, [colTypes]);
+  }, [colTypes, config.defaultValues]);
 
   const genericFetchPage: FetchPage<TRow> = async ({ offset, limit, search, sort, dir, filters }) => {
     const params = new URLSearchParams({
@@ -504,7 +507,7 @@ export function CrudPage<TRow extends { oid: string }>({
               {confirmDelete && selectedRec && (
                 <div className="mx-4 mt-2">
                   <InlineConfirm
-                    message={`Delete "${deleteLabel(selectedRec)}"?`}
+                    message={t("crud.confirm_delete", "Delete \"{record}\"?", { record: deleteLabel(selectedRec) })}
                     onConfirm={() => { handleDelete(); setConfirmDelete(false); }}
                     onCancel={() => setConfirmDelete(false)}
                   />
@@ -524,7 +527,8 @@ export function CrudPage<TRow extends { oid: string }>({
             <div className="flex-1 flex items-center justify-center" style={{ color: "var(--text-muted)" }}>
               <div className="text-center">
                 <Icon name={emptyIcon} size={48} className="mx-auto mb-3 opacity-30" />
-                <p className="text-sm">{emptyText}</p>
+                <p className="text-sm mb-4">{emptyText}</p>
+                <button onClick={handleNew} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors" style={{ background: "var(--accent)", color: "var(--accent-text)" }} onMouseEnter={e => (e.currentTarget.style.background = "var(--accent-hover)")} onMouseLeave={e => (e.currentTarget.style.background = "var(--accent)")}><Icon name="plus" size={16} />{t("crud.new", "New")}</button>
               </div>
             </div>
           )}

@@ -1,19 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 
-/**
- * GET /api/auth/me — returns the authenticated user's session profile.
- *
- * TODO: Read identity from session cookie / JWT.
- * For now, hardcoded to "frank" until real auth is wired up.
- */
-export async function GET() {
-  // TODO: extract userId from session/cookie/JWT
-  const userId = "frank";
+export async function GET(req: NextRequest) {
+  const userId = getCurrentUser(req);
+
+  if (!userId) {
+    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+  }
 
   try {
     const { rows } = await db.query(
-      `SELECT user_id, full_name, email, is_active,
+      `SELECT user_id, full_name, email, is_active, oid,
               locale, domains, supervisor_id, approval_limit
          FROM users
         WHERE user_id = $1`,
@@ -30,19 +28,17 @@ export async function GET() {
       return NextResponse.json({ error: "Account disabled" }, { status: 403 });
     }
 
-    // TODO: query group memberships once groups/user_groups tables exist
-    const isAdmin = true; // frank is admin for now
-
     return NextResponse.json({
+      oid:           u.oid,
       userId:        u.user_id,
       fullName:      u.full_name,
       email:         u.email,
       locale:        u.locale || "en-us",
-      domains:       u.domains,
-      supervisorId:  u.supervisor_id,
+      domains:       u.domains || "",
+      supervisorId:  u.supervisor_id || "",
       approvalLimit: Number(u.approval_limit) || 0,
       groups:        [],
-      isAdmin,
+      isAdmin:       true, // TODO: derive from group membership
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

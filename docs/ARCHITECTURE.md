@@ -50,7 +50,13 @@
 │   └── lib/
 │       ├── db.ts                          # PostgreSQL pool (node-pg singleton)
 │       ├── config.ts                      # Environment config
-│       └── filter-sql.ts                  # Advanced filter → parameterized SQL
+│       ├── filter-sql.ts                  # Advanced filter → parameterized SQL
+│       ├── substitute.ts                   # {named} param substitution for i18n
+│       ├── crud-route.ts                  # Generic CRUD handler + ValidationError + backend i18n helpers
+│       └── hooks/                         # Server-side CRUD hooks (per-entity validation/logic)
+│           ├── index.ts                   # Hook registry (getHooks)
+│           ├── users-hooks.ts             # Users: delegate validation, etc.
+│           └── customers-hooks.ts         # Customers: custom validation
 ├── scripts/migrate/                       # Numbered Python migration scripts
 │   ├── 001_initial.py                     # Users table, sessions, etc.
 │   ├── 002_audit_columns.py              # Adds 5 audit columns to all tables
@@ -622,7 +628,7 @@ No manual `render` functions needed for standard formatting. Custom renderers st
 
 ### Column Auto-Discovery
 
-Grid columns are auto-generated from the database schema via `/api/columns?table={name}`. Labels are translated using the `{table}.{column}` key convention (e.g. `users.full_name`), falling back to humanized column names (e.g. `full_name` → "Full Name").
+Grid columns are auto-generated from the database schema via `/api/columns?table={name}`. Labels are translated using the `{table}.field.{column}` key convention (e.g. `users.field.full_name`), falling back to humanized column names (e.g. `full_name` → "Full Name").
 
 **Column cascade (most specific wins):**
 
@@ -771,9 +777,86 @@ The generic `crud-route.ts` automatically coerces values before sending to Postg
 | `datetime` / `date` | `null` | `null` |
 | `number` | `0` | `0` |
 | `boolean` | `false` | `false` |
-| `text` | `""` | `null` |
+| `text` / `citext` | `null` | `null` |
 
-This prevents "invalid input syntax" errors when saving empty date fields, etc.
+This prevents "invalid input syntax" errors when saving empty date fields, etc. **Important:** Because empty text becomes `null`, text columns that are not truly required should allow NULL (avoid `NOT NULL` constraints on optional text fields).
+
+
+### CRUD Hooks (Server-Side Business Logic)
+
+Per-entity hooks allow custom validation, transformation, and side effects during CRUD operations. Hooks run server-side in `crud-route.ts`.
+
+**Hook interface:**
+
+```typescript
+interface CrudHooks {
+  beforeSave?: (row: any, existing: any | null, req: NextRequest) => Promise<void>;
+  afterSave?:  (row: any, existing: any | null, req: NextRequest) => Promise<void>;
+  beforeDelete?: (oid: string, req: NextRequest) => Promise<void>;
+}
+```
+
+- `beforeSave` — Runs before INSERT or UPDATE. Use for validation, field transformation, or blocking saves. `existing` is `null` on INSERT.
+- `afterSave` — Runs after INSERT or UPDATE. Use for side effects (e.g. sending notifications, cascading updates).
+- `beforeDelete` — Runs before DELETE. Use to block deletion or clean up related records.
+
+**Throwing validation errors:**
+
+```typescript
+// In a hook file:
+import { ValidationError } from "@/lib/crud-route";
+
+export const hooks: CrudHooks = {
+  async beforeSave(row, existing, req) {
+    if (row.delegate_id === row.user_id) {
+      throw new ValidationError("A user cannot be their own delegate", {
+        translationKey: "message.delegate_self",
+      });
+    }
+  },
+};
+```
+
+`ValidationError` accepts an optional `translationKey` and `params` object. The CRUD route catches it and translates the message to the user's locale before returning the 400 response.
+
+**Hook registry — `src/lib/hooks/index.ts`:**
+
+```typescript
+import { usersHooks } from "./users-hooks";
+import { customersHooks } from "./customers-hooks";
+
+const registry: Record<string, CrudHooks> = {
+  users: usersHooks,
+  customers: customersHooks,
+};
+
+export function getHooks(table: string): CrudHooks {
+  return registry[table] || {};
+}
+```
+
+Each entity's hooks live in `src/lib/hooks/{entity}-hooks.ts`. Register by adding to the `registry` map.
+
+### Backend i18n (Server-Side Translation)
+
+When the backend needs to return translated error messages (e.g. validation errors from CRUD routes), it uses helper functions in `crud-route.ts`:
+
+```typescript
+// Translate a ValidationError that has a translationKey + params
+resolveValidationError(err: ValidationError, req: NextRequest): Promise<string>
+
+// Translate "{field} is required" for a specific field
+resolveFieldRequired(field: string, req: NextRequest): Promise<string>
+
+// Translate a simple key like "message.not_found"
+resolveSimpleKey(key: string, fallback: string, req: NextRequest): Promise<string>
+```
+
+These functions:
+1. Read the user's locale from the `x-user-locale` header (set by middleware) or fall back to `en-us`
+2. Query the `translations` table for the matching `locale + namespace + key`
+3. Substitute `{named}` parameters using `substitute(template, params)`
+4. Return the translated string, or the English fallback if no translation exists
 
 ### Styling rules
 
@@ -955,6 +1038,7 @@ User refreshes → AuthProvider fetches GET /api/auth/me → user.locale
 | `src/components/ui/Flag.tsx` | Shared inline SVG flag component (works on Windows) |
 | `src/components/ui/LocaleSelect.tsx` | Dropdown with flags for forms (used in user profile) |
 | `src/app/api/translations/bundle/route.ts` | Returns flat `{ "namespace.key": "value" }` map for a locale |
+| `src/lib/substitute.ts` | `{named}` parameter substitution for translated strings |
 | `src/app/api/translations/inline/route.ts` | PUT endpoint for inline translation editing |
 | `src/app/api/users/locale/route.ts` | PUT endpoint to persist user's locale preference |
 | `src/app/api/auth/me/route.ts` | Returns authenticated user's profile including saved locale |
@@ -990,6 +1074,27 @@ function MyComponent() {
 - Key format: `namespace.key` (e.g. `users.email`, `nav.settings`, `crud.save`)
 - The fallback ensures the UI is always readable, even before translations load
 
+**Parameterized translations:**
+
+The `t()` function accepts an optional third argument for `{named}` parameter substitution:
+
+```typescript
+// Simple key
+t("crud.save", "Save")
+
+// With parameters — {record} and {title} are replaced at runtime
+t("crud.confirm_delete", 'Delete "{record}"?', { record: row.name })
+t("crud.search_placeholder", "Search {title}...", { title: pageTitle })
+t("message.field_required", "{field} is required", { field: "Email" })
+```
+
+Translation values in the database use `{paramName}` placeholders:
+- `en-us`: `Delete "{record}"?`
+- `it-it`: `Eliminare "{record}"?`
+- `ja`: `「{record}」を削除しますか？`
+
+Substitution is handled by `src/lib/substitute.ts` — a simple `{key}` → value replacer used by both frontend `t()` and backend `translateMessage()`.
+
 ### Making Dynamic Content Reactive to Locale Changes
 
 When labels are computed in `useMemo` or module-level constants, they won't update when the locale changes. Fix:
@@ -1008,7 +1113,7 @@ const COLUMNS = [
 function MyPage() {
   const t = useT();
   const columns = useMemo(() => [
-    { key: "name", label: t("my_table.name", "Name") },
+    { key: "name", label: t("my_table.field.name", "Name") },
   ], [t]);
 }
 ```
@@ -1051,15 +1156,15 @@ function ChildComponent() {
 ### Adding Translations for a New Page
 
 When creating a new CRUD page, add translation keys for:
-- Column labels: `{table}.{column_name}` (e.g. `my_table.name`)
+- Column labels: `{table}.field.{column_name}` (e.g. `my_table.field.name`)
 - Section titles: `{table}.section_{name}` (e.g. `my_table.section_general`)
 - Any custom labels: `{table}.{descriptive_key}`
 
 Insert for all active locales:
 ```sql
 INSERT INTO translations (locale, namespace, key, value) VALUES
-  ('en-us', 'my_table', 'name', 'Name'),
-  ('fr',    'my_table', 'name', 'Nom'),
+  ('en-us', 'my_table', 'field.name', 'Name'),
+  ('fr',    'my_table', 'field.name', 'Nom'),
   -- ... for each locale
 ```
 

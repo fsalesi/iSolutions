@@ -1,3 +1,4 @@
+import { getCurrentUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
 
     // TODO: get from real auth
-    const currentUser = "frank";
+    const currentUser = getCurrentUser(req);
 
     const res = await db.query(
       `INSERT INTO note_attachments (note_id, filename, mime_type, file_data, file_size, created_by, updated_by)
@@ -72,7 +73,7 @@ export async function DELETE(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
-  const currentUser = "frank"; // TODO: real auth
+  const currentUser = getCurrentUser(req); // TODO: real auth
 
   // Verify ownership via the parent note
   const check = await db.query(

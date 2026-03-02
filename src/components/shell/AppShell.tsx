@@ -4,8 +4,10 @@ import { useState, useMemo, type ReactNode } from "react";
 import { Sidebar, type NavSection } from "./Sidebar";
 import { Header } from "./Header";
 import { NotificationBell } from "./NotificationBell";
+import { ProfileDialog } from "./ProfileDialog";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useT } from "@/context/TranslationContext";
+import { useSession } from "@/context/SessionContext";
 
 
 interface AppShellProps {
@@ -22,7 +24,14 @@ export function AppShell({ children, title, subtitle, showBack, onBack, activeNa
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [internalNav, setInternalNav] = useState("users");
-  const [domain, setDomain] = useState("DEMO1");
+  const [profileOpen, setProfileOpen] = useState(false);
+  const { user, domain, setDomain, setForm } = useSession();
+
+  // Build domain list from user's domains
+  const domainList = useMemo(() => {
+    if (!user.domains) return [];
+    return user.domains.split(",").map(d => d.trim()).filter(Boolean);
+  }, [user.domains]);
 
   const t = useT();
 
@@ -53,10 +62,14 @@ export function AppShell({ children, title, subtitle, showBack, onBack, activeNa
 
   const activeNav = controlledNav ?? internalNav;
   const handleNavigate = (key: string, recordOid?: string) => {
-    console.log("[AppShell] handleNavigate", { key, recordOid, hasOnNavigate: !!onNavigate });
+    if (key === "profile") { setProfileOpen(true); return; }
+    // Clear form context on every nav click — page will set its own if needed
+    setForm("");
     onNavigate?.(key, recordOid) ?? setInternalNav(key);
     setSidebarOpen(false);
   };
+
+
 
   return (
     <div className="flex h-[100dvh] overflow-hidden" style={{ background: "var(--bg-body)" }}>
@@ -76,16 +89,16 @@ export function AppShell({ children, title, subtitle, showBack, onBack, activeNa
           showBack={isMobile && showBack}
           onBackClick={onBack}
           domain={domain}
-          domains={["DEMO1", "DEMO2"]}
+          domains={domainList}
           onDomainChange={setDomain}
-          userName="Frank Salesi"
-          userInitials="FS"
           notificationSlot={<NotificationBell onNavigate={handleNavigate} />}
+          onNavigate={handleNavigate}
         />
         <div className="flex-1 overflow-hidden">
           {children}
         </div>
       </div>
+      <ProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>
   );
 }

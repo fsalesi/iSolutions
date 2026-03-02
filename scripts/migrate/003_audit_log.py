@@ -82,7 +82,7 @@ DECLARE
     v_old_val   TEXT;
     v_new_val   TEXT;
     v_col       TEXT;
-    v_skip      TEXT[] := ARRAY['updated_at', 'updated_by', 'created_at', 'created_by', 'oid'];
+    v_skip      TEXT[] := ARRAY['updated_at', 'updated_by', 'created_at', 'created_by', 'oid', 'photo', 'photo_type'];
     v_cols       TEXT[];
     v_has_change BOOLEAN := FALSE;
 BEGIN
@@ -124,8 +124,8 @@ BEGIN
                 INTO v_old_val, v_new_val
                 USING OLD, NEW;
 
-            -- Only log if value actually changed (handle NULLs)
-            IF v_old_val IS DISTINCT FROM v_new_val THEN
+            -- Only log if value actually changed (handle NULLs, treat '' same as NULL)
+            IF COALESCE(v_old_val, '') IS DISTINCT FROM COALESCE(v_new_val, '') THEN
                 INSERT INTO audit_log (table_name, record_oid, action, field_name, old_value, new_value, changed_by)
                 VALUES (TG_TABLE_NAME, v_oid, 'UPDATE', v_col, v_old_val, v_new_val, v_user);
                 v_has_change := TRUE;
@@ -147,7 +147,7 @@ $$ LANGUAGE plpgsql;
 """
 
 # Tables to audit — add more here as needed
-AUDITED_TABLES = ["users", "pasoe_brokers"]
+AUDITED_TABLES = ["users", "pasoe_brokers", "settings"]
 
 
 def trigger_ddl(table):

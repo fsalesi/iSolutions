@@ -42,7 +42,7 @@ function ProfileTab({ user, onChange, isNew, colTypes, colScales }: {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
           {field("user_id", { required: true, readOnly: !isNew })}
           {field("full_name", { required: true })}
-          {field("email", { type: "email", required: true, requiredMsg: "Email address is required" })}
+          {field("email", { type: "email", required: true, requiredMsg: t("message.email_required", "Email address is required") })}
           {field("company")}
           {field("title")}
           {field("domains", { required: true })}
@@ -83,8 +83,8 @@ function IPurchaseTab({ user, onChange, colTypes, colScales }: {
     <div className="max-w-4xl space-y-6">
       <Section title={t("users.section_purchasing", "Purchasing")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-          {field("supervisor_id", { type: "lookup", lookup: ActiveUserLookup({ placeholder: "Search supervisor..." }) })}
-          {field("delegate_id", { type: "lookup", lookup: ActiveUserLookup({ placeholder: "Search delegate..." }) })}
+          {field("supervisor_id", { type: "lookup", lookup: ActiveUserLookup({ placeholder: t("users.search_supervisor", "Search supervisor...") }) })}
+          {field("delegate_id", { type: "lookup", lookup: ActiveUserLookup({ placeholder: t("users.search_delegate", "Search delegate...") }) })}
           {field("approval_limit")}
           {field("employee_number")}
         </div>

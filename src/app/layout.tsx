@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/theme";
-import { AuthProvider } from "@/context/AuthContext";
+import { SessionProvider } from "@/context/SessionContext";
 import { LocaleFromAuth } from "@/context/LocaleFromAuth";
 import "./globals.css";
 
@@ -13,7 +13,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Inline script to set theme before paint — prevents flash */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -28,11 +27,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ThemeProvider>
-          <AuthProvider>
+          <SessionProvider>
             <LocaleFromAuth>
               {children}
             </LocaleFromAuth>
-          </AuthProvider>
+          </SessionProvider>
         </ThemeProvider>
       </body>
     </html>

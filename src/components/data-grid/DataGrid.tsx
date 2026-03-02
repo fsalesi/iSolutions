@@ -76,6 +76,32 @@ export function DataGrid<T extends { oid: string }>({
   const [advSearchOpen, setAdvSearchOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+  // Saved filters for quick-select dropdown on filter button
+  const [savedFilters, setSavedFilters] = useState<{ id: string; name: string; filters_json: FilterTree; is_default: boolean }[]>([]);
+  const [filterDropOpen, setFilterDropOpen] = useState(false);
+  const filterDropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!gridId || !userId) return;
+    fetch(`/api/saved-filters?userId=${userId}&gridId=${gridId}`)
+      .then(r => r.json()).then(setSavedFilters).catch(() => {});
+  }, [gridId, userId]);
+
+  // Refresh saved filters when advanced search closes (user may have saved/deleted)
+  useEffect(() => {
+    if (advSearchOpen || !gridId || !userId) return;
+    fetch(`/api/saved-filters?userId=${userId}&gridId=${gridId}`)
+      .then(r => r.json()).then(setSavedFilters).catch(() => {});
+  }, [advSearchOpen, gridId, userId]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!filterDropOpen) return;
+    const h = (e: MouseEvent) => { if (filterDropRef.current && !filterDropRef.current.contains(e.target as Node)) setFilterDropOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [filterDropOpen]);
+
   // ── Sort ──
   const [sort, setSort] = useState<SortState>(
     defaultSort || { field: columns[0]?.key || "id", dir: "asc" }
@@ -237,34 +263,68 @@ export function DataGrid<T extends { oid: string }>({
           )}
         </div>
 
-        {/* Advanced filter toggle */}
-        <button onClick={() => setAdvSearchOpen(p => !p)}
-          className="p-2 rounded-lg transition-colors flex-shrink-0 relative"
-          style={{
-            background: advSearchOpen || appliedFilters ? "var(--bg-selected)" : "var(--bg-surface-alt)",
-            border: "1px solid var(--border)",
-            color: appliedFilters ? "var(--accent)" : "var(--text-primary)",
-          }}
-          title={t("grid.advanced_search", "Advanced search")}
-        >
-          <Icon name="filter" size={18} />
-          {appliedFilters && countConditions(filters) > 0 && (
-            <span className="absolute -top-1 -right-1 text-[10px] min-w-[16px] h-[16px] flex items-center justify-center rounded-full font-bold"
-              style={{ background: "var(--accent)", color: "#fff" }}>
-              {countConditions(filters)}
-            </span>
+        {/* Advanced filter toggle + saved filters dropdown */}
+        <div className="relative flex-shrink-0" ref={filterDropRef}>
+          <div className="flex items-center rounded-lg overflow-hidden"
+            style={{ border: "1px solid var(--border)" }}>
+            <button onClick={() => setAdvSearchOpen(p => !p)}
+              className="p-2 transition-colors relative"
+              style={{
+                background: advSearchOpen || appliedFilters ? "var(--bg-selected)" : "var(--bg-surface-alt)",
+                color: appliedFilters ? "var(--accent)" : "var(--text-primary)",
+              }}
+              title={t("grid.advanced_search", "Advanced search")}
+            >
+              <Icon name="filter" size={18} />
+              {appliedFilters && countConditions(filters) > 0 && (
+                <span className="absolute -top-1 -right-1 text-[10px] min-w-[16px] h-[16px] flex items-center justify-center rounded-full font-bold"
+                  style={{ background: "var(--accent)", color: "#fff" }}>
+                  {countConditions(filters)}
+                </span>
+              )}
+            </button>
+            {savedFilters.length > 0 && (
+              <button onClick={() => setFilterDropOpen(p => !p)}
+                className="flex items-center transition-colors px-1 self-stretch"
+                style={{
+                  background: filterDropOpen ? "var(--bg-selected)" : advSearchOpen || appliedFilters ? "var(--bg-selected)" : "var(--bg-surface-alt)",
+                  borderLeft: "1px solid var(--border)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                <Icon name="chevDown" size={10} />
+              </button>
+            )}
+          </div>
+          {filterDropOpen && (
+            <div className="absolute top-full right-0 mt-1 z-50 rounded-lg shadow-lg overflow-hidden py-1"
+              style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", minWidth: 180 }}>
+              {savedFilters.map(sf => (
+                <button key={sf.id}
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-surface-alt)] flex items-center gap-2"
+                  style={{ color: "var(--text-primary)" }}
+                  onClick={() => {
+                    setFilters(sf.filters_json);
+                    setAppliedFilters(serializeFilters(sf.filters_json));
+                    setFilterDropOpen(false);
+                  }}
+                >
+                  <span className="truncate flex-1">{sf.name}</span>
+                  {sf.is_default && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "var(--accent)", color: "#fff" }}>default</span>}
+                </button>
+              ))}
+              <div style={{ borderTop: "1px solid var(--border)", marginTop: 4, paddingTop: 4 }}>
+                <button
+                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-surface-alt)]"
+                  style={{ color: "var(--text-muted)" }}
+                  onClick={() => { setFilters(null); setAppliedFilters(""); setFilterDropOpen(false); }}
+                >
+                  {t("grid.clear_filters", "Clear filters")}
+                </button>
+              </div>
+            </div>
           )}
-        </button>
-
-        {showExpandBtn && (
-          <button onClick={onToggleExpand}
-            className="p-2 rounded-lg transition-colors flex-shrink-0"
-            style={{ background: "var(--bg-surface-alt)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
-            title={expanded ? t("grid.collapse", "Collapse grid") : t("grid.expand", "Expand grid")}
-          >
-            <Icon name={expanded ? "collapse" : "expand"} size={18} />
-          </button>
-        )}
+        </div>
 
         {!isMobile && (
           <div className="relative" ref={colMgr.pickerRef}>
@@ -312,6 +372,16 @@ export function DataGrid<T extends { oid: string }>({
               />
             )}
           </div>
+        )}
+
+        {showExpandBtn && (
+          <button onClick={onToggleExpand}
+            className="p-2 rounded-lg transition-colors flex-shrink-0"
+            style={{ background: "var(--bg-surface-alt)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+            title={expanded ? t("grid.collapse", "Collapse grid") : t("grid.expand", "Expand grid")}
+          >
+            <Icon name={expanded ? "collapse" : "expand"} size={18} />
+          </button>
         )}
       </div>
 

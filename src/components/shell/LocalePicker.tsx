@@ -4,13 +4,13 @@ import React, { useState, useEffect, useRef } from "react";
 import { Icon } from "@/components/icons/Icon";
 import { Flag } from "@/components/ui/Flag";
 import { useTranslation } from "@/context/TranslationContext";
-import { useAuth } from "@/context/AuthContext";
+import { useSession } from "@/context/SessionContext";
 
 type LocaleRecord = { code: string; description: string; flag_svg?: string };
 
 export function LocalePicker() {
   const { locale, setLocale } = useTranslation();
-  const { user } = useAuth();
+  const { user } = useSession();
   const [locales, setLocales] = useState<LocaleRecord[]>([]);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);

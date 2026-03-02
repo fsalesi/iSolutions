@@ -1,12 +1,12 @@
 "use client";
 
 import { type ReactNode } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { useSession } from "@/context/SessionContext";
 import { TranslationProvider } from "@/context/TranslationContext";
 
-/** Reads the user's locale from AuthContext and passes it to TranslationProvider */
+/** Reads the user's locale from SessionContext and passes it to TranslationProvider */
 export function LocaleFromAuth({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user } = useSession();
   return (
     <TranslationProvider defaultLocale={user.locale || "en-us"}>
       {children}

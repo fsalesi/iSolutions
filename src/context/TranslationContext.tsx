@@ -1,12 +1,13 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { substitute } from "@/lib/substitute";
 
 type TranslationMap = Record<string, string>;
 
 interface TranslationContextValue {
   /** Translate a key. Returns the translated value, or the fallback (defaults to key). */
-  t: (key: string, fallback?: string) => string;
+  t: (key: string, fallback?: string, params?: Record<string, string | number>) => string;
   /** Current locale code */
   locale: string;
   /** Switch locale */
@@ -22,7 +23,7 @@ interface TranslationContextValue {
 }
 
 const TranslationContext = createContext<TranslationContextValue>({
-  t: (key, fallback) => fallback ?? key,
+  t: (key, fallback, params) => substitute(fallback ?? key, params),
   locale: "en-us",
   setLocale: () => {},
   ready: false,
@@ -83,8 +84,9 @@ export function TranslationProvider({ children, defaultLocale = "en-us" }: Trans
   }, [locale]);
 
   const t = useCallback(
-    (key: string, fallback?: string): string => {
-      return translations[key] ?? fallback ?? key;
+    (key: string, fallback?: string, params?: Record<string, string | number>): string => {
+      const raw = translations[key] ?? fallback ?? key;
+      return params ? substitute(raw, params) : raw;
     },
     [translations]
   );

@@ -1,13 +1,25 @@
-import type { Pool, PoolClient } from "pg";
+import type { Pool } from "pg";
 
 /**
- * Thrown by hooks to reject a save/delete with a user-facing message.
- * crud-route catches this and returns 422 with the message.
+ * Thrown by hooks to reject a save/delete.
+ * Carries a translation key and optional named params.
+ *
+ * Usage:
+ *   throw new ValidationError("message.delegate_inactive", { delegate: "bob" });
+ *
+ * crud-route resolves the key to the user's locale and substitutes params.
  */
 export class ValidationError extends Error {
-  constructor(message: string) {
-    super(message);
+  /** Translation key, e.g. "message.delegate_inactive" */
+  translationKey: string;
+  /** Named params for {placeholder} substitution */
+  params: Record<string, string | number>;
+
+  constructor(key: string, params?: Record<string, string | number>) {
+    super(key); // fallback message is the key itself
     this.name = "ValidationError";
+    this.translationKey = key;
+    this.params = params || {};
   }
 }
 

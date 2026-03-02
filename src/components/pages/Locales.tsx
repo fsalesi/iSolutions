@@ -28,8 +28,8 @@ function Detail({ row, isNew, onChange, colTypes, colScales }: {
   const { field } = useFieldHelper({ row, onChange, table: "locales", colTypes: colTypes as any, colScales });
   return (
     <Section title={t("locales.section_settings", "Locale Settings")}>
-      {field("code", { autoFocus: isNew, placeholder: "e.g. en-us" })}
-      {field("description", { placeholder: "e.g. English (US)" })}
+      {field("code", { autoFocus: isNew, placeholder: t("locales.placeholder_code", "e.g. en-us") })}
+      {field("description", { placeholder: t("locales.placeholder_description", "e.g. English (US)") })}
       {field("date_format", { type: "select", options: DATE_FORMATS })}
       {field("decimal_char", { maxLength: 1 })}
       {field("separator_char", { maxLength: 1 })}

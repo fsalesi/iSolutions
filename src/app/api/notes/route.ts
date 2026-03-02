@@ -1,3 +1,4 @@
+import { getCurrentUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   const notesRes = await db.query(
     `SELECT n.id, n.body, n.author, n.created_at,
-            COALESCE(u.full_name, n.author) AS author_name
+            COALESCE(u.full_name, n.author) AS author_name, u.oid AS author_oid
      FROM notes n
      LEFT JOIN users u ON n.author = u.user_id
      WHERE n.table_name = $1 AND n.record_oid = $2
@@ -111,7 +112,7 @@ export async function POST(req: NextRequest) {
     if (!uuidRegex.test(record_oid)) return NextResponse.json({ error: "Invalid record_oid" }, { status: 400 });
 
     // TODO: get from real auth
-    const currentUser = "frank";
+    const currentUser = getCurrentUser(req);
 
     // Insert note
     const noteRes = await db.query(
@@ -140,7 +141,7 @@ export async function POST(req: NextRequest) {
     // Return the created note with author name
     const fullNote = await db.query(
       `SELECT n.id, n.body, n.author, n.created_at,
-              COALESCE(u.full_name, n.author) AS author_name
+              COALESCE(u.full_name, n.author) AS author_name, u.oid AS author_oid
        FROM notes n LEFT JOIN users u ON n.author = u.user_id
        WHERE n.id = $1`,
       [note.id]
@@ -165,7 +166,7 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
   // TODO: get from real auth
-  const currentUser = "frank";
+  const currentUser = getCurrentUser(req);
 
   // Verify ownership
   const check = await db.query(`SELECT author FROM notes WHERE id = $1`, [id]);
@@ -189,7 +190,7 @@ export async function PUT(req: NextRequest) {
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
     // TODO: get from real auth
-    const currentUser = "frank";
+    const currentUser = getCurrentUser(req);
 
     // Verify ownership
     const check = await db.query(`SELECT author FROM notes WHERE id = $1`, [id]);

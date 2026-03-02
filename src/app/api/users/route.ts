@@ -3,7 +3,7 @@ import { createCrudRoutes } from "@/lib/crud-route";
 export const { GET, POST, PUT, DELETE } = createCrudRoutes({
   table: "users",
   columns: [
-    "user_id", "full_name", "email", "title", "company", "user_type",
+    "user_id", "full_name", "email", "title", "company",
     "is_active", "expire_date", "last_login", "failed_logins",
     "domains", "phone", "cell_phone", "carrier", "mobile_enabled",
     "street1", "street2", "city", "state", "postal_code", "country",

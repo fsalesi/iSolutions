@@ -2,49 +2,27 @@
  * Hook registry — merges product hooks with customer hooks.
  *
  * Product hooks: src/lib/hooks/<table>.ts  — ship with iSolutions
- * Customer hooks: custom/hooks/<table>.ts  — customer-specific, outside main code
+ * Customer hooks: src/lib/hooks/custom/<table>.ts  — customer-specific
  *
  * Both layers run in order: product first, then customer.
  * Either layer can throw ValidationError to reject the operation.
  */
-import type { CrudHooks, HookContext } from "./types";
-import path from "path";
-import fs from "fs";
+import type { CrudHooks } from "./types";
 export { ValidationError } from "./types";
 export type { CrudHooks, HookContext } from "./types";
 
-// ── Product hooks (static imports — add new tables here) ──
+// ── Product hooks (add new tables here) ──
 import usersHooks from "./users";
 
 const productHooks: Record<string, CrudHooks> = {
   users: usersHooks,
 };
 
-// ── Customer hooks (loaded once from custom/hooks/ at project root) ──
-const customerHooks: Record<string, CrudHooks> = {};
-let customerLoaded = false;
-
-function loadCustomerHooks(): void {
-  if (customerLoaded) return;
-  customerLoaded = true;
-  try {
-    const customDir = path.join(process.cwd(), "custom", "hooks");
-    if (!fs.existsSync(customDir)) return;
-    const files = fs.readdirSync(customDir).filter(f => f.endsWith(".ts") || f.endsWith(".js"));
-    for (const file of files) {
-      const table = file.replace(/\.(ts|js)$/, "");
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const mod = require(path.join(customDir, file));
-        customerHooks[table] = mod.default || mod;
-      } catch (e) {
-        console.error(`[hooks] Failed to load customer hook ${file}:`, e);
-      }
-    }
-  } catch {
-    // custom/hooks folder doesn't exist — that's fine
-  }
-}
+// ── Customer hooks (add customer overrides here) ──
+// import cusUsersHooks from "@/custom/hooks/users";
+const customerHooks: Record<string, CrudHooks> = {
+  // users: cusUsersHooks,
+};
 
 /**
  * Merge product + customer hooks into a single CrudHooks object.
@@ -81,7 +59,6 @@ const mergedCache: Record<string, CrudHooks | undefined> = {};
  */
 export function getHooks(table: string): CrudHooks | undefined {
   if (table in mergedCache) return mergedCache[table];
-  loadCustomerHooks();
   const merged = mergeHooks(productHooks[table], customerHooks[table]);
   mergedCache[table] = merged;
   return merged;

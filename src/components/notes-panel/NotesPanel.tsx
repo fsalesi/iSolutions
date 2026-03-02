@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useSession } from "@/context/SessionContext";
 import { Icon } from "@/components/icons/Icon";
 import { useT } from "@/context/TranslationContext";
 
@@ -7,7 +8,7 @@ import { useT } from "@/context/TranslationContext";
 type Attachment = { id: number; note_id: number; filename: string; mime_type: string; file_size: number };
 type Mention = { user_id: string; full_name?: string };
 type Note = {
-  id: number; body: string; author: string; author_name: string; created_at: string;
+  id: number; body: string; author: string; author_name: string; author_oid?: string; created_at: string;
   attachments: Attachment[]; mentions: Mention[];
 };
 type UserOption = { user_id: string; full_name: string };
@@ -49,6 +50,37 @@ function renderBody(body: string) {
   );
 }
 
+function NoteAvatar({ oid, initial, isMine }: { oid?: string; initial: string; isMine: boolean }) {
+  const [error, setError] = React.useState(false);
+  const src = oid ? `/api/users/photo?oid=${oid}` : "";
+
+  if (!src || error) {
+    return (
+      <div style={{
+        width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+        background: isMine ? "var(--accent)" : "var(--border)",
+        color: isMine ? "#fff" : "var(--text-primary)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 13, fontWeight: 700, marginTop: 2,
+      }}>
+        {initial}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt=""
+      onError={() => setError(true)}
+      style={{
+        width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
+        objectFit: "cover", marginTop: 2,
+      }}
+    />
+  );
+}
+
 function getInitial(name: string) {
   return (name || "?")[0].toUpperCase();
 }
@@ -87,7 +119,8 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
   const dragCountRef = useRef(0);
 
   // TODO: get from real auth
-  const currentUser = "frank";
+  const { user: sessionUser } = useSession();
+  const currentUser = sessionUser.userId;
 
   /* ── fetch notes ──────────────────────────────────────── */
   const fetchNotes = useCallback(async () => {
@@ -374,15 +407,11 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
                   }}
                 >
                   {/* Avatar */}
-                  <div style={{
-                    width: 32, height: 32, borderRadius: "50%", flexShrink: 0,
-                    background: isMine ? "var(--accent)" : "var(--border)",
-                    color: isMine ? "#fff" : "var(--text-primary)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 13, fontWeight: 700, marginTop: 2,
-                  }}>
-                    {getInitial(note.author_name)}
-                  </div>
+                  <NoteAvatar
+                    oid={note.author_oid}
+                    initial={getInitial(note.author_name)}
+                    isMine={isMine}
+                  />
 
                   {/* Bubble */}
                   <div style={{ maxWidth: "75%", minWidth: 0 }}>

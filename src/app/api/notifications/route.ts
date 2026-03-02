@@ -1,3 +1,4 @@
+import { getCurrentUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
@@ -11,7 +12,7 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get("limit") || "20")));
 
   // TODO: get from real auth
-  const currentUser = "frank";
+  const currentUser = getCurrentUser(req);
 
   const res = await db.query(
     `SELECT nt.id, nt.note_id, nt.table_name, nt.record_oid, nt.is_read, nt.created_at,
@@ -42,7 +43,7 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
   // TODO: get from real auth
-  const currentUser = "frank";
+  const currentUser = getCurrentUser(req);
 
   await db.query(
     `UPDATE notifications SET deleted_at = NOW() WHERE id = $1 AND user_id = $2`,

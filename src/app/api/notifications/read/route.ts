@@ -1,3 +1,4 @@
+import { getCurrentUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
@@ -8,7 +9,7 @@ import { db } from "@/lib/db";
 export async function PUT(req: NextRequest) {
   const body = await req.json();
   // TODO: get from real auth
-  const currentUser = "frank";
+  const currentUser = getCurrentUser(req);
 
   if (body.all === true) {
     await db.query(
