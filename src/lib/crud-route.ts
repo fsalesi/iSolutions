@@ -30,7 +30,7 @@ export interface CrudRouteConfig {
 }
 
 export function createCrudRoutes(cfg: CrudRouteConfig) {
-  const allowedCols = new Set(cfg.columns);
+  const allowedCols = new Set([...cfg.columns, "oid", "created_at", "created_by", "updated_at", "updated_by"]);
   const colTypes = cfg.colTypes || {};
 
   /** Coerce values based on column types before sending to DB */
@@ -101,7 +101,7 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
       }
 
       const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-      const selectCols = [...cfg.columns, "oid"].map(c => `"${c}"`).join(", ");
+      const selectCols = [...new Set([...cfg.columns, "oid", "created_at", "created_by", "updated_at", "updated_by"])].map(c => `"${c}"`).join(", ");
 
       const countR = await db.query(`SELECT COUNT(*)::int AS total FROM ${cfg.table} ${where}`, params);
       const total = countR.rows[0].total;
