@@ -4,7 +4,6 @@ export const { GET, POST, PUT, DELETE } = createCrudRoutes({
   table: "settings",
   columns: ["owner", "setting_name", "domain", "form", "value", "help_text",
             "created_at", "created_by", "updated_at", "updated_by"],
-  colTypes: { created_at: "datetime", updated_at: "datetime" },
   defaultSort: "setting_name",
   searchColumns: ["setting_name", "value", "help_text", "owner", "domain", "form"],
   requiredFields: ["setting_name"],

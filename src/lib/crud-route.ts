@@ -17,7 +17,6 @@ type ColType = "text" | "number" | "boolean" | "date" | "datetime";
 export interface CrudRouteConfig {
   table: string;
   columns: string[];
-  colTypes?: Record<string, ColType>;
   defaultSort?: string;
   searchColumns?: string[];
   requiredFields?: string[];
@@ -28,11 +27,30 @@ export interface CrudRouteConfig {
 
 
 
+/** Auto-discover column types from information_schema */
+async function discoverColTypes(table: string): Promise<Record<string, ColType>> {
+  const res = await db.query(
+    `SELECT column_name, data_type FROM information_schema.columns
+     WHERE table_name = $1 AND table_schema = 'public'`,
+    [table]
+  );
+  const types: Record<string, ColType> = {};
+  for (const r of res.rows) {
+    const dt = r.data_type.toLowerCase();
+    if (dt.includes("int") || dt.includes("numeric") || dt.includes("float") || dt.includes("double") || dt === "real")
+      types[r.column_name] = "number";
+    else if (dt === "boolean") types[r.column_name] = "boolean";
+    else if (dt.includes("timestamp")) types[r.column_name] = "datetime";
+    else if (dt === "date") types[r.column_name] = "date";
+    else types[r.column_name] = "text";
+  }
+  return types;
+}
+
 export function createCrudRoutes(cfg: CrudRouteConfig) {
   const allowedCols = new Set([...cfg.columns, "oid", "created_at", "created_by", "updated_at", "updated_by"]);
-  const colTypes = cfg.colTypes || {};
 
-  function coerceValue(field: string, val: any): any {
+  function coerceValue(colTypes: Record<string, ColType>, field: string, val: any): any {
     if (val === undefined) return null;
     const ct = colTypes[field];
     if (ct === "datetime" || ct === "date") return val === "" || val === null ? null : val;
@@ -112,6 +130,8 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
         params.push(`%${search}%`); pi++;
       }
 
+      const colTypes = await discoverColTypes(cfg.table);
+
       if (filtersJson) {
         const fr = buildFilterWhere(filtersJson, pi, colTypes, allowedCols);
         if (fr.sql) { conditions.push(fr.sql); params.push(...fr.params); pi = fr.nextIdx; }
@@ -161,7 +181,8 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
       fields.push("created_by", "updated_by");
       body["created_by"] = userId;
       body["updated_by"] = userId;
-      const values = fields.map(f => coerceValue(f, body[f]));
+      const colTypes = await discoverColTypes(cfg.table);
+      const values = fields.map(f => coerceValue(colTypes, f, body[f]));
       const placeholders = fields.map((_, i) => `$${i + 1}`).join(", ");
       const colList = fields.map(f => `"${f}"`).join(", ");
 
@@ -216,9 +237,10 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
       // Inject audit user column
       fields.push("updated_by");
       body["updated_by"] = userId;
+      const colTypes = await discoverColTypes(cfg.table);
       const setClauses = fields.map((f, i) => `"${f}" = $${i + 1}`);
       setClauses.push("updated_at = NOW()");
-      const values = fields.map(f => coerceValue(f, body[f]));
+      const values = fields.map(f => coerceValue(colTypes, f, body[f]));
       values.push(oid);
 
       const res = await db.query(
