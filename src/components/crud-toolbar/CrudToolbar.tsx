@@ -13,6 +13,8 @@ export type CrudAction = {
   variant?: "primary" | "danger" | "default";
   /** Separator before this action */
   separator?: boolean;
+  /** Highlight the button (e.g. notes exist) */
+  highlight?: boolean;
 };
 
 interface CrudToolbarProps {
@@ -61,7 +63,7 @@ export function CrudToolbar({
 }
 
 function ActionButton({ action }: { action: CrudAction }) {
-  const { icon, label, onClick, disabled, variant = "default" } = action;
+  const { icon, label, onClick, disabled, variant = "default", highlight } = action;
 
   let bg: string, color: string, border: string, hoverBg: string;
 
@@ -73,6 +75,11 @@ function ActionButton({ action }: { action: CrudAction }) {
     bg = "transparent"; color = "var(--danger-text)"; border = "var(--danger-border)"; hoverBg = "var(--danger-bg)";
   } else {
     bg = "transparent"; color = "var(--text-secondary)"; border = "var(--border)"; hoverBg = "var(--bg-hover)";
+  }
+
+  if (highlight && !disabled) {
+    color = "var(--section-title)"; border = "var(--section-title)"; bg = "rgba(14,134,202,0.08)";
+    hoverBg = "rgba(14,134,202,0.12)";
   }
 
   return (

@@ -54,7 +54,6 @@ function ProfileTab({ user, onChange, isNew, colTypes, colScales }: {
           {field("is_active", { colorOn: "var(--success-text)", colorOff: "var(--danger-text)" })}
           {field("expire_date")}
           {field("last_login", { readOnly: true, mode: "datetime" })}
-          {field("failed_logins", { readOnly: true })}
         </div>
       </Section>
       <Section title={t("users.section_contact", "Contact")}>
@@ -128,7 +127,6 @@ export default function UsersPage({ activeNav, onNavigate, selectRecordOid, sele
     { key: "license",  icon: "shield",   label: t("users.tab_license", "License") },
     { key: "export",   icon: "download", label: t("grid.export", "Export") },
     { key: "import",   icon: "upload",   label: t("users.import", "Import") },
-    { key: "unlock",   icon: "unlock",   label: t("users.unlock", "Unlock") },
   ], [t]);
 
   const renderCard = useCallback((row: User, isSelected: boolean) => (

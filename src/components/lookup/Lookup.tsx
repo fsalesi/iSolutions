@@ -367,8 +367,8 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
                 padding: "2px 8px",
                 borderRadius: 4,
                 fontSize: 12,
-                background: "var(--accent-light)",
-                color: "var(--accent)",
+                background: "rgba(14,134,202,0.1)",
+                color: "var(--section-title)",
                 fontWeight: 500,
                 cursor: readOnly ? "default" : "grab",
               }}
@@ -380,7 +380,7 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
                   onClick={(e) => { e.stopPropagation(); removeChip(v); }}
                   style={{
                     background: "none", border: "none", cursor: "pointer",
-                    color: "var(--accent)", padding: 0, fontSize: 14, lineHeight: 1,
+                    color: "var(--section-title)", padding: 0, fontSize: 14, lineHeight: 1,
                   }}
                 >
                   ×

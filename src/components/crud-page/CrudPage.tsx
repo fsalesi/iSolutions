@@ -472,7 +472,8 @@ export function CrudPage<TRow extends { oid: string }>({
       filtered.push({
         key: "notes",
         icon: "messageSquare",
-        label: noteCount > 0 ? `${t("crud.notes", "Notes")} (${noteCount})` : t("crud.notes", "Notes"),
+        label: t("crud.notes", "Notes"),
+        highlight: noteCount > 0,
         disabled: isNew || !selectedRec,
         onClick: () => setNotesOpen(true),
       });

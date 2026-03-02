@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
  * Returns column metadata from the schema: name and data type.
  * Excludes audit/system columns.
  */
-const HIDDEN = new Set(["oid", "password_hash"]);
+const HIDDEN = new Set(["oid", "password_hash", "photo", "photo_type"]);
 
 export async function GET(req: NextRequest) {
   const table = req.nextUrl.searchParams.get("table");
