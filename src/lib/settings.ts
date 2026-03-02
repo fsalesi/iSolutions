@@ -77,8 +77,10 @@ async function cascadeLookup(
   }
   if (domain !== "*") {
     candidates.push(["", domain]);     // 3. no form + domain
+    candidates.push(["*", domain]);    // 3b. wildcard form + specific domain
   }
-  candidates.push(["", "*"]);          // 4. global fallback
+  candidates.push(["", "*"]);          // 4. global fallback (form blank)
+  candidates.push(["*", "*"]);         // 4b. global fallback (form wildcard)
 
   // Single query: fetch all matching rows, then pick best match in JS
   const { rows } = await db.query(
@@ -86,7 +88,7 @@ async function cascadeLookup(
        FROM settings
       WHERE owner = $1
         AND setting_name = $2
-        AND form   IN ($3, '')
+        AND form   IN ($3, '', '*')
         AND domain IN ($4, '*')`,
     [owner, settingName, form, domain]
   );

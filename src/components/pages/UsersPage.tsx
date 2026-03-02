@@ -6,8 +6,9 @@ import type { ColumnDef } from "@/components/data-grid/DataGrid";
 import type { CrudAction } from "@/components/crud-toolbar/CrudToolbar";
 import { Section, TabBar, type TabDef } from "@/components/ui";
 import { useT } from "@/context/TranslationContext";
+import { useSession } from "@/context/SessionContext";
 import { useFieldHelper } from "@/components/ui/useFieldHelper";
-import { LocaleLookup, ActiveUserLookup, DomainLookup, GroupLookup } from "@/components/lookup/presets";
+import { LocaleLookup, ActiveUserLookup, DomainLookup, GroupLookup, VendorLookup } from "@/components/lookup/presets";
 import { Lookup } from "@/components/lookup/Lookup";
 import { Icon } from "@/components/icons/Icon";
 
@@ -84,12 +85,12 @@ function UserGroupsField({ userId }: { userId: string }) {
   );
 }
 
-function ProfileTab({ user, onChange, isNew, colTypes, colScales }: {
+function ProfileTab({ user, onChange, isNew, colTypes, colScales, requiredFields }: {
   user: User; onChange: (f: keyof User, v: any) => void; isNew: boolean;
-  colTypes: Record<string, string>; colScales: Record<string, number>;
+  colTypes: Record<string, string>; colScales: Record<string, number>; requiredFields?: string[];
 }) {
   const t = useT();
-  const { field } = useFieldHelper({ row: user, onChange, table: "users", colTypes: colTypes as any, colScales });
+  const { field } = useFieldHelper({ row: user, onChange, table: "users", colTypes: colTypes as any, colScales, requiredFields });
 
   return (
     <div className="space-y-6">
@@ -100,12 +101,12 @@ function ProfileTab({ user, onChange, isNew, colTypes, colScales }: {
       </Section>
       <Section title={t("users.section_identity", "Identity")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-          {field("user_id", { required: true, readOnly: !isNew })}
-          {field("full_name", { required: true })}
-          {field("email", { type: "email", required: true, requiredMsg: t("message.email_required", "Email address is required") })}
+          {field("user_id", { readOnly: !isNew })}
+          {field("full_name")}
+          {field("email", { type: "email" })}
           {field("company")}
           {field("title")}
-          {field("domains", { required: true, type: "lookup", lookup: DomainLookup({ multiple: true }) })}
+          {field("domains", { type: "lookup", lookup: DomainLookup({ multiple: true }) })}
         </div>
       </Section>
       <Section title={t("users.section_contact", "Contact")}>
@@ -135,12 +136,13 @@ function ProfileTab({ user, onChange, isNew, colTypes, colScales }: {
   );
 }
 
-function IPurchaseTab({ user, onChange, colTypes, colScales }: {
+function IPurchaseTab({ user, onChange, colTypes, colScales, requiredFields }: {
   user: User; onChange: (f: keyof User, v: any) => void;
-  colTypes: Record<string, string>; colScales: Record<string, number>;
+  colTypes: Record<string, string>; colScales: Record<string, number>; requiredFields?: string[];
 }) {
   const t = useT();
-  const { field } = useFieldHelper({ row: user, onChange, table: "users", colTypes: colTypes as any, colScales });
+  const { domain } = useSession();
+  const { field } = useFieldHelper({ row: user, onChange, table: "users", colTypes: colTypes as any, colScales, requiredFields });
   return (
     <div className="space-y-6">
       <Section title={t("users.section_purchasing", "Purchasing")}>
@@ -148,16 +150,16 @@ function IPurchaseTab({ user, onChange, colTypes, colScales }: {
           {field("supervisor_id", { type: "lookup", lookup: ActiveUserLookup({ placeholder: t("users.search_supervisor", "Search supervisor...") }) })}
           {field("delegate_id", { type: "lookup", lookup: ActiveUserLookup({ placeholder: t("users.search_delegate", "Search delegate...") }) })}
           {field("approval_limit")}
-          {field("employee_number")}
+          {field("employee_number", { type: "lookup", lookup: VendorLookup({ domain, placeholder: "Search vendors..." }) })}
         </div>
       </Section>
     </div>
   );
 }
 
-function UserTabs({ row, onChange, isNew, colTypes, colScales }: {
+function UserTabs({ row, onChange, isNew, colTypes, colScales, requiredFields }: {
   row: User; isNew: boolean; onChange: (f: keyof User, v: any) => void;
-  colTypes: Record<string, string>; colScales: Record<string, number>;
+  colTypes: Record<string, string>; colScales: Record<string, number>; requiredFields?: string[];
 }) {
   const t = useT();
   const [activeTab, setActiveTab] = useState("profile");
@@ -169,8 +171,8 @@ function UserTabs({ row, onChange, isNew, colTypes, colScales }: {
     <>
       <TabBar tabs={tabs} active={activeTab} onChange={setActiveTab} />
       <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-        {activeTab === "profile" && <ProfileTab user={row} onChange={onChange} isNew={isNew} colTypes={colTypes} colScales={colScales} />}
-        {activeTab === "ipurchase" && <IPurchaseTab user={row} onChange={onChange} colTypes={colTypes} colScales={colScales} />}
+        {activeTab === "profile" && <ProfileTab user={row} onChange={onChange} isNew={isNew} colTypes={colTypes} colScales={colScales} requiredFields={requiredFields} />}
+        {activeTab === "ipurchase" && <IPurchaseTab user={row} onChange={onChange} colTypes={colTypes} colScales={colScales} requiredFields={requiredFields} />}
       </div>
     </>
   );
