@@ -991,6 +991,80 @@ All colors are defined as CSS custom properties in `src/app/globals.css` with li
 
 ---
 
+
+## Settings Helpers (`src/lib/settings.ts`)
+
+Server-side functions for reading settings with cascading resolution.
+
+### Cascade Order
+
+Settings resolve from most specific to least specific (first match wins):
+
+1. **owner + form + domain** — e.g. frank + iPurchase + demo1
+2. **owner + form + \*** — e.g. frank + iPurchase + any domain
+3. **owner + "" + domain** — e.g. frank + no form + demo1
+4. **owner + "" + \*** — e.g. frank + no form + any domain (global fallback)
+
+`getSetting()` checks user-level first (all 4 cascade levels), then system-level (all 4 levels).
+
+### Functions
+
+```ts
+import { getSetting, getSystemSetting, getUserSetting, getSettingBool, getSettingNumber } from "@/lib/settings";
+```
+
+**`getSetting(name, userId, opts?)`** — Full cascade: user first, then system.
+```ts
+const val = await getSetting("MAX_ROWS", "frank", { form: "iPurchase", domain: "demo1" });
+// Checks: frank+iPurchase+demo1 → frank+iPurchase+* → frank+""+demo1 → frank+""+*
+//   then: SYSTEM+iPurchase+demo1 → SYSTEM+iPurchase+* → SYSTEM+""+demo1 → SYSTEM+""+*
+```
+
+**`getSystemSetting(name, opts?)`** — System-level only (owner = 'SYSTEM').
+```ts
+const domains = await getSystemSetting("ALLOWED_DOMAINS");
+// Checks: SYSTEM+""+*
+const buyer = await getSystemSetting("DEFAULT_BUYER", { form: "Expense", domain: "demo1" });
+// Checks: SYSTEM+Expense+demo1 → SYSTEM+Expense+* → SYSTEM+""+demo1 → SYSTEM+""+*
+```
+
+**`getUserSetting(name, userId, opts?)`** — User-level only.
+```ts
+const pref = await getUserSetting("THEME", "frank");
+```
+
+**`getSettingBool(name, userId, opts?)`** — Returns boolean. Truthy values: `true`, `yes`, `1`.
+```ts
+if (await getSettingBool("DARK_MODE", "frank")) { ... }
+```
+
+**`getSettingNumber(name, userId, opts?)`** — Returns number or null.
+```ts
+const limit = await getSettingNumber("PAGE_SIZE", "frank", { domain: "demo1" });
+```
+
+### Options
+
+All functions accept an optional `opts` object:
+
+| Option   | Default | Description |
+|----------|---------|-------------|
+| `form`   | `""`    | Form/context name for form-specific settings |
+| `domain` | `"*"`   | Domain code for domain-specific settings |
+
+### Database Table
+
+Settings are stored in the `settings` table with natural key: `(owner, setting_name, domain, form)`.
+
+| Column | Description |
+|--------|-------------|
+| `owner` | `'SYSTEM'` for global, or user_id for user-level |
+| `setting_name` | Setting identifier |
+| `domain` | Domain code or `'*'` for all domains |
+| `form` | Form/context name or `''` for no form |
+| `value` | Setting value (text) |
+| `help_text` | Description of the setting |
+
 ## Anti-Patterns — DO NOT
 
 - Hand-roll AppShell + DataGrid + detail layouts — use CrudPage scaffold

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Section, Field, Input } from "@/components/ui";
 import { Icon } from "@/components/icons/Icon";
 import { useSession } from "@/context/SessionContext";
+import { useT } from "@/context/TranslationContext";
 
 type ProfileData = Record<string, any>;
 
@@ -14,6 +15,7 @@ interface ProfileDialogProps {
 
 export function ProfileDialog({ open, onClose }: ProfileDialogProps) {
   const { user } = useSession();
+  const t = useT();
   const [data, setData] = useState<ProfileData | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -56,14 +58,14 @@ export function ProfileDialog({ open, onClose }: ProfileDialogProps) {
         body: JSON.stringify(data),
       });
       if (res.ok) {
-        setMessage("Saved");
+        setMessage(t("crud.saved", "Saved"));
         setTimeout(() => onClose(), 600);
       } else {
         const err = await res.json();
-        setMessage(err.error || "Save failed");
+        setMessage(err.error || t("crud.save_failed", "Save failed"));
       }
     } catch (e: any) {
-      setMessage(e.message || "Save failed");
+      setMessage(e.message || t("crud.save_failed", "Save failed"));
     } finally {
       setSaving(false);
     }
@@ -82,10 +84,10 @@ export function ProfileDialog({ open, onClose }: ProfileDialogProps) {
         setPhotoVer(v => v + 1);
       } else {
         const err = await res.json();
-        setMessage(err.error || "Upload failed");
+        setMessage(err.error || t("crud.upload_failed", "Upload failed"));
       }
     } catch {
-      setMessage("Upload failed");
+      setMessage(t("crud.upload_failed", "Upload failed"));
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -144,7 +146,7 @@ export function ProfileDialog({ open, onClose }: ProfileDialogProps) {
           style={{ borderBottom: "1px solid var(--border)" }}
         >
           <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-            My Profile
+            {t("shell.my_profile", "My Profile")}
           </h2>
           <button
             onClick={onClose}
@@ -160,7 +162,7 @@ export function ProfileDialog({ open, onClose }: ProfileDialogProps) {
         {/* Body */}
         <div className="overflow-y-auto flex-1 px-5 py-4 flex flex-col gap-4">
           {!data ? (
-            <div className="text-xs py-8 text-center" style={{ color: "var(--text-muted)" }}>Loading…</div>
+            <div className="text-xs py-8 text-center" style={{ color: "var(--text-muted)" }}>{t("crud.loading", "Loading…")}</div>
           ) : (
             <>
               {/* Photo + User ID header */}
@@ -204,53 +206,53 @@ export function ProfileDialog({ open, onClose }: ProfileDialogProps) {
                 </div>
               </div>
 
-              <Section title="Personal Information">
-                <Field label="Full Name">
+              <Section title={t("users.section_identity", "Personal Information")}>
+                <Field label={t("users.field.full_name", "Full Name")}>
                   <Input value={data.full_name || ""} onChange={v => onChange("full_name", v)} />
                 </Field>
-                <Field label="Email">
+                <Field label={t("users.field.email", "Email")}>
                   <Input value={data.email || ""} readOnly />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Title">
+                  <Field label={t("users.field.title", "Title")}>
                     <Input value={data.title || ""} onChange={v => onChange("title", v)} />
                   </Field>
-                  <Field label="Company">
+                  <Field label={t("users.field.company", "Company")}>
                     <Input value={data.company || ""} onChange={v => onChange("company", v)} />
                   </Field>
                 </div>
               </Section>
 
-              <Section title="Contact">
+              <Section title={t("users.section_contact", "Contact")}>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Phone">
+                  <Field label={t("users.field.phone", "Phone")}>
                     <Input value={data.phone || ""} onChange={v => onChange("phone", v)} />
                   </Field>
-                  <Field label="Cell Phone">
+                  <Field label={t("users.field.cell_phone", "Cell Phone")}>
                     <Input value={data.cell_phone || ""} onChange={v => onChange("cell_phone", v)} />
                   </Field>
                 </div>
               </Section>
 
-              <Section title="Address">
-                <Field label="Street 1">
+              <Section title={t("global.section_address", "Address")}>
+                <Field label={t("users.field.street1", "Street 1")}>
                   <Input value={data.street1 || ""} onChange={v => onChange("street1", v)} />
                 </Field>
-                <Field label="Street 2">
+                <Field label={t("users.field.street2", "Street 2")}>
                   <Input value={data.street2 || ""} onChange={v => onChange("street2", v)} />
                 </Field>
                 <div className="grid grid-cols-3 gap-3">
-                  <Field label="City">
+                  <Field label={t("users.field.city", "City")}>
                     <Input value={data.city || ""} onChange={v => onChange("city", v)} />
                   </Field>
-                  <Field label="State">
+                  <Field label={t("users.field.state", "State")}>
                     <Input value={data.state || ""} onChange={v => onChange("state", v)} />
                   </Field>
-                  <Field label="Postal Code">
+                  <Field label={t("users.field.postal_code", "Postal Code")}>
                     <Input value={data.postal_code || ""} onChange={v => onChange("postal_code", v)} />
                   </Field>
                 </div>
-                <Field label="Country">
+                <Field label={t("users.field.country", "Country")}>
                   <Input value={data.country || ""} onChange={v => onChange("country", v)} />
                 </Field>
               </Section>
@@ -266,7 +268,7 @@ export function ProfileDialog({ open, onClose }: ProfileDialogProps) {
           >
             {message && (
               <span className="text-xs mr-auto" style={{
-                color: message === "Saved" ? "var(--success-text, #22c55e)" : "var(--danger-text)",
+                color: message === t("crud.saved", "Saved") ? "var(--success-text, #22c55e)" : "var(--danger-text)",
               }}>
                 {message}
               </span>
@@ -278,7 +280,7 @@ export function ProfileDialog({ open, onClose }: ProfileDialogProps) {
               onMouseEnter={e => e.currentTarget.style.background = "var(--bg-hover)"}
               onMouseLeave={e => e.currentTarget.style.background = "transparent"}
             >
-              Cancel
+              {t("crud.cancel", "Cancel")}
             </button>
             <button
               onClick={handleSave}
@@ -290,7 +292,7 @@ export function ProfileDialog({ open, onClose }: ProfileDialogProps) {
                 opacity: saving ? 0.6 : 1,
               }}
             >
-              {saving ? "Saving…" : "Save"}
+              {saving ? t("crud.saving", "Saving…") : t("crud.save", "Save")}
             </button>
           </div>
         )}

@@ -95,4 +95,7 @@ export interface LookupConfig {
 
   /** Minimum characters before search fires (default: 0 — search on focus) */
   minChars?: number;
+
+  /** Prepend a wildcard/all option to results (e.g. { value: "*", label: "All Domains" }) */
+  allOption?: { value: string; label: string };
 }

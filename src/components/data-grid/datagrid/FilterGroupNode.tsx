@@ -29,7 +29,7 @@ export function GroupNode({ group, columns, colTypes, depth, selection, onSelect
         <button onClick={() => onChange({ ...group, logic: group.logic === "and" ? "or" : "and" })}
           className="rounded text-[10px] font-bold uppercase tracking-wider leading-none mb-1"
           style={{ background: color, color: "#fff", padding: "3px 7px", border: "none", cursor: "pointer" }}
-          title={`Switch to ${group.logic === "and" ? "OR" : "AND"}`}>{group.logic}</button>
+          title={group.logic === "and" ? t("filter.switch_or", "Switch to OR") : t("filter.switch_and", "Switch to AND")}>{group.logic === "and" ? t("filter.and", "AND") : t("filter.or", "OR")}</button>
         <div style={{ width: 3, flex: 1, background: color, borderRadius: 2, minHeight: 6 }} />
         <button onClick={() => onChange({ ...group, children: [...group.children, mkCondition(defaultField, colTypes)] })}
           title={t("filter.add_condition", "Add condition")}
@@ -39,10 +39,10 @@ export function GroupNode({ group, columns, colTypes, depth, selection, onSelect
         </button>
       </div>
       <div className="flex-1 min-w-0">
-        {group.children.length === 0 && <div className="py-3 text-xs" style={{ color: "var(--text-muted)" }}>Empty group</div>}
+        {group.children.length === 0 && <div className="py-3 text-xs" style={{ color: "var(--text-muted)" }}>{t("filter.empty_group", "Empty group")}</div>}
         {group.children.map((child, idx) => (
           <div key={child.id}>
-            {idx > 0 && <div className="text-[10px] font-bold uppercase py-0.5" style={{ color, letterSpacing: "0.05em", paddingLeft: 20 }}>{group.logic}</div>}
+            {idx > 0 && <div className="text-[10px] font-bold uppercase py-0.5" style={{ color, letterSpacing: "0.05em", paddingLeft: 20 }}>{group.logic === "and" ? t("filter.and", "AND") : t("filter.or", "OR")}</div>}
             {child.type === "condition" ? (
               <ConditionRow cond={child} columns={columns} colTypes={colTypes}
                 selected={selection.has(child.id)}
@@ -63,13 +63,13 @@ export function GroupNode({ group, columns, colTypes, depth, selection, onSelect
         ))}
         <div className="flex gap-2 pt-1 pb-0.5 flex-wrap">
           <button onClick={() => onChange({ ...group, children: [...group.children, mkGroup("and", defaultField, colTypes)] })}
-            className="text-[11px] px-2 py-0.5 rounded" style={{ border: "1px solid var(--border)", color: "var(--text-muted)" }}>+ AND</button>
+            className="text-[11px] px-2 py-0.5 rounded" style={{ border: "1px solid var(--border)", color: "var(--text-muted)" }}>+ {t("filter.and", "AND")}</button>
           <button onClick={() => onChange({ ...group, children: [...group.children, mkGroup("or", defaultField, colTypes)] })}
-            className="text-[11px] px-2 py-0.5 rounded" style={{ border: "1px solid var(--border)", color: "var(--text-muted)" }}>+ OR</button>
+            className="text-[11px] px-2 py-0.5 rounded" style={{ border: "1px solid var(--border)", color: "var(--text-muted)" }}>+ {t("filter.or", "OR")}</button>
           {onRemove && (
             <button onClick={onRemove} className="text-[11px] px-2 py-0.5 rounded ml-auto" style={{ color: "var(--text-muted)" }}
               onMouseEnter={e => { e.currentTarget.style.color = "#ef4444"; }}
-              onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; }}>Remove group</button>
+              onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; }}>{t("filter.remove_group", "Remove group")}</button>
           )}
         </div>
       </div>

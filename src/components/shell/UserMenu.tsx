@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Icon } from "@/components/icons/Icon";
 import { Flag } from "@/components/ui/Flag";
-import { useTranslation } from "@/context/TranslationContext";
+import { useTranslation, useT } from "@/context/TranslationContext";
 import { useSession } from "@/context/SessionContext";
 import { useTheme } from "@/components/theme/ThemeProvider";
 
@@ -17,6 +17,7 @@ export function UserMenu({ onNavigate }: UserMenuProps) {
   const { user, logout } = useSession();
   const { theme, toggle: toggleTheme } = useTheme();
   const { locale, setLocale } = useTranslation();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const [locales, setLocales] = useState<LocaleRecord[]>([]);
@@ -129,7 +130,7 @@ export function UserMenu({ onNavigate }: UserMenuProps) {
           </div>
 
           {/* Profile */}
-          <MenuItem icon="user" label="Profile" onClick={handleProfile} />
+          <MenuItem icon="user" label={t("shell.profile", "Profile")} onClick={handleProfile} />
 
           {/* Language - with submenu */}
           <div className="relative">
@@ -141,7 +142,7 @@ export function UserMenu({ onNavigate }: UserMenuProps) {
               onMouseLeave={e => e.currentTarget.style.background = "transparent"}
             >
               <Icon name="globe" size={14} />
-              <span className="flex-1">Language</span>
+              <span className="flex-1">{t("shell.language", "Language")}</span>
               {currentLocale && <Flag svg={currentLocale.flag_svg} size={14} />}
               <Icon name="chevRight" size={11} />
             </button>
@@ -183,13 +184,13 @@ export function UserMenu({ onNavigate }: UserMenuProps) {
           {/* Theme toggle */}
           <MenuItem
             icon={theme === "light" ? "moon" : "sun"}
-            label={theme === "light" ? "Dark Mode" : "Light Mode"}
+            label={theme === "light" ? t("shell.dark_mode", "Dark Mode") : t("shell.light_mode", "Light Mode")}
             onClick={() => { toggleTheme(); }}
           />
 
           {/* Divider + Logout */}
           <div style={{ borderTop: "1px solid var(--border)", margin: "4px 0" }} />
-          <MenuItem icon="logOut" label="Sign Out" onClick={handleLogout} />
+          <MenuItem icon="logOut" label={t("shell.sign_out", "Sign Out")} onClick={handleLogout} />
         </div>
       )}
     </div>

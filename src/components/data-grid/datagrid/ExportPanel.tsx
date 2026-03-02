@@ -123,12 +123,12 @@ export function ExportDropdown<T>({
     >
       <div className="flex items-center justify-between px-3 py-2 text-xs font-medium"
         style={{ borderBottom: "1px solid var(--border-light)", color: "var(--text-muted)" }}>
-        <span>Export Columns</span>
+        <span>{t("grid.export_columns", "Export Columns")}</span>
         <div className="flex gap-2">
           <button onClick={() => setExportKeys(columns.map(c => c.key))}
-            className="text-xs hover:underline" style={{ color: "var(--accent)" }}>All</button>
+            className="text-xs hover:underline" style={{ color: "var(--accent)" }}>{t("grid.all", "All")}</button>
           <button onClick={() => setExportKeys([...visibleKeys])}
-            className="text-xs hover:underline" style={{ color: "var(--accent)" }}>Visible</button>
+            className="text-xs hover:underline" style={{ color: "var(--accent)" }}>{t("grid.visible", "Visible")}</button>
         </div>
       </div>
       <div className="overflow-y-auto" style={{ maxHeight: 320 }}>
@@ -161,7 +161,7 @@ export function ExportDropdown<T>({
           }}
         >
           <Icon name="download" size={14} />
-          {exporting ? t("grid.exporting", "Exporting...") : `${t("grid.export", "Export")} ${exportKeys.length} columns`}
+          {exporting ? t("grid.exporting", "Exporting...") : t("grid.export_n_columns", "{action} {n} columns", { action: t("grid.export", "Export"), n: exportKeys.length })}
         </button>
       </div>
     </div>

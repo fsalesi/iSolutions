@@ -47,6 +47,7 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
     minChars = 1,
     renderRow,
     renderValue,
+    allOption,
   } = config;
 
   const [search, setSearch] = useState("");
@@ -65,6 +66,8 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const dragIdx = useRef<number>(-1);
+  const chipRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
   // The columns to show in the dropdown
   const ddCols = useMemo(
@@ -181,7 +184,17 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
     );
   }, [preload, search, results, config.searchColumns, valueField, displayField]);
 
-  const displayResults = preload ? filteredResults : results;
+  const displayResults = useMemo(() => {
+    const base = preload ? filteredResults : results;
+    if (!allOption) return base;
+    const allRec = { [valueField]: allOption.value, [displayField]: allOption.label };
+    cache.current.set(String(allOption.value), allRec);
+    if (search) {
+      const lower = search.toLowerCase();
+      if (!allOption.label.toLowerCase().includes(lower) && !allOption.value.toLowerCase().includes(lower)) return base;
+    }
+    return [allRec, ...base];
+  }, [preload, filteredResults, results, allOption, valueField, displayField, search]);
 
   // Select a record
   function selectRecord(record: any) {
@@ -257,10 +270,18 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
   function handleFocus() {
     if (readOnly) return;
     if (value && !multiple) {
-      // Seed search input with current display so text doesn't vanish
-      setSearch(displayText || value);
+      if (preload) {
+        // Preloaded: clear search so full list is visible, select text for easy typing
+        setSearch("");
+      } else {
+        // Remote: seed search with current display so text doesn't vanish
+        setSearch(displayText || value);
+      }
     }
-    // Don't open dropdown on focus — it opens when typing produces results
+    // For preloaded lookups, show dropdown immediately on focus
+    if (preload && results.length > 0) {
+      setOpen(true);
+    }
   }
 
   // Display chips for multi-select
@@ -277,6 +298,8 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
   return (
     <>
       <div ref={containerRef} style={{ position: "relative" }}>
+        {/* Hidden input carries the real value for DOM-based required validation */}
+        <input type="hidden" value={multiple ? selectedValues.join(",") : (value ?? "")} />
         {/* Input area */}
         <div
           style={{
@@ -293,11 +316,50 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
             transition: "border-color 0.15s",
           }}
           onClick={() => !readOnly && inputRef.current?.focus()}
+          onDragOver={multiple && !readOnly ? (e) => { e.preventDefault(); } : undefined}
+          onDrop={multiple && !readOnly ? (e) => {
+            e.preventDefault();
+            const from = dragIdx.current;
+            if (from < 0) return;
+            // Find nearest chip to drop position
+            const x = e.clientX;
+            const y = e.clientY;
+            let toIdx = selectedValues.length; // default: end
+            for (let i = 0; i < chipRefs.current.length; i++) {
+              const el = chipRefs.current[i];
+              if (!el) continue;
+              const rect = el.getBoundingClientRect();
+              const midX = rect.left + rect.width / 2;
+              const midY = rect.top + rect.height / 2;
+              // If cursor is above this chip's row or left of its center, insert before
+              if (y < rect.top + rect.height && (y < rect.top || x < midX)) {
+                toIdx = i;
+                break;
+              }
+            }
+            if (from === toIdx || from + 1 === toIdx) { dragIdx.current = -1; return; }
+            const arr = [...selectedValues];
+            const [moved] = arr.splice(from, 1);
+            const insertAt = toIdx > from ? toIdx - 1 : toIdx;
+            arr.splice(insertAt, 0, moved);
+            onChange(arr.join(","));
+            dragIdx.current = -1;
+          } : undefined}
         >
-          {/* Multi-select chips */}
-          {multiple && selectedValues.map(v => (
+          {/* Multi-select chips (draggable for reordering) */}
+          {multiple && selectedValues.map((v, i) => (
             <span
               key={v}
+              ref={(el) => { chipRefs.current[i] = el; }}
+              draggable={!readOnly}
+              onDragStart={(e) => {
+                dragIdx.current = i;
+                e.currentTarget.style.opacity = "0.4";
+              }}
+              onDragEnd={(e) => {
+                dragIdx.current = -1;
+                e.currentTarget.style.opacity = "1";
+              }}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -308,6 +370,7 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
                 background: "var(--accent-light)",
                 color: "var(--accent)",
                 fontWeight: 500,
+                cursor: readOnly ? "default" : "grab",
               }}
             >
               {getChipLabel(v)}

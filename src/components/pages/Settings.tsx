@@ -6,6 +6,7 @@ import type { ColumnDef } from "@/components/data-grid/DataGrid";
 import { Section } from "@/components/ui";
 import { useT } from "@/context/TranslationContext";
 import { useFieldHelper } from "@/components/ui/useFieldHelper";
+import { DomainLookup } from "@/components/lookup/presets";
 
 type Row = { oid: string; [key: string]: any };
 
@@ -32,7 +33,7 @@ function Detail({ row, isNew, onChange, colTypes, colScales }: {
   return (
     <Section title={t("settings.section_general", "General")}>
       {field("setting_name", { required: true, autoFocus: isNew })}
-      {field("domain", { type: "select", options: [{ value: "*", label: "All Domains" }] })}
+      {field("domain", { type: "lookup", lookup: DomainLookup({ allOption: { value: "*", label: t("settings.all_domains", "All Domains") } }) })}
       {field("value")}
       {field("help_text")}
     </Section>

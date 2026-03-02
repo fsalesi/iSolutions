@@ -9,14 +9,15 @@ import { SEL } from "./filter-types";
 function InlineConfirm({ message, onConfirm, onCancel }: {
   message: string; onConfirm: () => void; onCancel: () => void;
 }) {
+  const t = useT();
   return (
     <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
       style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
       <span style={{ color: "var(--text-primary)" }}>{message}</span>
       <button onClick={onConfirm} className="px-2 py-0.5 rounded font-medium text-white"
-        style={{ background: "#ef4444", fontSize: 11 }}>Delete</button>
+        style={{ background: "#ef4444", fontSize: 11 }}>{t("crud.delete", "Delete")}</button>
       <button onClick={onCancel} className="px-2 py-0.5 rounded font-medium"
-        style={{ color: "var(--text-muted)", fontSize: 11 }}>Cancel</button>
+        style={{ color: "var(--text-muted)", fontSize: 11 }}>{t("crud.cancel", "Cancel")}</button>
     </div>
   );
 }
@@ -39,9 +40,9 @@ function InlineSaveName({ onSave, onCancel }: {
       <button onClick={() => name.trim() && onSave(name.trim())}
         disabled={!name.trim()}
         className="text-xs px-2 py-1 rounded font-medium disabled:opacity-30"
-        style={{ background: "var(--accent)", color: "#fff", fontSize: 11 }}>Save</button>
+        style={{ background: "var(--accent)", color: "#fff", fontSize: 11 }}>{t("crud.save", "Save")}</button>
       <button onClick={onCancel} className="text-xs px-2 py-1 rounded font-medium"
-        style={{ color: "var(--text-muted)", fontSize: 11 }}>Cancel</button>
+        style={{ color: "var(--text-muted)", fontSize: 11 }}>{t("crud.cancel", "Cancel")}</button>
     </div>
   );
 }
@@ -69,26 +70,26 @@ export function SavedFiltersBar({ saved, activeName, onLoad, onSave, onSaveAs, o
   return (
     <div className="flex items-center gap-2 px-5 py-2 flex-wrap" style={{ borderBottom: "1px solid var(--border)" }}>
       <Icon name="save" size={14} />
-      <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Saved:</span>
+      <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>{t("filter.saved", "Saved")}:</span>
 
       <div className="relative" ref={ref}>
         <button onClick={() => setOpen(!open)}
           className="flex items-center justify-between px-2.5 py-1 rounded text-xs font-medium"
           style={{ border: "1px solid var(--border)", color: "var(--text-primary)", background: "var(--bg-surface)", minWidth: 150 }}>
-          <span className="truncate">{activeName || "— None —"}</span>
+          <span className="truncate">{activeName || t("filter.none", "— None —")}</span>
           <Icon name="chevDown" size={12} />
         </button>
         {open && (
           <div className="absolute top-full left-0 mt-1 z-50 rounded-lg shadow-lg overflow-hidden"
             style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", minWidth: 240 }}>
             {saved.length === 0 && (
-              <div className="px-3 py-2 text-xs" style={{ color: "var(--text-muted)" }}>No saved filters yet</div>
+              <div className="px-3 py-2 text-xs" style={{ color: "var(--text-muted)" }}>{t("filter.no_saved", "No saved filters yet")}</div>
             )}
             {saved.map(s => (
               <div key={s.id}>
                 {confirmDelete?.id === s.id ? (
                   <div className="px-3 py-2">
-                    <InlineConfirm message={`Delete "${s.name}"?`}
+                    <InlineConfirm message={t("filter.confirm_delete", 'Delete "{name}"?', { name: s.name })}
                       onConfirm={() => { onDelete(s); setConfirmDelete(null); }}
                       onCancel={() => setConfirmDelete(null)} />
                   </div>
@@ -97,7 +98,7 @@ export function SavedFiltersBar({ saved, activeName, onLoad, onSave, onSaveAs, o
                     onClick={() => { onLoad(s); setOpen(false); }}>
                     <span className="flex-1 text-xs truncate" style={{ color: "var(--text-primary)" }}>
                       {s.name}
-                      {s.is_default && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "var(--accent)", color: "#fff" }}>default</span>}
+                      {s.is_default && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "var(--accent)", color: "#fff" }}>{t("filter.default", "default")}</span>}
                     </span>
                     <button onClick={e => { e.stopPropagation(); onSetDefault(s); }} title={s.is_default ? t("filter.remove_default", "Remove default") : t("filter.set_default", "Set as default")}
                       className="opacity-0 group-hover:opacity-60 hover:!opacity-100 p-0.5 transition-opacity"
@@ -126,13 +127,13 @@ export function SavedFiltersBar({ saved, activeName, onLoad, onSave, onSaveAs, o
           <button onClick={() => { const a = saved.find(s => s.name === activeName); if (a) onSave(a); }}
             className="text-xs px-2.5 py-1 rounded font-medium transition-colors hover:bg-[var(--bg-surface-alt)]"
             style={{ border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-            Save
+            {t("crud.save", "Save")}
           </button>
         )}
         <button onClick={() => setSaving(true)}
           className="text-xs px-2.5 py-1 rounded font-medium transition-colors hover:bg-[var(--bg-surface-alt)]"
           style={{ border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-          Save As…
+          {t("filter.save_as", "Save As…")}
         </button>
       </>)}
     </div>

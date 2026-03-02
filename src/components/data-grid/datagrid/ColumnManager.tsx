@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Icon } from "@/components/icons/Icon";
+import { useT } from "@/context/TranslationContext";
 import type { ColumnDef } from "./types";
 
 export interface ColumnManagerState {
@@ -133,6 +134,7 @@ export function ColumnPicker<T>({
   onReset: () => void;
   hasUserPref?: boolean;
 }) {
+  const t = useT();
   return (
     <div
       className="absolute right-0 top-full mt-1 z-50 rounded-lg shadow-lg overflow-hidden"
@@ -140,16 +142,12 @@ export function ColumnPicker<T>({
     >
       <div className="flex items-center justify-between px-3 py-2 text-xs font-medium"
         style={{ borderBottom: "1px solid var(--border-light)", color: "var(--text-muted)" }}>
-        <span className="flex items-center gap-1.5">
-          Columns
-          {hasUserPref && (
-            <span className="px-1.5 py-0.5 rounded text-[10px]"
-              style={{ background: "var(--bg-selected)", color: "var(--accent)" }}>Customized</span>
-          )}
-        </span>
-        <button onClick={onReset} className="text-xs hover:underline" style={{ color: "var(--accent)" }}>
-          Reset to default
-        </button>
+        <span>{t("crud.columns", "Columns")}</span>
+        {hasUserPref && (
+          <button onClick={onReset} className="text-xs hover:underline" style={{ color: "var(--accent)" }}>
+            {t("crud.reset_to_default", "Reset to default")}
+          </button>
+        )}
       </div>
       <div className="overflow-y-auto" style={{ maxHeight: 300 }}>
         {allColumns.map((col) => {

@@ -482,7 +482,6 @@ export function DataGrid<T extends { oid: string }>({
       <div className="flex items-center justify-between px-3 py-2 text-xs flex-shrink-0"
         style={{ background: "var(--bg-surface-alt)", borderTop: "1px solid var(--border)", color: "var(--text-muted)" }}>
         <span>{loading ? t("crud.loading", "Loading...") : total === 0 ? t("grid.no_records", "No records") : `${rows.length} of ${total}`}</span>
-        {hasMore && !loading && <span>↓ scroll for more</span>}
       </div>
     </div>
   );

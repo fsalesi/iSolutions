@@ -22,15 +22,15 @@ interface NotesPanelProps {
 }
 
 /* ── helpers ──────────────────────────────────────────────── */
-function formatTime(iso: string) {
+function formatTime(iso: string, t: (key: string, fb?: string, p?: Record<string, string | number>) => string) {
   const d = new Date(iso);
   const now = new Date();
   const diff = now.getTime() - d.getTime();
-  if (diff < 60000) return "just now";
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
-    " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  if (diff < 60000) return t("shell.just_now", "just now");
+  if (diff < 3600000) return t("shell.minutes_ago", "{n}m ago", { n: Math.floor(diff / 60000) });
+  if (diff < 86400000) return t("shell.hours_ago", "{n}h ago", { n: Math.floor(diff / 3600000) });
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
+    " " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
 function formatSize(bytes: number) {
@@ -113,6 +113,8 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
   const [dragging, setDragging] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState<number | null>(null);
+  const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -233,10 +235,23 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
     setSending(false);
   };
 
-  /* ── delete note ───────────────────────────────────────── */
-  const handleDelete = async (id: number) => {
+  /* ── delete note (two-step confirm) ───────────────────── */
+  const requestDelete = (id: number) => {
+    if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+    setConfirmingDelete(id);
+    confirmTimerRef.current = setTimeout(() => setConfirmingDelete(null), 3000);
+  };
+
+  const confirmDelete = async (id: number) => {
+    if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+    setConfirmingDelete(null);
     await fetch(`/api/notes?id=${id}`, { method: "DELETE" });
     fetchNotes();
+  };
+
+  const cancelDelete = () => {
+    if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+    setConfirmingDelete(null);
   };
 
   /* ── edit note ───────────────────────────────────────── */
@@ -354,7 +369,7 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
           }}>
             <Icon name="upload" size={36} />
             <span style={{ fontWeight: 600, fontSize: 15, color: "var(--accent)" }}>
-              Drop files to attach
+              {t("notes.drop_files", "Drop files to attach")}
             </span>
           </div>
         )}
@@ -367,7 +382,7 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
         }}>
           <Icon name="messageSquare" size={20} />
           <span style={{ fontWeight: 700, fontSize: 16, flex: 1, color: "var(--text-primary)" }}>
-            Notes
+            {t("notes.title", "Notes")}
           </span>
           {total > 0 && (
             <span style={{
@@ -387,13 +402,13 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
           {loading && notes.length === 0 ? (
             <div style={{ textAlign: "center", color: "var(--text-muted)", padding: 40, fontSize: 14 }}>
-              Loading…
+              {t("crud.loading", "Loading…")}
             </div>
           ) : notes.length === 0 ? (
             <div style={{ textAlign: "center", color: "var(--text-muted)", padding: 40 }}>
               <Icon name="messageSquare" size={40} />
-              <div style={{ marginTop: 12, fontSize: 14, fontWeight: 500 }}>No notes yet</div>
-              <div style={{ fontSize: 13, marginTop: 4 }}>Start the conversation below</div>
+              <div style={{ marginTop: 12, fontSize: 14, fontWeight: 500 }}>{t("notes.no_notes", "No notes yet")}</div>
+              <div style={{ fontSize: 13, marginTop: 4 }}>{t("notes.start_conversation", "Start the conversation below")}</div>
             </div>
           ) : (
             notes.map((note) => {
@@ -425,7 +440,7 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
                         </span>
                       )}
                       <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                        {formatTime(note.created_at)}
+                        {formatTime(note.created_at, t)}
                       </span>
                       {isMine && editingId !== note.id && (
                         <>
@@ -442,19 +457,46 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
                           >
                             <Icon name="edit" size={13} />
                           </button>
-                          <button
-                            onClick={() => handleDelete(note.id)}
-                            title="Delete"
-                            style={{
-                              background: "none", border: "none", cursor: "pointer",
-                              color: "var(--text-muted)", padding: "0 2px",
-                              opacity: 0.5, fontSize: 0,
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
-                            onMouseLeave={e => (e.currentTarget.style.opacity = "0.5")}
-                          >
-                            <Icon name="trash" size={13} />
-                          </button>
+                          {confirmingDelete === note.id ? (
+                            <>
+                              <button
+                                onClick={() => confirmDelete(note.id)}
+                                title={t("crud.delete", "Delete")}
+                                style={{
+                                  background: "none", border: "none", cursor: "pointer",
+                                  color: "var(--danger-text, #ef4444)", padding: "0 2px",
+                                  fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 2,
+                                }}
+                              >
+                                <Icon name="check" size={13} />
+                              </button>
+                              <button
+                                onClick={cancelDelete}
+                                title={t("crud.cancel", "Cancel")}
+                                style={{
+                                  background: "none", border: "none", cursor: "pointer",
+                                  color: "var(--text-muted)", padding: "0 2px",
+                                  fontSize: 0,
+                                }}
+                              >
+                                <Icon name="x" size={13} />
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => requestDelete(note.id)}
+                              title={t("crud.delete", "Delete")}
+                              style={{
+                                background: "none", border: "none", cursor: "pointer",
+                                color: "var(--text-muted)", padding: "0 2px",
+                                opacity: 0.5, fontSize: 0,
+                              }}
+                              onMouseEnter={e => (e.currentTarget.style.opacity = "1")}
+                              onMouseLeave={e => (e.currentTarget.style.opacity = "0.5")}
+                            >
+                              <Icon name="trash" size={13} />
+                            </button>
+                          )}
                         </>
                       )}
                     </div>
@@ -485,11 +527,11 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
                           <button onClick={cancelEdit} style={{
                             background: "none", border: "1px solid var(--border)", borderRadius: 6,
                             padding: "4px 10px", fontSize: 12, cursor: "pointer", color: "var(--text-secondary)",
-                          }}>Cancel</button>
+                          }}>{t("crud.cancel", "Cancel")}</button>
                           <button onClick={saveEdit} style={{
                             background: "var(--accent)", color: "#fff", border: "none", borderRadius: 6,
                             padding: "4px 10px", fontSize: 12, cursor: "pointer", fontWeight: 600,
-                          }}>Save</button>
+                          }}>{t("crud.save", "Save")}</button>
                         </div>
                       </div>
                     ) : note.body.trim() ? (
@@ -768,7 +810,7 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
                   flexShrink: 0, fontWeight: 600, fontSize: 13,
                 }}
               >
-                Send
+                {t("notes.send", "Send")}
               </button>
             </div>
           </div>

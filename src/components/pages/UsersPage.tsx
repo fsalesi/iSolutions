@@ -7,7 +7,7 @@ import type { CrudAction } from "@/components/crud-toolbar/CrudToolbar";
 import { Section, TabBar, type TabDef } from "@/components/ui";
 import { useT } from "@/context/TranslationContext";
 import { useFieldHelper } from "@/components/ui/useFieldHelper";
-import { LocaleLookup, ActiveUserLookup } from "@/components/lookup/presets";
+import { LocaleLookup, ActiveUserLookup, DomainLookup } from "@/components/lookup/presets";
 import { Icon } from "@/components/icons/Icon";
 
 type User = { oid: string; [key: string]: any };
@@ -45,7 +45,7 @@ function ProfileTab({ user, onChange, isNew, colTypes, colScales }: {
           {field("email", { type: "email", required: true, requiredMsg: t("message.email_required", "Email address is required") })}
           {field("company")}
           {field("title")}
-          {field("domains", { required: true })}
+          {field("domains", { required: true, type: "lookup", lookup: DomainLookup({ multiple: true }) })}
           {field("locale", { type: "lookup", lookup: LocaleLookup({ dropdownColumns: [{ key: "flag_svg", type: "flag" }, "description"] }) })}
         </div>
       </Section>

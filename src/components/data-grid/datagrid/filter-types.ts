@@ -27,38 +27,46 @@ export type SavedFilter = {
 };
 
 // ── Operators by type ──
-export type OpDef = { value: FilterOperator; label: string; inputs: 0 | 1 | 2 | "list" };
+export type OpDef = { value: FilterOperator; label: string; tKey: string; inputs: 0 | 1 | 2 | "list" };
 
 export const TEXT_OPS: OpDef[] = [
-  { value: "contains",     label: "Contains",         inputs: 1 },
-  { value: "not_contains", label: "Doesn't Contain",  inputs: 1 },
-  { value: "eq",           label: "Equal To",         inputs: 1 },
-  { value: "neq",          label: "Not Equal",        inputs: 1 },
-  { value: "begins",       label: "Begins With",      inputs: 1 },
-  { value: "ends",         label: "Ends With",        inputs: 1 },
-  { value: "in_list",      label: "In List",          inputs: "list" },
-  { value: "not_in_list",  label: "Not In List",      inputs: "list" },
-  { value: "is_empty",     label: "Is Empty",         inputs: 0 },
-  { value: "is_not_empty", label: "Is Not Empty",     inputs: 0 },
+  { value: "contains",     label: "Contains",         tKey: "contains",     inputs: 1 },
+  { value: "not_contains", label: "Doesn't Contain",  tKey: "not_contains", inputs: 1 },
+  { value: "eq",           label: "Equal To",         tKey: "equal",        inputs: 1 },
+  { value: "neq",          label: "Not Equal",        tKey: "not_equal",    inputs: 1 },
+  { value: "begins",       label: "Begins With",      tKey: "begins_with",  inputs: 1 },
+  { value: "ends",         label: "Ends With",        tKey: "ends_with",    inputs: 1 },
+  { value: "in_list",      label: "In List",          tKey: "in_list",      inputs: "list" },
+  { value: "not_in_list",  label: "Not In List",      tKey: "not_in_list",  inputs: "list" },
+  { value: "is_empty",     label: "Is Empty",         tKey: "is_empty",     inputs: 0 },
+  { value: "is_not_empty", label: "Is Not Empty",     tKey: "is_not_empty", inputs: 0 },
 ];
 export const NUMBER_OPS: OpDef[] = [
-  { value: "eq",  label: "Equal To",  inputs: 1 }, { value: "neq", label: "Not Equal", inputs: 1 },
-  { value: "gt",  label: "Greater Than", inputs: 1 }, { value: "gte", label: "Greater or Equal", inputs: 1 },
-  { value: "lt",  label: "Less Than", inputs: 1 }, { value: "lte", label: "Less or Equal", inputs: 1 },
-  { value: "between", label: "Between", inputs: 2 },
-  { value: "in_list", label: "In List", inputs: "list" },
-  { value: "is_empty", label: "Is Empty", inputs: 0 }, { value: "is_not_empty", label: "Is Not Empty", inputs: 0 },
+  { value: "eq",  label: "Equal To",  tKey: "equal", inputs: 1 },
+  { value: "neq", label: "Not Equal", tKey: "not_equal", inputs: 1 },
+  { value: "gt",  label: "Greater Than", tKey: "greater", inputs: 1 },
+  { value: "gte", label: "Greater or Equal", tKey: "greater_equal", inputs: 1 },
+  { value: "lt",  label: "Less Than", tKey: "less", inputs: 1 },
+  { value: "lte", label: "Less or Equal", tKey: "less_equal", inputs: 1 },
+  { value: "between", label: "Between", tKey: "between", inputs: 2 },
+  { value: "in_list", label: "In List", tKey: "in_list", inputs: "list" },
+  { value: "is_empty", label: "Is Empty", tKey: "is_empty", inputs: 0 },
+  { value: "is_not_empty", label: "Is Not Empty", tKey: "is_not_empty", inputs: 0 },
 ];
 export const DATE_OPS: OpDef[] = [
-  { value: "eq",  label: "On",  inputs: 1 }, { value: "neq", label: "Not On", inputs: 1 },
-  { value: "gt",  label: "After", inputs: 1 }, { value: "gte", label: "On or After", inputs: 1 },
-  { value: "lt",  label: "Before", inputs: 1 }, { value: "lte", label: "On or Before", inputs: 1 },
-  { value: "between", label: "Between", inputs: 2 },
-  { value: "is_empty", label: "Is Empty", inputs: 0 }, { value: "is_not_empty", label: "Is Not Empty", inputs: 0 },
+  { value: "eq",  label: "On",  tKey: "on", inputs: 1 },
+  { value: "neq", label: "Not On", tKey: "not_on", inputs: 1 },
+  { value: "gt",  label: "After", tKey: "after", inputs: 1 },
+  { value: "gte", label: "On or After", tKey: "on_or_after", inputs: 1 },
+  { value: "lt",  label: "Before", tKey: "before", inputs: 1 },
+  { value: "lte", label: "On or Before", tKey: "on_or_before", inputs: 1 },
+  { value: "between", label: "Between", tKey: "between", inputs: 2 },
+  { value: "is_empty", label: "Is Empty", tKey: "is_empty", inputs: 0 },
+  { value: "is_not_empty", label: "Is Not Empty", tKey: "is_not_empty", inputs: 0 },
 ];
 export const BOOL_OPS: OpDef[] = [
-  { value: "is_true", label: "Is True", inputs: 0 },
-  { value: "is_false", label: "Is False", inputs: 0 },
+  { value: "is_true", label: "Is True", tKey: "is_true", inputs: 0 },
+  { value: "is_false", label: "Is False", tKey: "is_false", inputs: 0 },
 ];
 
 export function opsForType(t: ColType): OpDef[] {

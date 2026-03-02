@@ -237,11 +237,11 @@ export function CrudPage<TRow extends { oid: string }>({
   const t = useT();
 
   const AUDIT_GRID_COLUMNS: ColumnDef<any>[] = useMemo(() => [
-    { key: "created_at", label: t("crud.created", "Created") },
-    { key: "created_by", label: t("crud.created_by", "Created By") },
-    { key: "updated_at", label: t("crud.updated", "Updated") },
-    { key: "updated_by", label: t("crud.updated_by", "Updated By") },
-  ], [t]);
+    { key: "created_at" },
+    { key: "created_by" },
+    { key: "updated_at" },
+    { key: "updated_by" },
+  ], []);
 
   const [colTypes, setColTypes] = useState<Record<string, ColType>>({});
   const [colScales, setColScales] = useState<Record<string, number>>({});

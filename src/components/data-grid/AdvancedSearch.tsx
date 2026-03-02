@@ -33,6 +33,11 @@ export function AdvancedSearch({ columns, colTypes, filters, onChange, onApply, 
   const df = columns[0]?.key || "";
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const activeCount = filters ? countConditions(filters) : 0;
+
+  // Auto-init with AND group when empty
+  useEffect(() => {
+    if (!filters && df) onChange(mkGroup("and", df, colTypes));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const selCount = selection.size;
 
   // ── Saved filters ──
@@ -124,10 +129,10 @@ export function AdvancedSearch({ columns, colTypes, filters, onChange, onApply, 
       <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
         <div className="flex items-center gap-2.5">
           <Icon name="filter" size={18} />
-          <span className="font-semibold" style={{ color: "var(--text-primary)", fontSize: 15 }}>Advanced Search</span>
+          <span className="font-semibold" style={{ color: "var(--text-primary)", fontSize: 15 }}>{t("filter.advanced_search", "Advanced Search")}</span>
           {activeCount > 0 && (
             <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ background: "var(--accent)", color: "#fff" }}>
-              {activeCount} filter{activeCount !== 1 ? "s" : ""}
+              {t("filter.n_filters", "{n} filters", { n: activeCount })}
             </span>
           )}
         </div>
@@ -155,23 +160,15 @@ export function AdvancedSearch({ columns, colTypes, filters, onChange, onApply, 
           {tbtn("↑", "chevUp", () => doMove(-1), selCount !== 1)}
           {tbtn("↓", "chevDown", () => doMove(1), selCount !== 1)}
           <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 2px" }} />
-          {tbtn("Delete", "trash", doDelete, selCount === 0, true)}
-          {selCount > 0 && <span className="text-xs ml-auto" style={{ color: "var(--text-muted)" }}>{selCount} selected</span>}
+          {tbtn(t("crud.delete", "Delete"), "trash", doDelete, selCount === 0, true)}
+          {selCount > 0 && <span className="text-xs ml-auto" style={{ color: "var(--text-muted)" }}>{t("filter.n_selected", "{n} selected", { n: selCount })}</span>}
         </div>
       )}
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-5 py-4" style={{ minHeight: 120 }}>
         {!filters ? (
-          <div className="text-center py-10" style={{ color: "var(--text-muted)" }}>
-            <p className="text-sm mb-4">No search filters defined</p>
-            <div className="flex justify-center gap-3">
-              <button onClick={() => onChange(mkGroup("and", df, colTypes))}
-                className="px-4 py-2 rounded-lg text-sm font-medium" style={{ background: "var(--accent)", color: "#fff" }}>+ AND Group</button>
-              <button onClick={() => onChange(mkGroup("or", df, colTypes))}
-                className="px-4 py-2 rounded-lg text-sm font-medium" style={{ background: "#f59e0b", color: "#fff" }}>+ OR Group</button>
-            </div>
-          </div>
+          <div className="text-center py-10" style={{ color: "var(--text-muted)" }} />
         ) : (
           <GroupNode group={filters} columns={columns} colTypes={colTypes} depth={0}
             selection={selection} onSelect={handleSelect}
@@ -185,13 +182,13 @@ export function AdvancedSearch({ columns, colTypes, filters, onChange, onApply, 
           <button onClick={clearAll} className="text-sm px-3 py-1.5 rounded-lg transition-colors"
             style={{ color: "#ef4444", border: "1px solid rgba(239,68,68,0.25)" }}
             onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>Clear All</button>
+            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>{t("filter.clear_all", "Clear All")}</button>
         )}</div>
         <div className="flex gap-3">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium"
-            style={{ border: "1px solid var(--border)", color: "var(--text-primary)", background: "var(--bg-surface)" }}>Close</button>
+            style={{ border: "1px solid var(--border)", color: "var(--text-primary)", background: "var(--bg-surface)" }}>{t("crud.close", "Close")}</button>
           <button onClick={handleApply} className="px-5 py-2 rounded-lg text-sm font-medium"
-            style={{ background: "var(--accent)", color: "#fff" }}>Show Results</button>
+            style={{ background: "var(--accent)", color: "#fff" }}>{t("filter.show_results", "Show Results")}</button>
         </div>
       </div>
     </Modal>

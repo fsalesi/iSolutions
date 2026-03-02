@@ -19,14 +19,14 @@ interface NotificationBellProps {
   onNavigate?: (navKey: string, recordOid?: string) => void;
 }
 
-function formatTime(iso: string) {
+function formatTime(iso: string, t: (key: string, fb?: string, p?: Record<string, string | number>) => string) {
   const d = new Date(iso);
   const now = new Date();
   const diff = now.getTime() - d.getTime();
-  if (diff < 60000) return "just now";
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (diff < 60000) return t("shell.just_now", "just now");
+  if (diff < 3600000) return t("shell.minutes_ago", "{n}m ago", { n: Math.floor(diff / 60000) });
+  if (diff < 86400000) return t("shell.hours_ago", "{n}h ago", { n: Math.floor(diff / 3600000) });
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function tableLabel(tableName: string) {
@@ -235,7 +235,7 @@ export function NotificationBell({ onNavigate }: NotificationBellProps) {
             display: "flex", alignItems: "center", justifyContent: "space-between",
           }}>
             <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>
-              Notifications
+              {t("shell.notifications", "Notifications")}
             </span>
             {unread > 0 && (
               <button
@@ -245,7 +245,7 @@ export function NotificationBell({ onNavigate }: NotificationBellProps) {
                   color: "var(--accent)", fontSize: 12, fontWeight: 600,
                 }}
               >
-                Mark all read
+                {t("shell.mark_all_read", "Mark all read")}
               </button>
             )}
           </div>
@@ -253,11 +253,11 @@ export function NotificationBell({ onNavigate }: NotificationBellProps) {
           {/* List */}
           {loading ? (
             <div style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
-              Loading…
+              {t("crud.loading", "Loading…")}
             </div>
           ) : notifications.length === 0 ? (
             <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
-              No notifications
+              {t("shell.no_notifications", "No notifications")}
             </div>
           ) : (
             notifications.map(n => (
@@ -276,9 +276,15 @@ export function NotificationBell({ onNavigate }: NotificationBellProps) {
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.4 }}>
-                    <strong>{n.author_name}</strong>
-                    {" mentioned you on "}
-                    <strong>{tableLabel(n.table_name)}</strong>
+                    {(() => {
+                      const tpl = t("shell.mentioned_you_on", "{author} mentioned you on {page}");
+                      const parts = tpl.split(/(\{author\}|\{page\})/);
+                      return parts.map((p, i) =>
+                        p === "{author}" ? <strong key={i}>{n.author_name}</strong> :
+                        p === "{page}" ? <strong key={i}>{tableLabel(n.table_name)}</strong> :
+                        <span key={i}>{p}</span>
+                      );
+                    })()}
                   </div>
                   <div style={{
                     fontSize: 12, color: "var(--text-muted)", marginTop: 2,
@@ -287,7 +293,7 @@ export function NotificationBell({ onNavigate }: NotificationBellProps) {
                     {truncate(n.note_body, 80)}
                   </div>
                   <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>
-                    {formatTime(n.created_at)}
+                    {formatTime(n.created_at, t)}
                   </div>
                 </div>
                 <button

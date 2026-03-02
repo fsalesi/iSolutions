@@ -34,25 +34,25 @@ export function ConditionRow({ cond, columns, colTypes, selected, onToggle, onUp
       </select>
       <select value={cond.operator} onChange={e => onUpdate({ operator: e.target.value as FilterOperator, value: "", value2: "" })}
         style={{ ...SEL, flex: "1 1 110px", maxWidth: 155 }}>
-        {ops.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        {ops.map(o => <option key={o.value} value={o.value}>{t("filter." + o.tKey, o.label)}</option>)}
       </select>
       {opDef && opDef.inputs === 1 && (
         <input type={itype} value={cond.value} onChange={e => onUpdate({ value: e.target.value })}
-          placeholder={ct === "date" || ct === "datetime" ? "" : "Value…"}
+          placeholder={ct === "date" || ct === "datetime" ? "" : t("filter.value_placeholder", "Value…")}
           style={{ ...SEL, flex: "1 1 100px" }} onKeyDown={e => e.key === "Enter" && onApply()} />
       )}
       {opDef && opDef.inputs === 2 && (<>
         <input type={itype} value={cond.value} onChange={e => onUpdate({ value: e.target.value })}
-          placeholder={ct === "number" ? "Min" : "From"} style={{ ...SEL, flex: "1 1 80px", maxWidth: 130 }}
+          placeholder={ct === "number" ? t("filter.min", "Min") : t("filter.from", "From")} style={{ ...SEL, flex: "1 1 80px", maxWidth: 130 }}
           onKeyDown={e => e.key === "Enter" && onApply()} />
-        <span className="text-xs flex-shrink-0" style={{ color: "var(--text-muted)" }}>and</span>
+        <span className="text-xs flex-shrink-0" style={{ color: "var(--text-muted)" }}>{t("filter.and_separator", "and")}</span>
         <input type={itype} value={cond.value2} onChange={e => onUpdate({ value2: e.target.value })}
-          placeholder={ct === "number" ? "Max" : "To"} style={{ ...SEL, flex: "1 1 80px", maxWidth: 130 }}
+          placeholder={ct === "number" ? t("filter.max", "Max") : t("filter.to", "To")} style={{ ...SEL, flex: "1 1 80px", maxWidth: 130 }}
           onKeyDown={e => e.key === "Enter" && onApply()} />
       </>)}
       {opDef && opDef.inputs === "list" && (
         <input type="text" value={cond.value} onChange={e => onUpdate({ value: e.target.value })}
-          placeholder="val1, val2, val3…" style={{ ...SEL, flex: "1 1 140px" }}
+          placeholder={t("filter.list_placeholder", "val1, val2, val3…")} style={{ ...SEL, flex: "1 1 140px" }}
           onKeyDown={e => e.key === "Enter" && onApply()} />
       )}
       <button onClick={onRemove} className="p-1 rounded flex-shrink-0 transition-colors"

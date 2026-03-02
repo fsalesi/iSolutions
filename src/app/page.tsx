@@ -11,12 +11,18 @@ import Settings from "@/components/pages/Settings";
 
 export default function RootPage() {
   const { loggedIn, ready } = useSession();
-  const [activeNav, setActiveNav] = useState("users");
+  const [activeNav, setActiveNav] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("activeNav") || "users";
+    }
+    return "users";
+  });
   const [selectOid, setSelectOid] = useState<string | undefined>();
   const [selectSeq, setSelectSeq] = useState(0);
 
   const handleNavigate = useCallback((key: string, recordOid?: string) => {
     setActiveNav(key);
+    sessionStorage.setItem("activeNav", key);
     setSelectOid(recordOid);
     if (recordOid) setSelectSeq(s => s + 1);
   }, []);
