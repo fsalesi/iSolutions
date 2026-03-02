@@ -209,7 +209,7 @@ export function ProfileDialog({ open, onClose }: ProfileDialogProps) {
                   <Input value={data.full_name || ""} onChange={v => onChange("full_name", v)} />
                 </Field>
                 <Field label="Email">
-                  <Input value={data.email || ""} onChange={v => onChange("email", v)} />
+                  <Input value={data.email || ""} readOnly />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Title">
