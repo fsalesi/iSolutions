@@ -511,7 +511,7 @@ export function CrudPage<TRow extends { oid: string }>({
                 </div>
               )}
 
-              <div data-detail-body>{detailBody}</div>
+              <div data-detail-body className="flex-1 overflow-y-auto">{detailBody}</div>
 
               {showFooter && (
                 <AuditFooter
