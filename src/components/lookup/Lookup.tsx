@@ -58,6 +58,24 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
   const [loading, setLoading] = useState(false);
   const [browseOpen, setBrowseOpen] = useState(false);
 
+  // Fixed-position dropdown to avoid overflow clipping
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number; openAbove?: boolean } | null>(null);
+  const updateDropdownPos = useCallback(() => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const maxH = 280;
+      const spaceBelow = window.innerHeight - rect.bottom - 8;
+      const spaceAbove = rect.top - 8;
+      const openAbove = spaceBelow < maxH && spaceAbove > spaceBelow;
+      setDropdownPos({
+        top: openAbove ? rect.top - 4 : rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+        openAbove,
+      });
+    }
+  }, []);
+
   // Display text for the current value (resolved from fetched record)
   const [displayText, setDisplayText] = useState("");
   // Cache of fetched records keyed by valueField
@@ -68,6 +86,15 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const dragIdx = useRef<number>(-1);
   const chipRefs = useRef<(HTMLSpanElement | null)[]>([]);
+
+  // Reposition dropdown on scroll/resize while open
+  useEffect(() => {
+    if (!open) return;
+    const handler = () => updateDropdownPos();
+    window.addEventListener("scroll", handler, true);
+    window.addEventListener("resize", handler);
+    return () => { window.removeEventListener("scroll", handler, true); window.removeEventListener("resize", handler); };
+  }, [open, updateDropdownPos]);
 
   // The columns to show in the dropdown
   const ddCols = useMemo(
@@ -156,7 +183,7 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
 
     if (preload) {
       // Client-side filter from cached results
-      setOpen(true);
+      setOpen(true); updateDropdownPos();
       return; // filtered in render via filteredResults
     }
 
@@ -167,7 +194,7 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
         setResults(data.rows);
         setTotal(data.total);
         data.rows.forEach((r: any) => cache.current.set(String(r[valueField]), r));
-        setOpen(true);
+        setOpen(true); updateDropdownPos();
       } finally {
         setLoading(false);
       }
@@ -280,7 +307,7 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
     }
     // For preloaded lookups, show dropdown immediately on focus
     if (preload && results.length > 0) {
-      setOpen(true);
+      setOpen(true); updateDropdownPos();
     }
   }
 
@@ -413,7 +440,7 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
             />
           ) : (
             <span
-              onClick={() => { if (!readOnly) { setOpen(true); setSearch(""); setTimeout(() => inputRef.current?.focus(), 0); } }}
+              onClick={() => { if (!readOnly) { setOpen(true); updateDropdownPos(); setSearch(""); setTimeout(() => inputRef.current?.focus(), 0); } }}
               style={{
                 flex: 1,
                 padding: "8px 12px",
@@ -478,21 +505,22 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
         </div>
 
         {/* Dropdown */}
-        {open && displayResults.length > 0 && (
+        {open && displayResults.length > 0 && dropdownPos && (
           <div
             style={{
-              position: "absolute",
-              top: "100%",
-              left: 0,
-              right: 0,
-              zIndex: 50,
-              marginTop: 4,
+              position: "fixed",
+              left: dropdownPos.left,
+              width: dropdownPos.width,
+              zIndex: 9999,
               background: "var(--bg-surface)",
               border: "1px solid var(--border)",
               borderRadius: 8,
               boxShadow: "var(--shadow-md)",
               maxHeight: 280,
               overflowY: "auto",
+              ...(dropdownPos.openAbove
+                ? { bottom: window.innerHeight - dropdownPos.top, top: "auto" }
+                : { top: dropdownPos.top, bottom: "auto" }),
             }}
           >
             {displayResults.slice(0, dropdownLimit).map((row, i) => {
@@ -558,15 +586,16 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
         )}
 
         {/* Empty state */}
-        {open && search.length >= minChars && displayResults.length === 0 && !loading && (
+        {open && search.length >= minChars && displayResults.length === 0 && !loading && dropdownPos && (
           <div
             style={{
-              position: "absolute",
-              top: "100%",
-              left: 0,
-              right: 0,
-              zIndex: 50,
-              marginTop: 4,
+              position: "fixed",
+              left: dropdownPos.left,
+              width: dropdownPos.width,
+              zIndex: 9999,
+              ...(dropdownPos.openAbove
+                ? { bottom: window.innerHeight - dropdownPos.top, top: "auto" }
+                : { top: dropdownPos.top, bottom: "auto" }),
               background: "var(--bg-surface)",
               border: "1px solid var(--border)",
               borderRadius: 8,

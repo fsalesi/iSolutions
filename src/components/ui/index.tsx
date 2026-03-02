@@ -109,13 +109,14 @@ export function Checkbox({ checked, onChange, label }: { checked: boolean; onCha
 }
 
 // ── Badge ──────────────────────────────────────────────────────────
-type BadgeVariant = "success" | "danger" | "warning" | "neutral";
+type BadgeVariant = "success" | "danger" | "warning" | "neutral" | "info";
 
 const BADGE_STYLES: Record<BadgeVariant, { bg: string; text: string }> = {
   success: { bg: "var(--success-bg)", text: "var(--success-text)" },
   danger:  { bg: "var(--danger-bg)",  text: "var(--danger-text)" },
   warning: { bg: "var(--warning-bg)", text: "var(--warning-text)" },
   neutral: { bg: "var(--bg-surface-alt)", text: "var(--text-secondary)" },
+  info:    { bg: "var(--accent-bg, #e8f0fe)", text: "var(--accent-text, #1a73e8)" },
 };
 
 export function Badge({ children, variant = "neutral" }: { children: ReactNode; variant?: BadgeVariant }) {

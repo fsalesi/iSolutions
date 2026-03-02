@@ -37,7 +37,8 @@ export function AppShell({ children, title, subtitle, showBack, onBack, activeNa
 
   const NAV_SECTIONS: NavSection[] = useMemo(() => [
     { key: "admin", label: t("nav.administration", "Administration"), icon: "settings", items: [
-      { key: "users", label: t("nav.users", "Users and Groups"), icon: "users" },
+      { key: "users", label: t("nav.users", "Users"), icon: "users" },
+      { key: "groups", label: t("nav.groups", "Groups"), icon: "users" },
       { key: "pasoe_brokers", label: t("nav.pasoe_brokers", "PASOE Brokers"), icon: "server" },
       { key: "settings", label: t("nav.settings", "System Settings"), icon: "settings" },
       { key: "jobs", label: t("nav.jobs", "Jobs"), icon: "clock" },

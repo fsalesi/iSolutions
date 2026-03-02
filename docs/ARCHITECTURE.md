@@ -92,6 +92,7 @@ Every table uses `oid uuid DEFAULT gen_random_uuid()` as its **PRIMARY KEY**. No
 - The `set_updated_at()` trigger auto-updates `updated_at` — never set it manually in SQL.
 - API routes MUST set `created_by` and `updated_by` from the authenticated user.
 - All new tables get a migration in `scripts/migrate/NNN_description.py` (Python, idempotent).
+- **Use `citext` for business/key columns** (IDs, names, codes, descriptions). The `citext` extension provides case-insensitive text comparisons at the column level, so `WHERE group_id = 'admin'` matches `'Admin'` without `LOWER()` hacks. Reserve plain `text` for audit columns (`created_by`, `updated_by`) and internal fields where case sensitivity is acceptable.
 - Table names: `snake_case`, descriptive names (e.g. `pasoe_brokers`, `users`, `translations`).
 - **One name everywhere**: The table name IS the nav key, API route folder, and grid ID. Example: table `pasoe_brokers` → nav key `pasoe_brokers`, API at `/api/pasoe_brokers`, `gridId: "pasoe_brokers"`. This eliminates mapping tables and keeps navigation, notifications, and audit trail simple.
 
@@ -112,8 +113,8 @@ cur = conn.cursor()
 cur.execute(\"\"\"
 CREATE TABLE IF NOT EXISTS my_table (
   -- Business columns
-  name            text NOT NULL DEFAULT '',
-  description     text NOT NULL DEFAULT '',
+  name            citext NOT NULL DEFAULT '',
+  description     citext NOT NULL DEFAULT '',
   is_active       boolean NOT NULL DEFAULT true,
 
   -- Standard columns (MANDATORY on every table)
@@ -277,7 +278,6 @@ import { createCrudRoutes } from "@/lib/crud-route";
 export const { GET, POST, PUT, DELETE } = createCrudRoutes({
   table: "my_table",
   columns: ["name", "description", "is_active"],
-  colTypes: { is_active: "boolean" },
   defaultSort: "name",
   searchColumns: ["name", "description"],
   requiredFields: ["name"],

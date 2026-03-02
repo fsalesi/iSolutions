@@ -8,6 +8,7 @@ import UsersPage from "@/components/pages/UsersPage";
 import Locales from "@/components/pages/Locales";
 import Translations from "@/components/pages/Translations";
 import Settings from "@/components/pages/Settings";
+import GroupsPage from "@/components/pages/GroupsPage";
 
 export default function RootPage() {
   const { loggedIn, ready } = useSession();
@@ -43,6 +44,10 @@ export default function RootPage() {
 
   if (activeNav === "settings") {
     return <Settings activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;
+  }
+
+  if (activeNav === "groups") {
+    return <GroupsPage activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;
   }
 
   if (activeNav === "translations") {

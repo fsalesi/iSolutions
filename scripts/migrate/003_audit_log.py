@@ -147,7 +147,7 @@ $$ LANGUAGE plpgsql;
 """
 
 # Tables to audit — add more here as needed
-AUDITED_TABLES = ["users", "pasoe_brokers", "settings"]
+AUDITED_TABLES = ["users", "pasoe_brokers", "settings", "groups", "group_members"]
 
 
 def trigger_ddl(table):

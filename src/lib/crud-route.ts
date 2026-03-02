@@ -56,7 +56,7 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
     if (ct === "datetime" || ct === "date") return val === "" || val === null ? null : val;
     if (ct === "number") { if (val === "" || val === null) return 0; const n = Number(val); return isNaN(n) ? 0 : n; }
     if (ct === "boolean") { if (val === "" || val === null) return false; return !!val; }
-    return val === "" ? null : val ?? null;
+    return val ?? '';  // Keep empty strings for NOT NULL DEFAULT '' columns
   }
 
   const defaultSort = cfg.defaultSort || cfg.columns[0];
@@ -72,6 +72,14 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
     }
     return out;
   }
+
+  // -- Auth guard ----------------------------------------
+  function requireAuth(req: NextRequest): string {
+    const userId = getCurrentUser(req);
+    if (!userId) throw new AuthError();
+    return userId;
+  }
+  class AuthError extends Error { constructor() { super("Authentication required"); } }
 
   // ── Translation helpers ──────────────────────────────
   async function resolveValidationError(e: ValidationError, req: NextRequest): Promise<string> {
@@ -108,6 +116,7 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
   // ── GET ────────────────────────────────────────────────
   async function GET(req: NextRequest) {
     try {
+      requireAuth(req);
       const url = req.nextUrl;
       const offset = Math.max(0, parseInt(url.searchParams.get("offset") || "0"));
       const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get("limit") || "50")));
@@ -152,6 +161,7 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
 
       return NextResponse.json({ rows: dataR.rows, total, offset, limit });
     } catch (err: any) {
+      if (err instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
       console.error(`GET /api/${cfg.table} error:`, err);
       return NextResponse.json({ error: err.message }, { status: 500 });
     }
@@ -160,6 +170,7 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
   // ── POST ───────────────────────────────────────────────
   async function POST(req: NextRequest) {
     try {
+      const userId = requireAuth(req);
       let body = await req.json();
       body = applyTransforms(body);
 
@@ -175,7 +186,6 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
         await hooks.beforeSave(body, { db, isNew: true, oid: "", table: cfg.table });
       }
 
-      const userId = getCurrentUser(req);
       const fields = writable.filter(f => f in body);
       // Inject audit user columns
       fields.push("created_by", "updated_by");
@@ -197,6 +207,7 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
 
       return NextResponse.json(res.rows[0], { status: 201 });
     } catch (e: any) {
+      if (e instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
       if (e instanceof ValidationError) {
         const msg = await resolveValidationError(e, req);
         return NextResponse.json({ error: msg }, { status: 422 });
@@ -212,6 +223,7 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
   // ── PUT ────────────────────────────────────────────────
   async function PUT(req: NextRequest) {
     try {
+      const userId = requireAuth(req);
       let body = await req.json();
       body = applyTransforms(body);
       const oid = body.oid;
@@ -221,7 +233,7 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
       }
 
       for (const f of cfg.requiredFields || []) {
-        if (!body[f]?.toString().trim()) {
+        if (f in body && !body[f]?.toString().trim()) {
           const msg = await resolveFieldRequired(f, req);
           return NextResponse.json({ error: msg }, { status: 400 });
         }
@@ -232,7 +244,6 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
         await hooks.beforeSave(body, { db, isNew: false, oid, table: cfg.table });
       }
 
-      const userId = getCurrentUser(req);
       const fields = writable.filter(f => f in body);
       // Inject audit user column
       fields.push("updated_by");
@@ -258,6 +269,7 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
 
       return NextResponse.json(res.rows[0]);
     } catch (e: any) {
+      if (e instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
       if (e instanceof ValidationError) {
         const msg = await resolveValidationError(e, req);
         return NextResponse.json({ error: msg }, { status: 422 });
@@ -273,6 +285,7 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
   // ── DELETE ─────────────────────────────────────────────
   async function DELETE(req: NextRequest) {
     try {
+      requireAuth(req);
       const oid = req.nextUrl.searchParams.get("oid");
       if (!oid) {
         const msg = await resolveSimpleKey("message.oid_required", "oid is required", req);
@@ -287,6 +300,7 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
       await db.query(`DELETE FROM ${cfg.table} WHERE oid = $1::uuid`, [oid]);
       return NextResponse.json({ ok: true });
     } catch (e: any) {
+      if (e instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
       if (e instanceof ValidationError) {
         const msg = await resolveValidationError(e, req);
         return NextResponse.json({ error: msg }, { status: 422 });

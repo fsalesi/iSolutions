@@ -48,7 +48,7 @@ export default function Settings({ activeNav, onNavigate, selectRecordOid, selec
     title: t("settings.title", "System Settings"),
     apiPath: "/api/settings",
     columns: COLUMNS,
-    defaultValues: { owner: "SYSTEM", domain: "*", form: "" },
+    defaultValues: { owner: "SYSTEM", domain: "*", form: "*" },
     renderDetail: (props) => <Detail {...props} />,
   }), [t]);
 
