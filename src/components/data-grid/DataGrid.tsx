@@ -1,53 +1,20 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, useMemo, type ReactNode } from "react";
+import { useState, useCallback, useRef, useEffect, type ReactNode } from "react";
 import { Icon } from "@/components/icons/Icon";
 import { useTranslation } from "@/context/TranslationContext";
-import { formatDate } from "@/components/ui/date-utils";
-import { formatNumber } from "@/components/ui/number-utils";
-import { AdvancedSearch, serializeFilters, countConditions, type FilterTree, type ColType } from "./AdvancedSearch";
+import { AdvancedSearch, serializeFilters, countConditions, type FilterTree } from "./AdvancedSearch";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
-// ── Types ──────────────────────────────────────────────────────────
-export type ColumnDef<T> = {
-  key: keyof T & string;
-  label?: string;
-  sortable?: boolean;
-  render?: (row: T) => ReactNode;
-  width?: string;
-  hideOnMobile?: boolean;
-  /** If true, column cannot be hidden */
-  locked?: boolean;
-  /** If true, column is excluded from the grid entirely */
-  hidden?: boolean;
-};
+// ── Re-export types for external consumers ──
+export type { ColumnDef, SortState, PageResult, FetchPage, ColType } from "./datagrid/types";
+import type { ColumnDef, SortState, FetchPage, ColType } from "./datagrid/types";
 
-export type SortState = {
-  field: string;
-  dir: "asc" | "desc";
-};
-
-export type PageResult<T> = {
-  rows: T[];
-  total: number;
-  offset: number;
-  limit: number;
-};
-
-export type FetchPage<T> = (params: {
-  offset: number;
-  limit: number;
-  search: string;
-  sort: string;
-  dir: "asc" | "desc";
-  filters?: string;
-}) => Promise<PageResult<T>>;
-
-// Convert column key to human-readable label
-function humanize(key: string): string {
-  let s = key.replace(/_id$/, "").replace(/_nbr$/, "_number");
-  return s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-}
+// ── Sub-modules ──
+import { colAlign, formatCellValue } from "./datagrid/grid-utils";
+import { useSchemaDiscovery } from "./datagrid/useSchemaDiscovery";
+import { useColumnManager, ColumnPicker } from "./datagrid/ColumnManager";
+import { useExportPanel, ExportDropdown, type ExportConfig } from "./datagrid/ExportPanel";
 
 interface DataGridProps<T extends { oid: string }> {
   /** Table name for auto-discovering columns via /api/columns. */
@@ -63,42 +30,13 @@ interface DataGridProps<T extends { oid: string }> {
   renderCard?: (row: T, isSelected: boolean) => ReactNode;
   defaultSort?: SortState;
   pageSize?: number;
-  /** Whether the grid is in expanded (full-width) mode. Desktop only. */
   expanded?: boolean;
-  /** Toggle expand/collapse. Desktop only. */
   onToggleExpand?: () => void;
-  /** Grid identifier for persisting column prefs (e.g. "users"). If omitted, prefs won't persist. */
   gridId?: string;
-  /** Current user ID for per-user column prefs. If omitted, only admin defaults apply. */
   userId?: string;
-  /** Export config. If provided, shows an export button. */
-  exportConfig?: {
-    table: string;                    // DB table name (whitelisted server-side)
-    searchFields: string[];           // Fields to apply search filter on
-    filename?: string;                // Base filename for download
-  };
+  exportConfig?: ExportConfig;
   colTypes?: Record<string, ColType>;
   colScales?: Record<string, number>;
-}
-
-
-// ── Column alignment by type ───────────────────────────────────────
-function colAlign(key: string, colTypes: Record<string, ColType>): "left" | "right" | "center" {
-  const ct = colTypes[key];
-  if (ct === "number") return "right";
-  if (ct === "boolean") return "center";
-  return "left";
-}
-
-// ── Auto-format cell values by column type ─────────────────────────
-function formatCellValue(val: any, key: string, colTypes: Record<string, ColType>, locale: string, colScales: Record<string, number> = {}): string {
-  if (val == null || val === "") return "";
-  const ct = colTypes[key];
-  if (ct === "datetime") return formatDate(String(val), locale, "datetime");
-  if (ct === "date") return formatDate(String(val), locale, "date");
-  if (ct === "number") return formatNumber(val, locale, colScales[key] ?? 0);
-  if (ct === "boolean") return val ? "✓" : "";
-  return String(val);
 }
 
 export function DataGrid<T extends { oid: string }>({
@@ -125,61 +63,12 @@ export function DataGrid<T extends { oid: string }>({
   const showExpandBtn = !isMobile && onToggleExpand;
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // ── Schema auto-discovery ──────────────────────────────────────
-  const [schemaCols, setSchemaCols] = useState<ColumnDef<T>[]>([]);
-  const [schemaColTypes, setSchemaColTypes] = useState<Record<string, ColType>>({});
-  const [schemaColScales, setSchemaColScales] = useState<Record<string, number>>({});
+  // ── Schema auto-discovery + merge ──
+  const { columns, colTypes, colScales } = useSchemaDiscovery<T>(
+    table, columnOverrides, colTypesProp, colScalesProp
+  );
 
-  useEffect(() => {
-    if (!table) return;
-    fetch(`/api/columns?table=${table}`).then(r => r.json()).then((cols: { key: string; type: string; scale?: number }[]) => {
-      const types: Record<string, ColType> = {};
-      const scales: Record<string, number> = {};
-      const defs: ColumnDef<T>[] = [];
-      for (const col of cols) {
-        types[col.key] = col.type as ColType;
-        if (col.scale !== undefined) scales[col.key] = col.scale;
-        defs.push({ key: col.key as keyof T & string, label: humanize(col.key) });
-      }
-      setSchemaColTypes(types);
-      setSchemaColScales(scales);
-      setSchemaCols(defs);
-    }).catch(() => {});
-  }, [table]);
-
-  // Merge schema + overrides into final columns list
-  const columns: ColumnDef<T>[] = useMemo(() => {
-    const overrides = columnOverrides || [];
-    if (schemaCols.length === 0) {
-      return overrides.length > 0
-        ? overrides.filter(c => !c.hidden).map(c => ({ ...c, label: c.label || humanize(c.key) }))
-        : [];
-    }
-    if (overrides.length === 0) return schemaCols;
-
-    const overrideMap = new Map(overrides.map(o => [o.key, o]));
-    const seen = new Set<string>();
-    const result: ColumnDef<T>[] = [];
-    for (const sc of schemaCols) {
-      const ov = overrideMap.get(sc.key);
-      seen.add(sc.key);
-      if (ov?.hidden) continue;
-      result.push(ov ? { ...sc, ...ov, label: ov.label || sc.label } : sc);
-    }
-    for (const ov of overrides) {
-      if (!seen.has(ov.key) && !ov.hidden) {
-        result.push({ ...ov, label: ov.label || humanize(ov.key) });
-      }
-    }
-    return result;
-  }, [schemaCols, columnOverrides]);
-
-  // Merge colTypes/colScales: schema + prop overrides
-  const colTypes = useMemo(() => ({ ...schemaColTypes, ...colTypesProp }), [schemaColTypes, colTypesProp]);
-  const colScales = useMemo(() => ({ ...schemaColScales, ...colScalesProp }), [schemaColScales, colScalesProp]);
-
-
-  // Search (debounced)
+  // ── Search (debounced) ──
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterTree>(null);
@@ -187,201 +76,40 @@ export function DataGrid<T extends { oid: string }>({
   const [advSearchOpen, setAdvSearchOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  // Sort
+  // ── Sort ──
   const [sort, setSort] = useState<SortState>(
     defaultSort || { field: columns[0]?.key || "id", dir: "asc" }
   );
 
-  // ── Column visibility (persisted) ────────────────────────────────
-  const [visibleKeys, setVisibleKeys] = useState<string[]>(
-    () => defaultVisible || columns.map(c => c.key)
-  );
-  const [adminDefault, setAdminDefault] = useState<string[] | null>(null);
-  const [hasUserPref, setHasUserPref] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const pickerRef = useRef<HTMLDivElement>(null);
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const prefsLoaded = useRef(false);
-  const [exportKeys, setExportKeys] = useState<string[]>([]);
-  const [exportOpen, setExportOpen] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const exportRef = useRef<HTMLDivElement>(null);
+  // ── Column visibility ──
+  const colMgr = useColumnManager({ columns, defaultVisible, gridId, userId });
+  const visibleColumns = colMgr.visibleKeys
+    .map(k => columns.find(c => c.key === k))
+    .filter(Boolean) as ColumnDef<T>[];
 
-  // Close export picker on outside click
-  useEffect(() => {
-    if (!exportOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
-        setExportOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [exportOpen]);
+  // ── Export ──
+  const exp = useExportPanel({ gridId, userId });
 
-  // Load persisted column prefs on mount
+  // Sync export keys from grid-prefs load
   useEffect(() => {
     if (!gridId) return;
     const params = new URLSearchParams({ grid: gridId });
     if (userId) params.set("user", userId);
-
     fetch(`/api/grid-prefs?${params}`)
       .then(r => r.json())
       .then(data => {
-        if (data.adminDefault) setAdminDefault(data.adminDefault);
-        if (data.effective) setVisibleKeys(data.effective);
-        if (data.effectiveExport) setExportKeys(data.effectiveExport);
-        else if (data.effective) setExportKeys(data.effective);
-        setHasUserPref(!!data.userPref);
-        prefsLoaded.current = true;
+        if (data.effectiveExport) exp.setExportKeys(data.effectiveExport);
+        else if (data.effective) exp.setExportKeys(data.effective);
       })
-      .catch(() => { prefsLoaded.current = true; });
-  }, [gridId, userId]);
+      .catch(() => {});
+  }, [gridId, userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync visibleKeys when defaultVisible changes (schema loaded after mount) and no user pref saved
-  useEffect(() => {
-    if (defaultVisible && defaultVisible.length > 0 && !hasUserPref && prefsLoaded.current) {
-      setVisibleKeys(prev => {
-        // Only update if current keys are a subset of new defaults (i.e. schema expanded)
-        if (prev.length < defaultVisible.length && defaultVisible.slice(0, prev.length).join() === prev.join()) {
-          return defaultVisible;
-        }
-        return prev;
-      });
-    }
-  }, [defaultVisible, hasUserPref]);
-
-  // Auto-save user prefs when columns change (debounced 800ms)
-  const savePrefs = useCallback((keys: string[]) => {
-    if (!gridId || !userId || !prefsLoaded.current) return;
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      fetch("/api/grid-prefs", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ grid: gridId, user: userId, visible_keys: keys }),
-      }).then(() => setHasUserPref(true)).catch(console.error);
-    }, 800);
-  }, [gridId, userId]);
-
-  // Columns in display order
-  const visibleColumns = visibleKeys
-    .map(k => columns.find(c => c.key === k))
-    .filter(Boolean) as ColumnDef<T>[];
-
-  // Close picker on outside click
-  useEffect(() => {
-    if (!pickerOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setPickerOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [pickerOpen]);
-
-  const toggleColumn = (key: string) => {
-    setVisibleKeys(prev => {
-      const next = prev.includes(key)
-        ? prev.filter(k => k !== key)
-        : [...prev, key];
-      savePrefs(next);
-      return next;
-    });
-  };
-
-  const moveColumn = (key: string, direction: -1 | 1) => {
-    setVisibleKeys(prev => {
-      const idx = prev.indexOf(key);
-      if (idx < 0) return prev;
-      const newIdx = idx + direction;
-      if (newIdx < 0 || newIdx >= prev.length) return prev;
-      const next = [...prev];
-      [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
-      savePrefs(next);
-      return next;
-    });
-  };
-
-  const resetToDefault = () => {
-    const def = adminDefault || defaultVisible || columns.map(c => c.key);
-    setVisibleKeys(def);
-    // Delete user pref so they get admin default again
-    if (gridId && userId) {
-      fetch("/api/grid-prefs", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ grid: gridId, user: userId, visible_keys: null }),
-      }).then(() => setHasUserPref(false)).catch(console.error);
-    }
-  };
-
-  // ── Export functions ──────────────────────────────────────────────
-  const toggleExportCol = (key: string) => {
-    setExportKeys(prev => {
-      const next = prev.includes(key)
-        ? prev.filter(k => k !== key)
-        : [...prev, key];
-      // Persist
-      if (gridId && userId) {
-        fetch("/api/grid-prefs", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ grid: gridId, user: userId, export_keys: next }),
-        }).catch(console.error);
-      }
-      return next;
-    });
-  };
-
-  const handleExport = async () => {
-    if (!exportConfig || exportKeys.length === 0) return;
-    setExporting(true);
-    try {
-      const exportColumns = exportKeys
-        .map(k => columns.find(c => c.key === k))
-        .filter(Boolean)
-        .map(c => ({ key: c!.key, label: c!.label || c!.key }));
-
-      const res = await fetch("/api/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          table: exportConfig.table,
-          columns: exportColumns,
-          search,
-          searchFields: exportConfig.searchFields,
-          sort: sort.field,
-          dir: sort.dir,
-          filename: exportConfig.filename || exportConfig.table,
-        }),
-      });
-
-      if (!res.ok) throw new Error(t("grid.export_failed", "Export failed"));
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${exportConfig.filename || exportConfig.table}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(url);
-      setExportOpen(false);
-    } catch (err) {
-      console.error("Export error:", err);
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  // ── Infinite scroll state ────────────────────────────────────────
+  // ── Infinite scroll state ──
   const [rows, setRows] = useState<T[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const nextOffset = useRef(0);
-
   const prefetchCache = useRef<{ key: string; rows: T[]; total: number } | null>(null);
   const fetchInFlight = useRef<string | null>(null);
   const hasMore = rows.length < total;
@@ -487,7 +215,7 @@ export function DataGrid<T extends { oid: string }>({
 
   return (
     <div className="flex flex-col overflow-hidden h-full" style={{ background: "var(--bg-surface)" }}>
-      {/* ── Toolbar: search + column picker ── */}
+      {/* ── Toolbar ── */}
       <div className="p-3 flex-shrink-0 flex gap-2 items-center" style={{ borderBottom: "1px solid var(--border-light)" }}>
         <div className="relative flex-1">
           <Icon name="search" size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" } as any} />
@@ -497,34 +225,20 @@ export function DataGrid<T extends { oid: string }>({
             value={searchInput}
             onChange={e => handleSearchInput(e.target.value)}
             className="w-full pl-8 pr-8 py-2 text-sm rounded-lg outline-none transition-all"
-            style={{
-              background: "var(--bg-surface-alt)",
-              border: "1px solid var(--border)",
-              color: "var(--text-primary)",
-            }}
-            onFocus={e => {
-              e.currentTarget.style.borderColor = "var(--border-focus)";
-              e.currentTarget.style.boxShadow = "0 0 0 3px var(--ring-focus)";
-            }}
-            onBlur={e => {
-              e.currentTarget.style.borderColor = "var(--border)";
-              e.currentTarget.style.boxShadow = "none";
-            }}
+            style={{ background: "var(--bg-surface-alt)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+            onFocus={e => { e.currentTarget.style.borderColor = "var(--border-focus)"; e.currentTarget.style.boxShadow = "0 0 0 3px var(--ring-focus)"; }}
+            onBlur={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = "none"; }}
           />
           {searchInput && (
-            <button
-              onClick={() => { setSearchInput(""); setSearch(""); }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2"
-              style={{ color: "var(--text-muted)" }}
-            >
+            <button onClick={() => { setSearchInput(""); setSearch(""); }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }}>
               <Icon name="x" size={14} />
             </button>
           )}
         </div>
 
         {/* Advanced filter toggle */}
-        <button
-          onClick={() => setAdvSearchOpen(p => !p)}
+        <button onClick={() => setAdvSearchOpen(p => !p)}
           className="p-2 rounded-lg transition-colors flex-shrink-0 relative"
           style={{
             background: advSearchOpen || appliedFilters ? "var(--bg-selected)" : "var(--bg-surface-alt)",
@@ -542,121 +256,66 @@ export function DataGrid<T extends { oid: string }>({
           )}
         </button>
 
-        {/* Expand / Column picker buttons */}
         {showExpandBtn && (
-          <button
-            onClick={onToggleExpand}
+          <button onClick={onToggleExpand}
             className="p-2 rounded-lg transition-colors flex-shrink-0"
-            style={{
-              background: "var(--bg-surface-alt)",
-              border: "1px solid var(--border)",
-              color: "var(--text-primary)",
-            }}
+            style={{ background: "var(--bg-surface-alt)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
             title={expanded ? t("grid.collapse", "Collapse grid") : t("grid.expand", "Expand grid")}
           >
             <Icon name={expanded ? "collapse" : "expand"} size={18} />
           </button>
         )}
+
         {!isMobile && (
-          <div className="relative" ref={pickerRef}>
-            <button
-              onClick={() => setPickerOpen(p => !p)}
+          <div className="relative" ref={colMgr.pickerRef}>
+            <button onClick={() => colMgr.setPickerOpen(p => !p)}
               className="p-2 rounded-lg transition-colors flex-shrink-0"
-              style={{
-                background: pickerOpen ? "var(--bg-selected)" : "var(--bg-surface-alt)",
-                border: "1px solid var(--border)",
-                color: "var(--text-primary)",
-              }}
+              style={{ background: colMgr.pickerOpen ? "var(--bg-selected)" : "var(--bg-surface-alt)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
               title={t("grid.choose_columns", "Choose columns")}
             >
               <Icon name="columns" size={18} />
             </button>
-
-            {pickerOpen && (
+            {colMgr.pickerOpen && (
               <ColumnPicker
                 allColumns={columns}
-                visibleKeys={visibleKeys}
-                onToggle={toggleColumn}
-                onMove={moveColumn}
-                onReset={resetToDefault}
-                hasUserPref={hasUserPref}
+                visibleKeys={colMgr.visibleKeys}
+                onToggle={colMgr.toggleColumn}
+                onMove={colMgr.moveColumn}
+                onReset={colMgr.resetToDefault}
+                hasUserPref={colMgr.hasUserPref}
               />
             )}
           </div>
         )}
 
-        {/* Export button */}
         {exportConfig && !isMobile && (
-          <div className="relative" ref={exportRef}>
-            <button
-              onClick={() => setExportOpen(p => !p)}
+          <div className="relative" ref={exp.exportRef}>
+            <button onClick={() => exp.setExportOpen(p => !p)}
               className="p-2 rounded-lg transition-colors flex-shrink-0"
-              style={{
-                background: exportOpen ? "var(--bg-selected)" : "var(--bg-surface-alt)",
-                border: "1px solid var(--border)",
-                color: "var(--text-primary)",
-              }}
+              style={{ background: exp.exportOpen ? "var(--bg-selected)" : "var(--bg-surface-alt)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
               title={t("grid.export", "Export to Excel")}
             >
               <Icon name="download" size={18} />
             </button>
-
-            {exportOpen && (
-              <div
-                className="absolute right-0 top-full mt-1 z-50 rounded-lg shadow-lg overflow-hidden"
-                style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", minWidth: 260, maxHeight: 440 }}
-              >
-                <div className="flex items-center justify-between px-3 py-2 text-xs font-medium"
-                  style={{ borderBottom: "1px solid var(--border-light)", color: "var(--text-muted)" }}>
-                  <span>Export Columns</span>
-                  <div className="flex gap-2">
-                    <button onClick={() => setExportKeys(columns.map(c => c.key))}
-                      className="text-xs hover:underline" style={{ color: "var(--accent)" }}>All</button>
-                    <button onClick={() => setExportKeys([...visibleKeys])}
-                      className="text-xs hover:underline" style={{ color: "var(--accent)" }}>Visible</button>
-                  </div>
-                </div>
-                <div className="overflow-y-auto" style={{ maxHeight: 320 }}>
-                  {columns.map(col => {
-                    const checked = exportKeys.includes(col.key);
-                    return (
-                      <div key={col.key}
-                        className="flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer transition-colors"
-                        style={{ color: checked ? "var(--text-primary)" : "var(--text-muted)" }}
-                        onClick={() => toggleExportCol(col.key)}
-                        onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
-                      >
-                        <Icon name={checked ? "check" : "x"} size={14}
-                          style={{ color: checked ? "var(--accent)" : "var(--text-muted)" } as any} />
-                        <span className="flex-1 truncate">{col.label}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="px-3 py-2" style={{ borderTop: "1px solid var(--border-light)" }}>
-                  <button
-                    onClick={handleExport}
-                    disabled={exporting || exportKeys.length === 0}
-                    className="w-full py-2 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                    style={{
-                      background: exportKeys.length === 0 ? "var(--bg-surface-alt)" : "var(--accent)",
-                      color: exportKeys.length === 0 ? "var(--text-muted)" : "#fff",
-                      cursor: exportKeys.length === 0 ? "not-allowed" : "pointer",
-                      opacity: exporting ? 0.7 : 1,
-                    }}
-                  >
-                    <Icon name="download" size={14} />
-                    {exporting ? t("grid.exporting", "Exporting...") : `${t("grid.export", "Export")} ${exportKeys.length} columns`}
-                  </button>
-                </div>
-              </div>
+            {exp.exportOpen && (
+              <ExportDropdown
+                columns={columns}
+                exportKeys={exp.exportKeys}
+                setExportKeys={exp.setExportKeys}
+                visibleKeys={colMgr.visibleKeys}
+                exportConfig={exportConfig}
+                search={search}
+                sort={sort}
+                gridId={gridId}
+                userId={userId}
+                onClose={() => exp.setExportOpen(false)}
+              />
             )}
           </div>
         )}
       </div>
 
-      {/* ── Advanced Search modal ── */}
+      {/* ── Advanced Search ── */}
       {advSearchOpen && (
         <AdvancedSearch
           columns={columns}
@@ -698,22 +357,14 @@ export function DataGrid<T extends { oid: string }>({
             <thead className="sticky top-0 z-10" style={{ background: "var(--bg-surface-alt)" }}>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
                 {visibleColumns.map(col => (
-                  <th
-                    key={col.key}
+                  <th key={col.key}
                     onClick={col.sortable !== false ? () => handleSort(col.key) : undefined}
                     className="px-3 py-2 text-xs font-medium uppercase tracking-wider select-none"
-                    style={{
-                      color: "var(--text-muted)",
-                      cursor: col.sortable !== false ? "pointer" : "default",
-                      width: col.width,
-                      textAlign: colAlign(col.key, colTypes),
-                    }}
+                    style={{ color: "var(--text-muted)", cursor: col.sortable !== false ? "pointer" : "default", width: col.width, textAlign: colAlign(col.key, colTypes) }}
                   >
                     <div className="flex items-center gap-1" style={{ justifyContent: colAlign(col.key, colTypes) === "right" ? "flex-end" : colAlign(col.key, colTypes) === "center" ? "center" : "flex-start" }}>
                       {col.label}
-                      {sort.field === col.key && (
-                        <Icon name={sort.dir === "asc" ? "sortAsc" : "sortDesc"} size={12} />
-                      )}
+                      {sort.field === col.key && (<Icon name={sort.dir === "asc" ? "sortAsc" : "sortDesc"} size={12} />)}
                     </div>
                   </th>
                 ))}
@@ -729,22 +380,14 @@ export function DataGrid<T extends { oid: string }>({
                   {rows.map(row => {
                     const isSelected = selectedId === row.oid;
                     return (
-                      <tr
-                        key={row.oid}
-                        onClick={() => onSelect(row.oid)}
+                      <tr key={row.oid} onClick={() => onSelect(row.oid)}
                         className="cursor-pointer transition-colors"
-                        style={{
-                          background: isSelected ? "var(--bg-selected)" : "transparent",
-                          borderBottom: "1px solid var(--border-light)",
-                          borderLeft: isSelected ? "2px solid var(--accent)" : "2px solid transparent",
-                        }}
+                        style={{ background: isSelected ? "var(--bg-selected)" : "transparent", borderBottom: "1px solid var(--border-light)", borderLeft: isSelected ? "2px solid var(--accent)" : "2px solid transparent" }}
                         onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "var(--bg-hover)"; }}
                         onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
                       >
                         {visibleColumns.map(col => (
-                          <td
-                            key={col.key}
-                            className="px-3 py-2"
+                          <td key={col.key} className="px-3 py-2"
                             style={{
                               color: colTypes[col.key] === "boolean" && row[col.key] ? "var(--success-text)" : col.key === visibleColumns[0]?.key ? "var(--text-primary)" : "var(--text-secondary)",
                               fontWeight: colTypes[col.key] === "boolean" && row[col.key] ? 600 : col.key === visibleColumns[0]?.key ? 500 : 400,
@@ -757,9 +400,7 @@ export function DataGrid<T extends { oid: string }>({
                       </tr>
                     );
                   })}
-                  {loadingMore && (
-                    <tr><td colSpan={visibleColumns.length}><LoadingIndicator /></td></tr>
-                  )}
+                  {loadingMore && (<tr><td colSpan={visibleColumns.length}><LoadingIndicator /></td></tr>)}
                 </>
               )}
             </tbody>
@@ -768,10 +409,8 @@ export function DataGrid<T extends { oid: string }>({
       )}
 
       {/* Footer */}
-      <div
-        className="flex items-center justify-between px-3 py-2 text-xs flex-shrink-0"
-        style={{ background: "var(--bg-surface-alt)", borderTop: "1px solid var(--border)", color: "var(--text-muted)" }}
-      >
+      <div className="flex items-center justify-between px-3 py-2 text-xs flex-shrink-0"
+        style={{ background: "var(--bg-surface-alt)", borderTop: "1px solid var(--border)", color: "var(--text-muted)" }}>
         <span>{loading ? t("crud.loading", "Loading...") : total === 0 ? t("grid.no_records", "No records") : `${rows.length} of ${total}`}</span>
         {hasMore && !loading && <span>↓ scroll for more</span>}
       </div>
@@ -779,111 +418,7 @@ export function DataGrid<T extends { oid: string }>({
   );
 }
 
-// ── Column Picker Dropdown ─────────────────────────────────────────
-function ColumnPicker<T>({
-  allColumns, visibleKeys, onToggle, onMove, onReset, hasUserPref,
-}: {
-  allColumns: ColumnDef<T>[];
-  visibleKeys: string[];
-  onToggle: (key: string) => void;
-  onMove: (key: string, dir: -1 | 1) => void;
-  onReset: () => void;
-  hasUserPref?: boolean;
-}) {
-  return (
-    <div
-      className="absolute right-0 top-full mt-1 z-50 rounded-lg shadow-lg overflow-hidden"
-      style={{
-        background: "var(--bg-surface)",
-        border: "1px solid var(--border)",
-        minWidth: 240,
-        maxHeight: 400,
-      }}
-    >
-      {/* Header */}
-      <div
-        className="flex items-center justify-between px-3 py-2 text-xs font-medium"
-        style={{ borderBottom: "1px solid var(--border-light)", color: "var(--text-muted)" }}
-      >
-        <span className="flex items-center gap-1.5">
-          Columns
-          {hasUserPref && (
-            <span className="px-1.5 py-0.5 rounded text-[10px]"
-              style={{ background: "var(--bg-selected)", color: "var(--accent)" }}>
-              Customized
-            </span>
-          )}
-        </span>
-        <button
-          onClick={onReset}
-          className="text-xs hover:underline"
-          style={{ color: "var(--accent)" }}
-        >
-          Reset to default
-        </button>
-      </div>
-
-      {/* Column list */}
-      <div className="overflow-y-auto" style={{ maxHeight: 300 }}>
-        {allColumns.map((col) => {
-          const visible = visibleKeys.includes(col.key);
-          const idx = visibleKeys.indexOf(col.key);
-          const isLocked = col.locked;
-
-          return (
-            <div
-              key={col.key}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm transition-colors"
-              style={{
-                color: visible ? "var(--text-primary)" : "var(--text-muted)",
-                background: "transparent",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
-            >
-              {/* Checkbox */}
-              <button
-                onClick={() => !isLocked && onToggle(col.key)}
-                className="flex-shrink-0"
-                style={{ cursor: isLocked ? "not-allowed" : "pointer", opacity: isLocked ? 0.4 : 1 }}
-              >
-                <Icon name={visible ? "check" : "x"} size={14}
-                  style={{ color: visible ? "var(--accent)" : "var(--text-muted)" } as any} />
-              </button>
-
-              {/* Label */}
-              <span className="flex-1 truncate">{col.label}</span>
-
-              {/* Reorder arrows (only for visible columns) */}
-              {visible && (
-                <div className="flex gap-0.5 flex-shrink-0">
-                  <button
-                    onClick={() => onMove(col.key, -1)}
-                    disabled={idx <= 0}
-                    className="p-0.5 rounded"
-                    style={{ opacity: idx <= 0 ? 0.2 : 0.6, cursor: idx <= 0 ? "default" : "pointer" }}
-                  >
-                    <Icon name="sortAsc" size={11} />
-                  </button>
-                  <button
-                    onClick={() => onMove(col.key, 1)}
-                    disabled={idx >= visibleKeys.length - 1}
-                    className="p-0.5 rounded"
-                    style={{ opacity: idx >= visibleKeys.length - 1 ? 0.2 : 0.6, cursor: idx >= visibleKeys.length - 1 ? "default" : "pointer" }}
-                  >
-                    <Icon name="sortDesc" size={11} />
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ── Helpers ─────────────────────────────────────────────────────────
+// ── Small helpers ──
 function EmptyState({ children }: { children: ReactNode }) {
   return <div className="p-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>{children}</div>;
 }
@@ -905,8 +440,7 @@ function DefaultCard<T extends { oid: string }>({
   const secondary = visibleCols.slice(1);
 
   return (
-    <div
-      className="w-full text-left px-4 py-3 flex items-center gap-3 transition-colors cursor-pointer"
+    <div className="w-full text-left px-4 py-3 flex items-center gap-3 transition-colors cursor-pointer"
       style={{ background: isSelected ? "var(--bg-selected)" : "transparent", borderBottom: "1px solid var(--border-light)" }}
     >
       <div className="flex-1 min-w-0">
