@@ -38,6 +38,11 @@ function ProfileTab({ user, onChange, isNew, colTypes, colScales }: {
 
   return (
     <div className="space-y-6 max-w-4xl">
+      <Section title={t("users.section_status", "Status")}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+          {field("is_active", { colorOn: "var(--success-text)", colorOff: "var(--danger-text)" })}
+        </div>
+      </Section>
       <Section title={t("users.section_identity", "Identity")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
           {field("user_id", { required: true, readOnly: !isNew })}
@@ -46,14 +51,6 @@ function ProfileTab({ user, onChange, isNew, colTypes, colScales }: {
           {field("company")}
           {field("title")}
           {field("domains", { required: true, type: "lookup", lookup: DomainLookup({ multiple: true }) })}
-          {field("locale", { type: "lookup", lookup: LocaleLookup({ dropdownColumns: [{ key: "flag_svg", type: "flag" }, "description"] }) })}
-        </div>
-      </Section>
-      <Section title={t("users.section_status", "Status")}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-          {field("is_active", { colorOn: "var(--success-text)", colorOff: "var(--danger-text)" })}
-          {field("expire_date")}
-          {field("last_login", { readOnly: true, mode: "datetime" })}
         </div>
       </Section>
       <Section title={t("users.section_contact", "Contact")}>
@@ -68,6 +65,10 @@ function ProfileTab({ user, onChange, isNew, colTypes, colScales }: {
           {field("country")}
         </div>
       </Section>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+        {field("expire_date")}
+        {field("locale", { type: "lookup", lookup: LocaleLookup({ dropdownColumns: [{ key: "flag_svg", type: "flag" }, "description"] }) })}
+      </div>
     </div>
   );
 }

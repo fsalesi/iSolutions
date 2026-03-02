@@ -451,18 +451,21 @@ export function DatePicker({
       <style>{`
         .dp-wrap {
           position: relative;
-          display: inline-flex;
+          display: flex;
           flex-direction: column;
+          width: 100%;
         }
         .dp-input-row {
-          display: inline-flex;
+          display: flex;
           align-items: center;
           gap: 6px;
+          width: 100%;
         }
         .dp-input-box {
-          display: inline-flex;
+          display: flex;
           align-items: center;
-          height: 34px;
+          flex: 1;
+          height: 38px;
           border: 1px solid var(--input-border);
           border-radius: 8px;
           padding: 0 4px 0 0;
