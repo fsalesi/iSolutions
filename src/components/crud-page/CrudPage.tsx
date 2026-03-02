@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, type ReactNode } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { DataGrid, type ColumnDef, type FetchPage } from "@/components/data-grid/DataGrid";
 import type { ColType } from "@/components/data-grid/AdvancedSearch";
 import { CrudToolbar, type CrudAction } from "@/components/crud-toolbar/CrudToolbar";
@@ -11,6 +11,94 @@ import { useT } from "@/context/TranslationContext";
 import { AppShell } from "@/components/shell";
 import { AuditPanel } from "@/components/audit-panel/AuditPanel";
 import { NotesPanel } from "@/components/notes-panel/NotesPanel";
+
+// ── Draggable Splitter ──────────────────────────────────────────
+const DEFAULT_GRID_PCT = 30; // default grid width as % of container
+const MIN_GRID_PCT = 15;
+const MAX_GRID_PCT = 75;
+
+function getSavedPct(tableName: string): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const v = localStorage.getItem(`crud-split-${tableName}`);
+    if (v) { const n = parseFloat(v); if (n >= MIN_GRID_PCT && n <= MAX_GRID_PCT) return n; }
+  } catch {}
+  return null;
+}
+
+function savePct(tableName: string, pct: number) {
+  try { localStorage.setItem(`crud-split-${tableName}`, String(Math.round(pct * 10) / 10)); } catch {}
+}
+
+function clearPct(tableName: string) {
+  try { localStorage.removeItem(`crud-split-${tableName}`); } catch {}
+}
+
+function useSplitter(tableName: string) {
+  const savedPct = getSavedPct(tableName);
+  const hasSaved = savedPct !== null;
+  const [gridPct, setGridPct] = useState<number>(savedPct ?? DEFAULT_GRID_PCT);
+  const dragging = useRef(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragging.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const handleMove = (ev: MouseEvent) => {
+      if (!dragging.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const pct = ((ev.clientX - rect.left) / rect.width) * 100;
+      const clamped = Math.max(MIN_GRID_PCT, Math.min(MAX_GRID_PCT, pct));
+      setGridPct(clamped);
+      savePct(tableName, clamped);
+    };
+    const handleUp = () => {
+      dragging.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("mouseup", handleUp);
+    };
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleUp);
+  }, [tableName]);
+
+  const resetToDefault = useCallback(() => {
+    setGridPct(DEFAULT_GRID_PCT);
+    clearPct(tableName);
+  }, [tableName]);
+
+  return { gridPct, hasSavedSplit: hasSaved, containerRef, onMouseDown, resetToDefault };
+}
+
+function SplitHandle({ onMouseDown, onReset }: {
+  onMouseDown: (e: React.MouseEvent) => void;
+  onReset: () => void;
+}) {
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      onDoubleClick={(e) => { e.preventDefault(); onReset(); }}
+      className="flex-shrink-0 flex items-center justify-center"
+      title="Drag to resize · Double-click to reset"
+      style={{
+        width: 7,
+        cursor: "col-resize",
+        background: "var(--border-light)",
+        transition: "background 0.15s",
+        zIndex: 5,
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = "var(--accent)"; e.currentTarget.style.opacity = "0.6"; }}
+      onMouseLeave={e => { e.currentTarget.style.background = "var(--border-light)"; e.currentTarget.style.opacity = "1"; }}
+    >
+      <div style={{ width: 3, height: 32, borderRadius: 2, background: "var(--text-muted)", opacity: 0.35 }} />
+    </div>
+  );
+}
+
 
 // ── Inline Confirm ──────────────────────────────────────────────
 function InlineConfirm({ message, onConfirm, onCancel }: {
@@ -221,7 +309,14 @@ export function CrudPage<TRow extends { oid: string }>({
   const [selectedOid, setSelectedOid] = useState<string | null>(null);
   const [selectedRec, setSelectedRec] = useState<TRow | null>(null);
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(() => {
+    // If user has a saved split width, start in split view (not full-grid)
+    if (typeof window === "undefined") return true;
+    try { return !localStorage.getItem(`crud-split-${config.apiPath.replace("/api/", "")}`); } catch { return true; }
+  });
+
+  // ── Splitter (desktop only, %-based, persisted in localStorage) ──
+  const { gridPct, hasSavedSplit, containerRef, onMouseDown: onSplitterMouseDown, resetToDefault: resetSplitter } = useSplitter(tableName);
 
   const [form, setForm] = useState<TRow>(emptyRow());
   const [isDirty, setIsDirty] = useState(false);
@@ -447,16 +542,18 @@ export function CrudPage<TRow extends { oid: string }>({
 
   return (
     <AppShell title={shellTitle} showBack={mobileShowDetail} onBack={handleBack} activeNav={activeNav} onNavigate={onNavigate}>
-      <div className="flex flex-col lg:flex-row h-full overflow-hidden">
+      <div ref={containerRef} className="flex flex-col lg:flex-row h-full overflow-hidden">
 
         {/* Left: Data Grid */}
         <div
           className={`
             ${isMobile && mobileShowDetail ? "hidden" : "flex"}
-            ${isMobile ? "flex-1" : expanded ? "flex-1" : "w-[420px] xl:w-[480px]"}
-            flex-shrink-0 flex-col overflow-hidden transition-all duration-200
+            ${isMobile ? "flex-1" : expanded ? "flex-1" : ""}
+            flex-shrink-0 flex-col overflow-hidden
           `}
-          style={{ borderRight: isMobile ? "none" : expanded ? "none" : "1px solid var(--border)" }}
+          style={{
+            ...((!isMobile && !expanded) ? { width: `${gridPct}%` } : {}),
+          }}
         >
           <DataGrid<TRow>
             key={refreshKey}
@@ -478,11 +575,14 @@ export function CrudPage<TRow extends { oid: string }>({
           />
         </div>
 
+        {/* Drag splitter (desktop only, when detail is visible) */}
+        {!isMobile && !expanded && <SplitHandle onMouseDown={onSplitterMouseDown} onReset={resetSplitter} />}
+
         {/* Right: Detail Panel */}
         <div
           className={`
             ${isMobile ? (mobileShowDetail ? "flex" : "hidden") : (expanded ? "hidden" : "flex")}
-            flex-1 flex-col overflow-hidden transition-all duration-200
+            flex-1 flex-col overflow-hidden
           `}
           style={{ background: "var(--bg-surface)" }}
         >
