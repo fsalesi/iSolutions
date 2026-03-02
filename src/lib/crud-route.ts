@@ -2,10 +2,12 @@
  * Generic CRUD route factory.
  * Generates GET/POST/PUT/DELETE handlers from a simple config.
  * Every route automatically gets: oid filter, search, advanced filters, sort, pagination.
+ * Hooks: Product hooks (src/lib/hooks/) + customer hooks (custom/hooks/) run on save/delete.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { buildFilterWhere, parseOidFilter } from "@/lib/filter-sql";
+import { getHooks, ValidationError } from "@/lib/hooks";
 
 type ColType = "text" | "number" | "boolean" | "date" | "datetime";
 
@@ -51,7 +53,6 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
     }
     return val === "" ? null : val ?? null;
   }
-
 
   const defaultSort = cfg.defaultSort || cfg.columns[0];
   const writable = cfg.writableFields || cfg.columns.filter(
@@ -133,6 +134,12 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
         }
       }
 
+      // Run hooks
+      const hooks = getHooks(cfg.table);
+      if (hooks?.beforeSave) {
+        await hooks.beforeSave(body, { db, isNew: true, oid: "", table: cfg.table });
+      }
+
       const fields = writable.filter(f => f in body);
       const values = fields.map(f => coerceValue(f, body[f]));
       const placeholders = fields.map((_, i) => `$${i + 1}`).join(", ");
@@ -142,8 +149,16 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
         `INSERT INTO ${cfg.table} (${colList}) VALUES (${placeholders}) RETURNING *`,
         values
       );
+
+      if (hooks?.afterSave) {
+        await hooks.afterSave(body, { db, isNew: true, oid: res.rows[0].oid, table: cfg.table });
+      }
+
       return NextResponse.json(res.rows[0], { status: 201 });
     } catch (e: any) {
+      if (e instanceof ValidationError) {
+        return NextResponse.json({ error: e.message }, { status: 422 });
+      }
       if (e.code === "23505" && cfg.uniqueErrorMsg) {
         return NextResponse.json({ error: cfg.uniqueErrorMsg({}) }, { status: 409 });
       }
@@ -166,6 +181,12 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
         }
       }
 
+      // Run hooks
+      const hooks = getHooks(cfg.table);
+      if (hooks?.beforeSave) {
+        await hooks.beforeSave(body, { db, isNew: false, oid, table: cfg.table });
+      }
+
       const fields = writable.filter(f => f in body);
       const setClauses = fields.map((f, i) => `"${f}" = $${i + 1}`);
       setClauses.push("updated_at = NOW()");
@@ -177,8 +198,16 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
         values
       );
       if (!res.rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+      if (hooks?.afterSave) {
+        await hooks.afterSave(body, { db, isNew: false, oid, table: cfg.table });
+      }
+
       return NextResponse.json(res.rows[0]);
     } catch (e: any) {
+      if (e instanceof ValidationError) {
+        return NextResponse.json({ error: e.message }, { status: 422 });
+      }
       if (e.code === "23505" && cfg.uniqueErrorMsg) {
         return NextResponse.json({ error: cfg.uniqueErrorMsg({}) }, { status: 409 });
       }
@@ -189,10 +218,25 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
 
   // ── DELETE ─────────────────────────────────────────────
   async function DELETE(req: NextRequest) {
-    const oid = req.nextUrl.searchParams.get("oid");
-    if (!oid) return NextResponse.json({ error: "oid required" }, { status: 400 });
-    await db.query(`DELETE FROM ${cfg.table} WHERE oid = $1::uuid`, [oid]);
-    return NextResponse.json({ ok: true });
+    try {
+      const oid = req.nextUrl.searchParams.get("oid");
+      if (!oid) return NextResponse.json({ error: "oid required" }, { status: 400 });
+
+      // Run hooks
+      const hooks = getHooks(cfg.table);
+      if (hooks?.beforeDelete) {
+        await hooks.beforeDelete(oid, { db, oid, table: cfg.table });
+      }
+
+      await db.query(`DELETE FROM ${cfg.table} WHERE oid = $1::uuid`, [oid]);
+      return NextResponse.json({ ok: true });
+    } catch (e: any) {
+      if (e instanceof ValidationError) {
+        return NextResponse.json({ error: e.message }, { status: 422 });
+      }
+      console.error(`DELETE /api/${cfg.table} error:`, e);
+      return NextResponse.json({ error: e.message }, { status: 500 });
+    }
   }
 
   return { GET, POST, PUT, DELETE };
