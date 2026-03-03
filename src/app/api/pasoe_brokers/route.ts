@@ -6,7 +6,7 @@ export const { GET, POST, PUT, DELETE } = createCrudRoutes({
             "created_at", "created_by", "updated_at", "updated_by"],
   defaultSort: "name",
   searchColumns: ["name", "domain", "connect_string"],
-  requiredFields: ["name", "domain"],
+  requiredFields: ["name", "domain", "connect_string"],
   transforms: { domain: (v: string) => v?.trim().toUpperCase() },
   uniqueErrorMsg: () => "Name already exists",
 });

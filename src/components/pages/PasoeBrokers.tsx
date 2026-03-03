@@ -13,12 +13,12 @@ const COLUMNS: ColumnDef<Row>[] = [
   { key: "name", locked: true },
 ];
 
-function Detail({ row, isNew, onChange, colTypes, colScales }: {
+function Detail({ row, isNew, onChange, colTypes, colScales, requiredFields }: {
   row: Row; isNew: boolean; onChange: (f: keyof Row, v: any) => void;
-  colTypes: Record<string, string>; colScales: Record<string, number>;
+  colTypes: Record<string, string>; colScales: Record<string, number>; requiredFields?: string[];
 }) {
   const t = useT();
-  const { field } = useFieldHelper({ row, onChange, table: "pasoe_brokers", colTypes: colTypes as any, colScales });
+  const { field } = useFieldHelper({ row, onChange, table: "pasoe_brokers", colTypes: colTypes as any, colScales, requiredFields });
   return (
     <Section title={t("pasoe_brokers.section_general", "General")}>
       {field("name", { autoFocus: isNew })}

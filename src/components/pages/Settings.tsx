@@ -18,12 +18,12 @@ const COLUMNS: ColumnDef<Row>[] = [
   { key: "value" },
 ];
 
-function Detail({ row, isNew, onChange, colTypes, colScales }: {
+function Detail({ row, isNew, onChange, colTypes, colScales, requiredFields }: {
   row: Row; isNew: boolean; onChange: (f: keyof Row, v: any) => void;
-  colTypes: Record<string, string>; colScales: Record<string, number>;
+  colTypes: Record<string, string>; colScales: Record<string, number>; requiredFields?: string[];
 }) {
   const t = useT();
-  const { field } = useFieldHelper({ row, onChange, table: "settings", colTypes: colTypes as any, colScales });
+  const { field } = useFieldHelper({ row, onChange, table: "settings", colTypes: colTypes as any, colScales, requiredFields });
 
   useEffect(() => {
     if (!row.owner) onChange("owner", "SYSTEM");
@@ -32,7 +32,7 @@ function Detail({ row, isNew, onChange, colTypes, colScales }: {
 
   return (
     <Section title={t("settings.section_general", "General")}>
-      {field("setting_name", { required: true, autoFocus: isNew })}
+      {field("setting_name", { autoFocus: isNew })}
       {field("domain", { type: "lookup", lookup: DomainLookup({ allOption: { value: "*", label: t("settings.all_domains", "All Domains") } }) })}
       {field("value")}
       {field("help_text")}

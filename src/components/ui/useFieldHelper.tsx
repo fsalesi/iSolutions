@@ -35,6 +35,7 @@ interface FieldHelperConfig {
   table: string;
   colTypes?: Record<string, ColType>;
   colScales?: Record<string, number>;
+  requiredFields?: string[];
   isNew?: boolean;
 }
 
@@ -100,7 +101,7 @@ function detectType(colType: ColType | undefined, fieldName: string): FieldType 
 
 export function useFieldHelper(config: FieldHelperConfig) {
   const t = useT();
-  const { row, onChange, table, colTypes = {}, colScales = {} } = config;
+  const { row, onChange, table, colTypes = {}, colScales = {}, requiredFields: backendRequired = [] } = config;
 
 
 
@@ -108,7 +109,7 @@ export function useFieldHelper(config: FieldHelperConfig) {
     const {
       type: typeOverride,
       label: labelOverride,
-      required,
+      required: requiredOverride,
       requiredMsg,
       readOnly,
       autoFocus,
@@ -131,6 +132,8 @@ export function useFieldHelper(config: FieldHelperConfig) {
       // Collect remaining props
       ...extraProps
     } = overrides || {};
+
+    const required = requiredOverride ?? backendRequired.includes(name);
 
     const colType = colTypes[name];
     const fieldType = typeOverride || detectType(colType, name);

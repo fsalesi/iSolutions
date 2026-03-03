@@ -13,6 +13,6 @@ export const { GET, POST, PUT, DELETE } = createCrudRoutes({
   ],
   defaultSort: "full_name",
   searchColumns: ["user_id", "full_name", "email"],
-  requiredFields: ["user_id"],
+  requiredFields: ["user_id", "full_name", "email", "domains"],
   uniqueErrorMsg: (body) => `User ID "${body.user_id}" already exists`,
 });

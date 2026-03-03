@@ -13,17 +13,18 @@ type MemberRecord = { oid: string; group_id: string; member_id: string; is_exclu
 type ChecklistItem = { id: string; label: string; sub?: string };
 
 /* ── General Tab ─────────────────────────────────────── */
-function GeneralTab({ row, isNew, onChange, colTypes, colScales }: {
+function GeneralTab({ row, isNew, onChange, colTypes, colScales, requiredFields }: {
   row: Row; isNew: boolean; onChange: (f: keyof Row, v: any) => void;
   colTypes: Record<string, string>; colScales: Record<string, number>;
+  requiredFields?: string[];
 }) {
   const t = useT();
-  const { field } = useFieldHelper({ row, onChange, table: "groups", colTypes: colTypes as any, colScales });
+  const { field } = useFieldHelper({ row, onChange, table: "groups", colTypes: colTypes as any, colScales, requiredFields });
   return (
     <div className="space-y-6">
       <Section title={t("groups.section_general", "General")}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-          {field("group_id", { required: true, readOnly: !isNew })}
+          {field("group_id", { readOnly: !isNew })}
           {field("description")}
           {field("is_active", { colorOn: "var(--success-text)", colorOff: "var(--danger-text)" })}
         </div>
@@ -291,9 +292,9 @@ function MembersTab({ row }: { row: Row }) {
 }
 
 /* ── Tabbed Detail ─────────────────────────────────────── */
-function GroupTabs({ row, isNew, onChange, colTypes, colScales }: {
+function GroupTabs({ row, isNew, onChange, colTypes, colScales, requiredFields }: {
   row: Row; isNew: boolean; onChange: (f: keyof Row, v: any) => void;
-  colTypes: Record<string, string>; colScales: Record<string, number>;
+  colTypes: Record<string, string>; colScales: Record<string, number>; requiredFields?: string[];
 }) {
   const t = useT();
   const [activeTab, setActiveTab] = useState("general");
@@ -305,7 +306,7 @@ function GroupTabs({ row, isNew, onChange, colTypes, colScales }: {
     <>
       <TabBar tabs={tabs} active={activeTab} onChange={setActiveTab} />
       <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-        {activeTab === "general" && <GeneralTab row={row} isNew={isNew} onChange={onChange} colTypes={colTypes} colScales={colScales} />}
+        {activeTab === "general" && <GeneralTab row={row} isNew={isNew} onChange={onChange} colTypes={colTypes} colScales={colScales} requiredFields={requiredFields} />}
         {activeTab === "members" && <MembersTab row={row} />}
       </div>
     </>

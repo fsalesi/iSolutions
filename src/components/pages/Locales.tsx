@@ -20,12 +20,12 @@ const DATE_FORMATS = [
   { value: "ymd", label: "YYYY/MM/DD" },
 ];
 
-function Detail({ row, isNew, onChange, colTypes, colScales }: {
+function Detail({ row, isNew, onChange, colTypes, colScales, requiredFields }: {
   row: Row; isNew: boolean; onChange: (f: keyof Row, v: any) => void;
-  colTypes: Record<string, string>; colScales: Record<string, number>;
+  colTypes: Record<string, string>; colScales: Record<string, number>; requiredFields?: string[];
 }) {
   const t = useT();
-  const { field } = useFieldHelper({ row, onChange, table: "locales", colTypes: colTypes as any, colScales });
+  const { field } = useFieldHelper({ row, onChange, table: "locales", colTypes: colTypes as any, colScales, requiredFields });
   return (
     <Section title={t("locales.section_settings", "Locale Settings")}>
       {field("code", { autoFocus: isNew, placeholder: t("locales.placeholder_code", "e.g. en-us") })}

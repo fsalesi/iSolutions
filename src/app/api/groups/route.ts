@@ -5,6 +5,6 @@ export const { GET, POST, PUT, DELETE } = createCrudRoutes({
   columns: ["group_id", "description", "is_active"],
   defaultSort: "group_id",
   searchColumns: ["group_id", "description"],
-  requiredFields: ["group_id"],
+  requiredFields: ["group_id", "description"],
   uniqueErrorMsg: (body) => `Group ID "${body.group_id}" already exists`,
 });
