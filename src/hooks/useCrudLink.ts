@@ -36,10 +36,19 @@ export function useCrudLink({ apiPath, table, onNavigate, selectRecordOid, selec
   const link = useLink(gridRef, crudRef);
 
   // ── Layout state (persisted per table) ──
+  const [requiredFields, setRequiredFields] = useState<string[]>([]);
   const [showDetail, setShowDetail] = useState(() => getExpanded(table));
 
   // Persist when it changes
   useEffect(() => { saveExpanded(table, showDetail); }, [table, showDetail]);
+
+  // Fetch required fields from API on mount
+  useEffect(() => {
+    fetch(`${apiPath}?limit=0`)
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data.requiredFields)) setRequiredFields(data.requiredFields); })
+      .catch(() => {});
+  }, [apiPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Show detail when record selected or creating new
   useEffect(() => {
@@ -84,5 +93,6 @@ export function useCrudLink({ apiPath, table, onNavigate, selectRecordOid, selec
     guardedNavigate,
     handleBack,
     onDeletedMobile,
+    requiredFields,
   };
 }

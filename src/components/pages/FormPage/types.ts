@@ -24,6 +24,7 @@ export interface FormField {
   field_name: string;
   data_type: string;
   table_name: string;
+  is_nullable: boolean;
 }
 
 export interface FormMeta {

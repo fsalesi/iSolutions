@@ -24,6 +24,10 @@ export interface SplitCrudPageProps {
   onNavigate: (k: string, oid?: string) => void;
   selectRecordOid?: string;
   selectSeq?: number;
+  /** Override required fields entirely (e.g. FormPage derives them from metadata) */
+  requiredFields?: string[];
+  /** Additional required fields stacked on top of the base required list */
+  extraRequiredFields?: string[];
 }
 
 export function SplitCrudPage({
@@ -40,11 +44,15 @@ export function SplitCrudPage({
   onNavigate,
   selectRecordOid,
   selectSeq,
+  requiredFields: requiredFieldsProp,
+  extraRequiredFields,
 }: SplitCrudPageProps) {
   const api = apiPath || `/api/${table}`;
   const isMobile = useIsMobile();
   const { user } = useSession();
   const crud = useCrudLink({ apiPath: api, table, onNavigate, selectRecordOid, selectSeq });
+  // Use explicit prop if provided (FormPage), otherwise use API-fetched required fields
+  const baseRequiredFields = requiredFieldsProp ?? crud.requiredFields;
 
   return (
     <AppShell title={title} showBack={isMobile && crud.showDetail} onBack={crud.handleBack} activeNav={activeNav} onNavigate={crud.guardedNavigate}>
@@ -52,6 +60,7 @@ export function SplitCrudPage({
         crud.showDetail ? (
           <CrudPanel ref={crud.crudRef} row={crud.link.selectedRow} isNew={crud.link.isNew}
             apiPath={api} tableName={table} defaultValues={defaultValues} renderBody={renderBody}
+            requiredFields={baseRequiredFields} extraRequiredFields={extraRequiredFields}
             extraActions={extraActions} designMode={designMode} onDesignToggle={onDesignToggle}
             onSaved={crud.link.onSaved} onDeleted={crud.onDeletedMobile} onNew={crud.link.onNew} />
         ) : (
@@ -70,6 +79,7 @@ export function SplitCrudPage({
           right={
             <CrudPanel ref={crud.crudRef} row={crud.link.selectedRow} isNew={crud.link.isNew}
               apiPath={api} tableName={table} defaultValues={defaultValues} renderBody={renderBody}
+              requiredFields={baseRequiredFields} extraRequiredFields={extraRequiredFields}
               extraActions={extraActions} designMode={designMode} onDesignToggle={onDesignToggle}
               onSaved={crud.link.onSaved} onDeleted={crud.link.onDeleted} onNew={crud.link.onNew} />
           }

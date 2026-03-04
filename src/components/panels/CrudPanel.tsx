@@ -56,6 +56,8 @@ export interface CrudPanelProps {
   colTypes?: Record<string, string>;
   colScales?: Record<string, number>;
   requiredFields?: string[];
+  /** Additional required fields stacked on top of requiredFields */
+  extraRequiredFields?: string[];
   /** Extra toolbar actions */
   extraActions?: CrudAction[];
   /** Design-mode toggle (rendered by CrudToolbar for admins) */
@@ -89,6 +91,7 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
     colTypes: colTypesProp,
     colScales: colScalesProp,
     requiredFields: requiredFieldsProp,
+    extraRequiredFields,
     extraActions: extraActionsProp,
     designMode,
     onDesignToggle,
@@ -103,29 +106,25 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
   const t = useT();
   const confirm = useConfirm();
 
-  // ── Schema self-fetch (when tableName provided, no prop overrides) ──
+  // ── Schema self-fetch for colTypes/colScales (when not provided via props) ──
   const [autoColTypes, setAutoColTypes] = useState<Record<string, string>>({});
   const [autoColScales, setAutoColScales] = useState<Record<string, number>>({});
-  const [autoRequiredFields, setAutoRequiredFields] = useState<string[]>([]);
 
   useEffect(() => {
     if (!tableName) return;
-    // Skip fetch if all metadata already provided via props
+    // Skip fetch if metadata already provided via props
     if (colTypesProp && Object.keys(colTypesProp).length > 0) return;
     fetch(`/api/columns?table=${tableName}`)
       .then(r => r.json())
-      .then((cols: { key: string; type: string; scale?: number; nullable?: boolean }[]) => {
+      .then((cols: { key: string; type: string; scale?: number }[]) => {
         const types: Record<string, string> = {};
         const scales: Record<string, number> = {};
-        const required: string[] = [];
         for (const col of cols) {
           types[col.key] = col.type;
           if (col.scale !== undefined) scales[col.key] = col.scale;
-          if (!col.nullable) required.push(col.key);
         }
         setAutoColTypes(types);
         setAutoColScales(scales);
-        setAutoRequiredFields(required);
       })
       .catch(() => {});
   }, [tableName, colTypesProp]);
@@ -135,8 +134,11 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
     ? colTypesProp : autoColTypes;
   const colScales = colScalesProp && Object.keys(colScalesProp).length > 0
     ? colScalesProp : autoColScales;
-  const requiredFields = requiredFieldsProp && requiredFieldsProp.length > 0
-    ? requiredFieldsProp : autoRequiredFields;
+  // Required fields: from API prop + screen-level extras. No auto-inference from schema.
+  const requiredFields = useMemo(
+    () => [...(requiredFieldsProp || []), ...(extraRequiredFields || [])],
+    [requiredFieldsProp, extraRequiredFields],
+  );
 
   // ── Empty row builder (from schema + defaultValues) ──
   const buildEmptyRow = useCallback((): Record<string, any> => {

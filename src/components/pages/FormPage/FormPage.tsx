@@ -346,12 +346,38 @@ export function FormPage({ formKey, apiPath, activeNav, onNavigate }: {
           colTypes,
           colScales,
           fields: (fieldsData.rows || []).map((f: any) => ({
-            field_name: f.field_name, data_type: f.data_type, table_name: f.table_name,
+            field_name: f.field_name, data_type: f.data_type, table_name: f.table_name, is_nullable: f.is_nullable,
           })),
         });
       } catch (e: any) { setError(e.message); }
     })();
   }, [formKey, apiPath]);
+
+  // Derive requiredFields from form_fields (NOT NULL, non-boolean)
+  // overridden by form_layout properties.mandatory (true=force required, false=suppress)
+  const requiredFields = useMemo<string[]>(() => {
+    if (!meta) return [];
+    const mandatoryMap = new Map<string, boolean>();
+    for (const l of meta.layout) {
+      if (l.layout_type === 'field' && l.table_name === meta.headerTable && l.properties?.mandatory != null) {
+        mandatoryMap.set(l.layout_key, l.properties.mandatory as boolean);
+      }
+    }
+    const result: string[] = [];
+    for (const f of meta.fields) {
+      if (f.table_name !== meta.headerTable) continue;
+      const override = mandatoryMap.get(f.field_name);
+      if (override === true) { result.push(f.field_name); continue; }
+      if (override === false) continue; // designer suppressed it
+      // No override: required if DB says NOT NULL and not boolean
+      if (!f.is_nullable && f.data_type !== 'boolean') result.push(f.field_name);
+    }
+    // Also add layout-only mandatory=true fields (may not be in form_fields)
+    for (const [key, val] of mandatoryMap) {
+      if (val && !result.includes(key)) result.push(key);
+    }
+    return result;
+  }, [meta]);
 
   // Derive columns and tabs from metadata
   const columns = useMemo<ColumnDef<Row>[]>(() => {
@@ -408,6 +434,7 @@ export function FormPage({ formKey, apiPath, activeNav, onNavigate }: {
         table={meta.headerTable}
         apiPath={`${apiPath}?table=${meta.headerTable}`}
         columns={columns}
+        requiredFields={requiredFields}
         renderBody={renderBody}
         extraActions={designExtraActions}
         designMode={designMode}
