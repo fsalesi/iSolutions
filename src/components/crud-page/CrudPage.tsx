@@ -621,7 +621,6 @@ export function CrudPage<TRow extends { oid: string }>({
             colTypes={colTypes}
             colScales={colScales}
             gridId={gridId}
-            userId={user.userId}
             exportConfig={exportCfg}
             searchColumns={searchColumns}
           />

@@ -5,6 +5,7 @@ import { Icon } from "@/components/icons/Icon";
 import { useTranslation } from "@/context/TranslationContext";
 import { AdvancedSearch, serializeFilters, countConditions, type FilterTree } from "./AdvancedSearch";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useSession } from "@/context/SessionContext";
 
 // ── Re-export types for external consumers ──
 export type { ColumnDef, SortState, PageResult, FetchPage, ColType } from "./datagrid/types";
@@ -15,6 +16,7 @@ import { colAlign, formatCellValue } from "./datagrid/grid-utils";
 import { useSchemaDiscovery } from "./datagrid/useSchemaDiscovery";
 import { useColumnManager, ColumnPicker } from "./datagrid/ColumnManager";
 import { useExportPanel, ExportDropdown, type ExportConfig } from "./datagrid/ExportPanel";
+import { GridSettingsPanel, type GridSettings } from "./datagrid/GridSettingsPanel";
 
 // ── Publisher interface for useLink / external refresh ──
 export interface DataPublisher {
@@ -45,7 +47,6 @@ interface DataGridProps<T extends { oid: string }> {
   expanded?: boolean;
   onToggleExpand?: () => void;
   gridId?: string;
-  userId?: string;
   exportConfig?: ExportConfig;
   colTypes?: Record<string, ColType>;
   colScales?: Record<string, number>;
@@ -71,7 +72,6 @@ export function DataGrid<T extends { oid: string }>({
   expanded,
   onToggleExpand,
   gridId,
-  userId,
   exportConfig,
   colTypes: colTypesProp = {},
   colScales: colScalesProp = {},
@@ -80,6 +80,11 @@ export function DataGrid<T extends { oid: string }>({
 }: DataGridProps<T>) {
   const { t, locale } = useTranslation();
   const isMobile = useIsMobile();
+  const { user } = useSession();
+  const userId = user?.userId;
+  const isAdmin = user?.isAdmin ?? false;
+  const [hovered, setHovered] = useState(false);
+  const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
   const showExpandBtn = !isMobile && onToggleExpand;
   const scrollRef = useRef<HTMLDivElement>(null);
   const refreshTrigger = useRef(0);
@@ -213,7 +218,19 @@ export function DataGrid<T extends { oid: string }>({
   // ── Export ──
   const exp = useExportPanel({ gridId, userId });
 
-  // Sync export keys from grid-prefs load
+  const handleSettingsChanged = (settings: GridSettings, allowedKeys: string[] | null, _defaultKeys: string[] | null) => {
+    setGridSettings(settings);
+    // allowedKeys refresh handled by ColumnManager on next open
+  };
+
+  // Grid-level settings loaded from grid_defaults (admin flags)
+  const [gridSettings, setGridSettings] = useState<{
+    show_search?: boolean;
+    show_footer?: boolean;
+    show_excel?: boolean;
+  }>({});
+
+  // Sync export keys + settings from grid-prefs (single fetch, ColumnManager has its own)
   useEffect(() => {
     if (!gridId) return;
     const params = new URLSearchParams({ grid: gridId });
@@ -223,6 +240,7 @@ export function DataGrid<T extends { oid: string }>({
       .then(data => {
         if (data.effectiveExport) exp.setExportKeys(data.effectiveExport);
         else if (data.effective) exp.setExportKeys(data.effective);
+        if (data.settings) setGridSettings(data.settings);
       })
       .catch(() => {});
   }, [gridId, userId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -337,8 +355,12 @@ export function DataGrid<T extends { oid: string }>({
   }, []);
 
   return (
-    <div className="flex flex-col overflow-hidden h-full" style={{ background: "var(--bg-surface)" }}>
+    <div className="flex flex-col overflow-hidden h-full" style={{ background: "var(--bg-surface)" }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       {/* ── Toolbar ── */}
+      {gridSettings.show_search !== false && (
       <div className="p-3 flex-shrink-0 flex gap-2 items-center" style={{ borderBottom: "1px solid var(--border-light)" }}>
         <div className="relative flex-1">
           <Icon name="search" size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" } as any} />
@@ -436,6 +458,7 @@ export function DataGrid<T extends { oid: string }>({
               <ColumnPicker
                 allColumns={columns}
                 visibleKeys={colMgr.visibleKeys}
+                allowedKeys={colMgr.allowedKeys}
                 onToggle={colMgr.toggleColumn}
                 onMove={colMgr.moveColumn}
                 onReset={colMgr.resetToDefault}
@@ -445,7 +468,7 @@ export function DataGrid<T extends { oid: string }>({
           </div>
         )}
 
-        {exportConfig && !isMobile && (
+        {exportConfig && !isMobile && gridSettings.show_excel !== false && (
           <div className="relative" ref={exp.exportRef}>
             <button onClick={() => exp.setExportOpen(p => !p)}
               className="p-2 rounded-lg transition-colors flex-shrink-0"
@@ -460,6 +483,7 @@ export function DataGrid<T extends { oid: string }>({
                 exportKeys={exp.exportKeys}
                 setExportKeys={exp.setExportKeys}
                 visibleKeys={colMgr.visibleKeys}
+                allowedKeys={colMgr.allowedKeys}
                 exportConfig={exportConfig}
                 search={search}
                 sort={sort}
@@ -469,6 +493,17 @@ export function DataGrid<T extends { oid: string }>({
               />
             )}
           </div>
+        )}
+
+        {isAdmin && gridId && (
+          <button
+            onClick={() => setGridSettingsOpen(true)}
+            className="p-2 rounded-lg transition-colors flex-shrink-0"
+            style={{ background: "var(--bg-surface-alt)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+            title="Grid settings"
+          >
+            <Icon name="settings" size={18} />
+          </button>
         )}
 
         {showExpandBtn && (
@@ -482,6 +517,7 @@ export function DataGrid<T extends { oid: string }>({
         )}
       </div>
 
+      )}
       {/* ── Advanced Search ── */}
       {advSearchOpen && (
         <AdvancedSearch
@@ -561,6 +597,21 @@ export function DataGrid<T extends { oid: string }>({
                     </div>
                   </th>
                 ))}
+                {isAdmin && gridId && gridSettings.show_search === false && (
+                  <th
+                    className="px-1 py-2 text-xs select-none"
+                    style={{ width: 40, opacity: hovered ? 1 : 0, transition: "opacity 0.15s" }}
+                  >
+                    <button
+                      onClick={() => setGridSettingsOpen(true)}
+                      className="flex items-center justify-center w-full h-full rounded"
+                      style={{ color: "var(--text-muted)" }}
+                      title="Grid settings"
+                    >
+                      <Icon name="settings" size={16} />
+                    </button>
+                  </th>
+                )}
               </tr>
             </thead>
             {activeColFilter && (
@@ -596,9 +647,9 @@ export function DataGrid<T extends { oid: string }>({
             )}
             <tbody>
               {loading ? (
-                <tr><td colSpan={visibleColumns.length}><EmptyState>Loading...</EmptyState></td></tr>
+                <tr><td colSpan={visibleColumns.length + (isAdmin && gridId && gridSettings.show_search === false ? 1 : 0)}><EmptyState>Loading...</EmptyState></td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={visibleColumns.length}><EmptyState>No results found</EmptyState></td></tr>
+                <tr><td colSpan={visibleColumns.length + (isAdmin && gridId && gridSettings.show_search === false ? 1 : 0)}><EmptyState>No results found</EmptyState></td></tr>
               ) : (
                 <>
                   {rows.map(row => {
@@ -621,10 +672,11 @@ export function DataGrid<T extends { oid: string }>({
                             {col.render ? col.render(row) : formatCellValue(row[col.key], col.key, colTypes, locale, colScales)}
                           </td>
                         ))}
+                        {isAdmin && gridId && gridSettings.show_search === false && <td />}
                       </tr>
                     );
                   })}
-                  {loadingMore && (<tr><td colSpan={visibleColumns.length}><LoadingIndicator /></td></tr>)}
+                  {loadingMore && (<tr><td colSpan={visibleColumns.length + (isAdmin && gridId && gridSettings.show_search === false ? 1 : 0)}><LoadingIndicator /></td></tr>)}
                 </>
               )}
             </tbody>
@@ -633,10 +685,22 @@ export function DataGrid<T extends { oid: string }>({
       )}
 
       {/* Footer */}
+      {gridSettings.show_footer !== false && (
       <div className="flex items-center justify-between px-3 py-2 text-xs flex-shrink-0"
         style={{ background: "var(--bg-surface-alt)", borderTop: "1px solid var(--border)", color: "var(--text-muted)" }}>
         <span>{loading ? t("crud.loading", "Loading...") : total === 0 ? t("grid.no_records", "No records") : `${rows.length} of ${total}`}</span>
       </div>
+      )}
+      {isAdmin && gridId && userId && (
+        <GridSettingsPanel
+          open={gridSettingsOpen}
+          onClose={() => setGridSettingsOpen(false)}
+          gridId={gridId}
+          userId={userId}
+          columns={columns}
+          onSettingsChanged={handleSettingsChanged}
+        />
+      )}
     </div>
   );
 }

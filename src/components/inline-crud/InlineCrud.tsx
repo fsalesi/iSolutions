@@ -227,6 +227,7 @@ export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, 
         selectedId={link.selectedId}
         onSelect={link.onSelect}
         pageSize={50}
+        gridId={formKey ? `${formKey}:${table}` : table}
         ref={gridRef}
       />
 

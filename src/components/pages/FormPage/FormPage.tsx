@@ -219,6 +219,7 @@ export function FormPage({ formKey, apiPath, activeNav, onNavigate }: {
         onDesignToggle={design.toggleDesignMode}
         activeNav={activeNav}
         onNavigate={onNavigate}
+        gridId={`${formKey}:${meta.headerTable}`}
       />
 
       <FieldPropertiesPanel

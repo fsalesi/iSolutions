@@ -45,7 +45,7 @@ export function useExportPanel({
 }
 
 export function ExportDropdown<T>({
-  columns, exportKeys, setExportKeys, visibleKeys,
+  columns, exportKeys, setExportKeys, visibleKeys, allowedKeys,
   exportConfig, search, sort, gridId, userId,
   onClose,
 }: {
@@ -53,6 +53,7 @@ export function ExportDropdown<T>({
   exportKeys: string[];
   setExportKeys: React.Dispatch<React.SetStateAction<string[]>>;
   visibleKeys: string[];
+  allowedKeys: string[] | null;       // null = unrestricted
   exportConfig: ExportConfig;
   search: string;
   sort: SortState;
@@ -63,7 +64,14 @@ export function ExportDropdown<T>({
   const { t } = useTranslation();
   const [exporting, setExporting] = useState(false);
 
+  // Only show columns admin allows; if no restriction, show all
+  const exportableColumns = allowedKeys
+    ? columns.filter(c => allowedKeys.includes(c.key))
+    : columns;
+
   const toggleExportCol = (key: string) => {
+    // Guard: can't export a column not in allowed list
+    if (allowedKeys && !allowedKeys.includes(key)) return;
     setExportKeys(prev => {
       const next = prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key];
       if (gridId && userId) {
@@ -125,14 +133,16 @@ export function ExportDropdown<T>({
         style={{ borderBottom: "1px solid var(--border-light)", color: "var(--text-muted)" }}>
         <span>{t("grid.export_columns", "Export Columns")}</span>
         <div className="flex gap-2">
-          <button onClick={() => setExportKeys(columns.map(c => c.key))}
+          {/* "All" respects allowedKeys */}
+          <button onClick={() => setExportKeys(exportableColumns.map(c => c.key))}
             className="text-xs hover:underline" style={{ color: "var(--accent)" }}>{t("grid.all", "All")}</button>
-          <button onClick={() => setExportKeys([...visibleKeys])}
+          {/* "Visible" is already a subset of allowed since visibleKeys is clamped */}
+          <button onClick={() => setExportKeys(visibleKeys.filter(k => !allowedKeys || allowedKeys.includes(k)))}
             className="text-xs hover:underline" style={{ color: "var(--accent)" }}>{t("grid.visible", "Visible")}</button>
         </div>
       </div>
       <div className="overflow-y-auto" style={{ maxHeight: 320 }}>
-        {columns.map(col => {
+        {exportableColumns.map(col => {
           const checked = exportKeys.includes(col.key);
           return (
             <div key={col.key}

@@ -8,7 +8,6 @@ import { CrudPanel, type CrudPanelBodyProps } from "@/components/panels/CrudPane
 import type { CrudAction } from "@/components/crud-toolbar/CrudToolbar";
 import { useCrudLink } from "@/hooks/useCrudLink";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useSession } from "@/context/SessionContext";
 
 export interface SplitCrudPageProps {
   title: string;
@@ -28,6 +27,8 @@ export interface SplitCrudPageProps {
   requiredFields?: string[];
   /** Additional required fields stacked on top of the base required list */
   extraRequiredFields?: string[];
+  /** Override the gridId used for column/export prefs. Defaults to table name. */
+  gridId?: string;
 }
 
 export function SplitCrudPage({
@@ -46,10 +47,11 @@ export function SplitCrudPage({
   selectSeq,
   requiredFields: requiredFieldsProp,
   extraRequiredFields,
+  gridId: gridIdProp,
 }: SplitCrudPageProps) {
   const api = apiPath || `/api/${table}`;
+  const effectiveGridId = gridIdProp || table;
   const isMobile = useIsMobile();
-  const { user } = useSession();
   const crud = useCrudLink({ apiPath: api, table, onNavigate, selectRecordOid, selectSeq });
   // Use explicit prop if provided (FormPage), otherwise use API-fetched required fields
   const baseRequiredFields = requiredFieldsProp ?? crud.requiredFields;
@@ -66,7 +68,7 @@ export function SplitCrudPage({
         ) : (
           <DataGrid ref={crud.gridRef} table={table} apiPath={api} columns={columns}
             onSelect={crud.link.onSelect} selectedId={crud.link.selectedId}
-            gridId={table} userId={user.userId} />
+            gridId={effectiveGridId} />
         )
       ) : (
         <SplitPanel storageKey={table} expanded={crud.showDetail}
@@ -74,7 +76,7 @@ export function SplitCrudPage({
             <DataGrid ref={crud.gridRef} table={table} apiPath={api} columns={columns}
               onSelect={crud.link.onSelect} selectedId={crud.link.selectedId}
               expanded={!crud.showDetail} onToggleExpand={() => crud.setShowDetail(d => !d)}
-              gridId={table} userId={user.userId} />
+              gridId={effectiveGridId} />
           }
           right={
             <CrudPanel ref={crud.crudRef} row={crud.link.selectedRow} isNew={crud.link.isNew}

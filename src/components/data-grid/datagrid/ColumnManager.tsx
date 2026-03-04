@@ -8,6 +8,7 @@ import type { ColumnDef } from "./types";
 export interface ColumnManagerState {
   visibleKeys: string[];
   setVisibleKeys: React.Dispatch<React.SetStateAction<string[]>>;
+  allowedKeys: string[] | null;       // null = unrestricted
   toggleColumn: (key: string) => void;
   moveColumn: (key: string, direction: -1 | 1) => void;
   resetToDefault: () => void;
@@ -29,6 +30,7 @@ export function useColumnManager<T>({
     () => defaultVisible || columns.map(c => c.key)
   );
   const [adminDefault, setAdminDefault] = useState<string[] | null>(null);
+  const [allowedKeys, setAllowedKeys] = useState<string[] | null>(null);
   const [hasUserPref, setHasUserPref] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -55,6 +57,7 @@ export function useColumnManager<T>({
     fetch(`/api/grid-prefs?${params}`)
       .then(r => r.json())
       .then(data => {
+        if (data.allowedKeys) setAllowedKeys(data.allowedKeys);
         if (data.adminDefault) setAdminDefault(data.adminDefault);
         if (data.effective) setVisibleKeys(data.effective);
         setHasUserPref(!!data.userPref);
@@ -88,6 +91,8 @@ export function useColumnManager<T>({
   }, [gridId, userId]);
 
   const toggleColumn = (key: string) => {
+    // Respect allowedKeys — can't toggle on a column not in the allowed list
+    if (allowedKeys && !allowedKeys.includes(key)) return;
     setVisibleKeys(prev => {
       const next = prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key];
       savePrefs(next);
@@ -120,21 +125,28 @@ export function useColumnManager<T>({
     }
   };
 
-  return { visibleKeys, setVisibleKeys, toggleColumn, moveColumn, resetToDefault, hasUserPref, pickerOpen, setPickerOpen, pickerRef };
+  return { visibleKeys, setVisibleKeys, allowedKeys, toggleColumn, moveColumn, resetToDefault, hasUserPref, pickerOpen, setPickerOpen, pickerRef };
 }
 
-// ── Column Picker Dropdown ────────────────────────────────────────
+// ── Column Picker Dropdown ───────────────────────────────────────────────────
 export function ColumnPicker<T>({
-  allColumns, visibleKeys, onToggle, onMove, onReset, hasUserPref,
+  allColumns, visibleKeys, allowedKeys, onToggle, onMove, onReset, hasUserPref,
 }: {
   allColumns: ColumnDef<T>[];
   visibleKeys: string[];
+  allowedKeys: string[] | null;       // null = show all columns
   onToggle: (key: string) => void;
   onMove: (key: string, dir: -1 | 1) => void;
   onReset: () => void;
   hasUserPref?: boolean;
 }) {
   const t = useT();
+
+  // Only show columns admin allows; if no restriction, show all
+  const pickableColumns = allowedKeys
+    ? allColumns.filter(c => allowedKeys.includes(c.key))
+    : allColumns;
+
   return (
     <div
       className="absolute right-0 top-full mt-1 z-50 rounded-lg shadow-lg overflow-hidden"
@@ -150,7 +162,7 @@ export function ColumnPicker<T>({
         )}
       </div>
       <div className="overflow-y-auto" style={{ maxHeight: 300 }}>
-        {allColumns.map((col) => {
+        {pickableColumns.map((col) => {
           const visible = visibleKeys.includes(col.key);
           const idx = visibleKeys.indexOf(col.key);
           const isLocked = col.locked;

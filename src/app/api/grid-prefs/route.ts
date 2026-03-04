@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
 /**
- * GET /api/grid-prefs?grid=users&user=frank
+ * GET /api/grid-prefs?grid=POReq:requisition&user=frank
  *
- * Returns visible_keys + export_keys for this grid.
+ * Returns column + settings prefs for this grid.
  * Priority: user pref > admin default > null (use client default).
+ *
+ * allowedKeys  — admin-curated list of columns users may ever see/export. NULL = unrestricted.
+ * defaultKeys  — admin default visible columns (was visible_keys).
+ * settings     — { show_search, show_footer, show_excel } admin flags.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -14,7 +18,8 @@ export async function GET(req: NextRequest) {
     if (!gridId) return NextResponse.json({ error: "grid param required" }, { status: 400 });
 
     const adminRes = await db.query(
-      `SELECT visible_keys, export_keys FROM grid_defaults WHERE grid_id = $1`, [gridId]
+      `SELECT default_keys, allowed_keys, export_keys, settings FROM grid_defaults WHERE grid_id = $1`,
+      [gridId]
     );
     const admin = adminRes.rows[0] || {};
 
@@ -27,14 +32,31 @@ export async function GET(req: NextRequest) {
       userPref = userRes.rows[0] || {};
     }
 
+    // Clamp user prefs against allowedKeys if admin has set a restriction
+    const allowedKeys: string[] | null = admin.allowed_keys || null;
+
+    const clamp = (keys: string[] | null): string[] | null => {
+      if (!keys) return null;
+      if (!allowedKeys) return keys;
+      const filtered = keys.filter(k => allowedKeys.includes(k));
+      return filtered.length > 0 ? filtered : null;
+    };
+
+    const userVisible = clamp(userPref.visible_keys || null);
+    const userExport  = clamp(userPref.export_keys  || null);
+    const adminDefault = admin.default_keys || null;
+    const adminExport  = clamp(admin.export_keys    || null);
+
     return NextResponse.json({
       gridId,
-      adminDefault: admin.visible_keys || null,
-      adminExportKeys: admin.export_keys || null,
-      userPref: userPref.visible_keys || null,
-      userExportKeys: userPref.export_keys || null,
-      effective: userPref.visible_keys || admin.visible_keys || null,
-      effectiveExport: userPref.export_keys || admin.export_keys || null,
+      allowedKeys,                                        // what users may ever see/export
+      adminDefault,                                       // admin default visible columns
+      adminExportKeys: adminExport,
+      userPref: userVisible,
+      userExportKeys: userExport,
+      effective:       userVisible  || adminDefault,      // final visible cols (null = use all allowed/columns)
+      effectiveExport: userExport   || adminExport,
+      settings: admin.settings || {},                     // { show_search, show_footer, show_excel }
     });
   } catch (err: any) {
     console.error("GET /api/grid-prefs error:", err);
@@ -44,58 +66,56 @@ export async function GET(req: NextRequest) {
 
 /**
  * PUT /api/grid-prefs
- * Body: { grid, user?, visible_keys?, export_keys?, admin? }
+ * Body: { grid, user?, visible_keys?, export_keys?, allowed_keys?, settings?, admin? }
  *
- * admin=true → updates grid_defaults
- * user provided → updates grid_user_prefs
- * visible_keys=null → deletes user's visible pref (reset)
- * export_keys=null → deletes user's export pref (reset)
+ * admin=true  → updates grid_defaults
+ * user provided → updates grid_user_prefs (visible/export only, clamped to allowed)
  */
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { grid, user, visible_keys, export_keys, admin } = body;
+    const { grid, user, visible_keys, export_keys, allowed_keys, settings, admin } = body;
     if (!grid) return NextResponse.json({ error: "grid required" }, { status: 400 });
 
     if (admin) {
-      // Build dynamic SET clause based on what's provided
-      const sets: string[] = [];
-      const vals: any[] = [grid];
-      let idx = 2;
+      // Read current row so we only overwrite what was passed
+      const cur = (await db.query(`SELECT default_keys, allowed_keys, export_keys, settings FROM grid_defaults WHERE grid_id = $1`, [grid])).rows[0] || {};
 
-      if (visible_keys !== undefined) { sets.push(`visible_keys = $${idx}`); vals.push(visible_keys); idx++; }
-      if (export_keys !== undefined) { sets.push(`export_keys = $${idx}`); vals.push(export_keys); idx++; }
-      sets.push(`updated_by = $${idx}`); vals.push(user || "system"); idx++;
-      sets.push(`updated_at = NOW()`);
+      const newDefaultKeys  = visible_keys  !== undefined ? visible_keys  : (cur.default_keys  ?? null);
+      const newAllowedKeys  = allowed_keys  !== undefined ? allowed_keys  : (cur.allowed_keys  ?? null);
+      const newExportKeys   = export_keys   !== undefined ? export_keys   : (cur.export_keys   ?? null);
+      const newSettings     = settings      !== undefined ? settings      : (cur.settings      ?? {});
 
       await db.query(
-        `INSERT INTO grid_defaults (grid_id, visible_keys, export_keys, updated_by, updated_at)
-         VALUES ($1, $2, $3, $4, NOW())
-         ON CONFLICT (grid_id) DO UPDATE SET ${sets.join(", ")}`,
-        [grid, visible_keys || '{}', export_keys || '{}', user || "system"]
+        `INSERT INTO grid_defaults (grid_id, default_keys, allowed_keys, export_keys, settings, updated_by, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())
+         ON CONFLICT (grid_id) DO UPDATE SET
+           default_keys = $2,
+           allowed_keys = $3,
+           export_keys  = $4,
+           settings     = $5,
+           updated_by   = $6,
+           updated_at   = NOW()`,
+        [grid, newDefaultKeys, newAllowedKeys, newExportKeys, newSettings, user || "system"]
       );
       return NextResponse.json({ ok: true, type: "admin", grid });
     }
 
     if (user) {
-      // Handle reset (null values)
       if (visible_keys === null && export_keys === null) {
         await db.query(`DELETE FROM grid_user_prefs WHERE grid_id = $1 AND user_id = $2`, [grid, user]);
         return NextResponse.json({ ok: true, type: "reset", grid, user });
       }
 
-      // Upsert — only update fields that are provided
       const existing = await db.query(
         `SELECT visible_keys, export_keys FROM grid_user_prefs WHERE grid_id = $1 AND user_id = $2`,
         [grid, user]
       );
-
       const cur = existing.rows[0] || {};
       const newVisible = visible_keys !== undefined ? visible_keys : (cur.visible_keys || null);
-      const newExport = export_keys !== undefined ? export_keys : (cur.export_keys || null);
+      const newExport  = export_keys  !== undefined ? export_keys  : (cur.export_keys  || null);
 
       if (newVisible === null && newExport === null) {
-        // Nothing to save, delete row
         await db.query(`DELETE FROM grid_user_prefs WHERE grid_id = $1 AND user_id = $2`, [grid, user]);
       } else {
         await db.query(
@@ -103,8 +123,8 @@ export async function PUT(req: NextRequest) {
            VALUES ($1, $2, $3, $4, NOW())
            ON CONFLICT (grid_id, user_id) DO UPDATE
            SET visible_keys = COALESCE($3, grid_user_prefs.visible_keys),
-               export_keys = COALESCE($4, grid_user_prefs.export_keys),
-               updated_at = NOW()`,
+               export_keys  = COALESCE($4, grid_user_prefs.export_keys),
+               updated_at   = NOW()`,
           [grid, user, newVisible, newExport]
         );
       }
