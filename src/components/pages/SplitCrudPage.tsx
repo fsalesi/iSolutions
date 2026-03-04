@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { AppShell } from "@/components/shell";
 import { SplitPanel } from "@/components/panels";
 import { DataGrid, type ColumnDef } from "@/components/data-grid/DataGrid";
+import type { ExportConfig } from "@/components/data-grid/datagrid/ExportPanel";
 import { CrudPanel, type CrudPanelBodyProps } from "@/components/panels/CrudPanel";
 import type { CrudAction } from "@/components/crud-toolbar/CrudToolbar";
 import { useCrudLink } from "@/hooks/useCrudLink";
@@ -29,6 +30,8 @@ export interface SplitCrudPageProps {
   extraRequiredFields?: string[];
   /** Override the gridId used for column/export prefs. Defaults to table name. */
   gridId?: string;
+  /** Columns used for search in export. Defaults to first 3. */
+  searchColumns?: string[];
 }
 
 export function SplitCrudPage({
@@ -48,9 +51,11 @@ export function SplitCrudPage({
   requiredFields: requiredFieldsProp,
   extraRequiredFields,
   gridId: gridIdProp,
+  searchColumns,
 }: SplitCrudPageProps) {
   const api = apiPath || `/api/${table}`;
   const effectiveGridId = gridIdProp || table;
+  const exportCfg: ExportConfig = { table, searchFields: searchColumns || [], filename: `${table}-export` };
   const isMobile = useIsMobile();
   const crud = useCrudLink({ apiPath: api, table, onNavigate, selectRecordOid, selectSeq });
   // Use explicit prop if provided (FormPage), otherwise use API-fetched required fields
@@ -68,7 +73,7 @@ export function SplitCrudPage({
         ) : (
           <DataGrid ref={crud.gridRef} table={table} apiPath={api} columns={columns}
             onSelect={crud.link.onSelect} selectedId={crud.link.selectedId}
-            gridId={effectiveGridId} />
+            gridId={effectiveGridId} exportConfig={exportCfg} />
         )
       ) : (
         <SplitPanel storageKey={table} expanded={crud.showDetail}
@@ -76,7 +81,7 @@ export function SplitCrudPage({
             <DataGrid ref={crud.gridRef} table={table} apiPath={api} columns={columns}
               onSelect={crud.link.onSelect} selectedId={crud.link.selectedId}
               expanded={!crud.showDetail} onToggleExpand={() => crud.setShowDetail(d => !d)}
-              gridId={effectiveGridId} />
+              gridId={effectiveGridId} exportConfig={exportCfg} />
           }
           right={
             <CrudPanel ref={crud.crudRef} row={crud.link.selectedRow} isNew={crud.link.isNew}

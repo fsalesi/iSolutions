@@ -44,7 +44,7 @@ export function useCrudLink({ apiPath, table, onNavigate, selectRecordOid, selec
 
   // Fetch required fields from API on mount
   useEffect(() => {
-    fetch(`${apiPath}?limit=0`)
+    fetch(`${apiPath}${apiPath.includes("?") ? "&" : "?"}limit=0`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data.requiredFields)) setRequiredFields(data.requiredFields); })
       .catch(() => {});
@@ -58,7 +58,7 @@ export function useCrudLink({ apiPath, table, onNavigate, selectRecordOid, selec
   // ── Deep link ──
   useEffect(() => {
     if (!selectRecordOid) return;
-    fetch(`${apiPath}?oid=${encodeURIComponent(selectRecordOid)}&limit=1`)
+    fetch(`${apiPath}${apiPath.includes("?") ? "&" : "?"}oid=${encodeURIComponent(selectRecordOid)}&limit=1`)
       .then(r => r.json())
       .then(data => {
         const row = data.rows?.[0];

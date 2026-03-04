@@ -8,6 +8,7 @@
 import { useRef, useState, useEffect, useMemo } from "react";
 import { SlidePanel } from "@/components/ui/SlidePanel";
 import { DataGrid, type DataPublisher, type ColumnDef } from "@/components/data-grid/DataGrid";
+import type { ExportConfig } from "@/components/data-grid/datagrid/ExportPanel";
 import { CrudPanel, type CrudPanelBodyProps } from "@/components/panels/CrudPanel";
 import { type CrudPanelRef } from "@/components/panels/CrudPanelContext";
 import { useLink } from "@/hooks/useLink";
@@ -227,6 +228,7 @@ export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, 
         onNew={allowAdd ? link.onNew : undefined}
         pageSize={50}
         gridId={formKey ? `${formKey}:${table}` : table}
+        exportConfig={{ table, searchFields: [], filename: `${table}-export` } as ExportConfig}
         ref={gridRef}
       />
 
