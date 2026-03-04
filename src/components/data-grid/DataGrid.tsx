@@ -85,6 +85,7 @@ export function DataGrid<T extends { oid: string }>({
   const isAdmin = user?.isAdmin ?? false;
   const [hovered, setHovered] = useState(false);
   const [gridSettingsOpen, setGridSettingsOpen] = useState(false);
+  const colBtnRef = useRef<HTMLButtonElement>(null);
   const showExpandBtn = !isMobile && onToggleExpand;
   const scrollRef = useRef<HTMLDivElement>(null);
   const refreshTrigger = useRef(0);
@@ -447,7 +448,7 @@ export function DataGrid<T extends { oid: string }>({
 
         {!isMobile && (
           <div className="relative" ref={colMgr.pickerRef}>
-            <button onClick={() => colMgr.setPickerOpen(p => !p)}
+            <button ref={colBtnRef} onClick={() => colMgr.setPickerOpen(p => !p)}
               className="p-2 rounded-lg transition-colors flex-shrink-0"
               style={{ background: colMgr.pickerOpen ? "var(--bg-selected)" : "var(--bg-surface-alt)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
               title={t("grid.choose_columns", "Choose columns")}
@@ -463,6 +464,7 @@ export function DataGrid<T extends { oid: string }>({
                 onMove={colMgr.moveColumn}
                 onReset={colMgr.resetToDefault}
                 hasUserPref={colMgr.hasUserPref}
+                anchorRef={colBtnRef}
               />
             )}
           </div>

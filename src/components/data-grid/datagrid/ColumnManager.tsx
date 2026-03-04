@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type RefObject } from "react";
 import { Icon } from "@/components/icons/Icon";
 import { useT } from "@/context/TranslationContext";
 import type { ColumnDef } from "./types";
@@ -130,7 +130,7 @@ export function useColumnManager<T>({
 
 // ── Column Picker Dropdown ───────────────────────────────────────────────────
 export function ColumnPicker<T>({
-  allColumns, visibleKeys, allowedKeys, onToggle, onMove, onReset, hasUserPref,
+  allColumns, visibleKeys, allowedKeys, onToggle, onMove, onReset, hasUserPref, anchorRef,
 }: {
   allColumns: ColumnDef<T>[];
   visibleKeys: string[];
@@ -139,18 +139,30 @@ export function ColumnPicker<T>({
   onMove: (key: string, dir: -1 | 1) => void;
   onReset: () => void;
   hasUserPref?: boolean;
+  anchorRef?: RefObject<HTMLButtonElement | null>;
 }) {
   const t = useT();
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+
+  useEffect(() => {
+    if (!anchorRef?.current) return;
+    const rect = anchorRef.current.getBoundingClientRect();
+    setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+  }, [anchorRef]);
 
   // Only show columns admin allows; if no restriction, show all
   const pickableColumns = allowedKeys
     ? allColumns.filter(c => allowedKeys.includes(c.key))
     : allColumns;
 
+  const posStyle = pos
+    ? { position: "fixed" as const, top: pos.top, right: pos.right }
+    : { position: "absolute" as const, right: 0, top: "100%", marginTop: 4 };
+
   return (
     <div
-      className="absolute right-0 top-full mt-1 z-50 rounded-lg shadow-lg overflow-hidden"
-      style={{ background: "var(--bg-surface)", border: "1px solid var(--border)", minWidth: 240, maxHeight: 400 }}
+      className="z-50 rounded-lg shadow-lg overflow-hidden"
+      style={{ ...posStyle, background: "var(--bg-surface)", border: "1px solid var(--border)", minWidth: 240, maxHeight: 400 }}
     >
       <div className="flex items-center justify-between px-3 py-2 text-xs font-medium"
         style={{ borderBottom: "1px solid var(--border-light)", color: "var(--text-muted)" }}>

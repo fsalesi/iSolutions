@@ -36,7 +36,7 @@ export function FormDetailTabs({ apiPath, meta, headerTabs, row, isNew, onChange
   }));
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {(tabs.length > 1 || designMode) && (
         <TabBar
           tabs={tabs}
