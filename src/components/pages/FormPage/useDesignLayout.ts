@@ -1,22 +1,31 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import type { LayoutEntry } from "./types";
 
-const DATA_TYPE_RENDERER: Record<string, string> = { text: "text", integer: "number", numeric: "number", boolean: "checkbox", date: "date", timestamptz: "datetime", citext: "text" };
+const DATA_TYPE_RENDERER: Record<string, string> = {
+  text: "text", integer: "number", numeric: "number",
+  boolean: "checkbox", date: "date", timestamptz: "datetime", citext: "text",
+};
 
 /**
- * useDesignLayout — shared design-mode state + handlers.
- * Used by both FormPage (main panel) and InlineCrud (child panel).
- * Manages layout state, selection state, and all mutation callbacks.
+ * useDesignLayout — single source of truth for all design-mode state + handlers.
+ * Used by FormPage (main panel) and InlineCrud (child panel).
+ * Owns: layout state, selection state, designMode toggle, all mutation callbacks.
  */
 export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string) {
   const [layout, setLayout] = useState<LayoutEntry[]>(initialLayout);
+  const [designMode, setDesignMode] = useState(false);
   const [selectedField, setSelectedField] = useState<LayoutEntry | null>(null);
   const [selectedSection, setSelectedSection] = useState<LayoutEntry | null>(null);
+  const [selectedTab, setSelectedTab] = useState<LayoutEntry | null>(null);
 
-  // Sync if initialLayout changes (e.g. parent re-fetches)
-  // Not using useEffect to avoid infinite loops — caller should pass stable ref
+  // Keep tableName reactive without stale closures
+  const tableNameRef = useRef(tableName);
+  useEffect(() => { tableNameRef.current = tableName; }, [tableName]);
 
+  const toggleDesignMode = useCallback(() => setDesignMode(d => !d), []);
+
+  // ── Field reorder (drag-and-drop within a section) ──────────────────────────
   const handleFieldReordered = useCallback(async (
     dragOid: string,
     targetSection: string,
@@ -29,11 +38,13 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
       const draggedIdx = lo.findIndex(l => l.oid === dragOid);
       if (draggedIdx < 0) return prev;
       const dragged = { ...lo[draggedIdx] };
+      // tableName is derived from the dragged element itself
+      const tn = dragged.table_name;
       const formKey = dragged.form_key ?? lo.find(l => l.form_key)?.form_key ?? "";
       const domain = dragged.domain ?? lo.find(l => l.domain)?.domain ?? "";
 
       let entries = lo
-        .filter(l => (l.layout_type === "field" || l.layout_type === "spacer") && l.table_name === tableName && l.parent_key === targetSection && !l.properties?.hidden && l.oid !== dragOid)
+        .filter(l => (l.layout_type === "field" || l.layout_type === "spacer") && l.table_name === tn && l.parent_key === targetSection && !l.properties?.hidden && l.oid !== dragOid)
         .sort((a, b) => a.sort_order - b.sort_order);
 
       const creates: LayoutEntry[] = [];
@@ -42,7 +53,7 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
       const mkSpacer = (): LayoutEntry => {
         const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
         return {
-          oid: id, form_key: formKey, domain, table_name: tableName,
+          oid: id, form_key: formKey, domain, table_name: tn,
           layout_type: "spacer", layout_key: `spacer_${id.slice(0, 8)}`,
           parent_key: targetSection, sort_order: 0, properties: {},
         };
@@ -54,9 +65,7 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
         else entries.push(dragged);
       } else if (appendOffset !== undefined && appendOffset >= 0) {
         for (let i = 0; i < appendOffset; i++) {
-          const sp = mkSpacer();
-          entries.push(sp);
-          creates.push(sp);
+          const sp = mkSpacer(); entries.push(sp); creates.push(sp);
         }
         entries.push(dragged);
       } else {
@@ -64,6 +73,7 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
         entries.splice(idx, 0, dragged);
       }
 
+      // Trim trailing spacers
       while (entries.length > 0 && entries[entries.length - 1].layout_type === "spacer") {
         const trailing = entries.pop()!;
         if (creates.find(c => c.oid === trailing.oid)) {
@@ -85,7 +95,6 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
         return upd ? { ...l, sort_order: upd.sort_order, parent_key: upd.parent_key } : l;
       });
 
-      // Persist
       const apiBase = "/api/form_layout?table=form_layout";
       const hdrs = { "Content-Type": "application/json" };
       creates.forEach(c => { fetch(apiBase, { method: "POST", headers: hdrs, body: JSON.stringify({ ...c, _table: "form_layout" }) }).catch(() => {}); });
@@ -94,8 +103,9 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
 
       return newLayout;
     });
-  }, [tableName]);
+  }, []);
 
+  // ── Element dropped from palette (field or child_grid) ────────────────────
   const handleElementDropped = useCallback(async (
     data: any,
     targetSection: string,
@@ -103,18 +113,19 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
     _replaceSpacerOid?: string,
     _appendOffset?: number,
   ) => {
+    const tn = tableNameRef.current;
     const fk = layout.find(l => l.form_key)?.form_key ?? "";
     const domain = layout.find(l => l.domain)?.domain ?? "*";
 
     const maxSort = layout
-      .filter(l => l.parent_key === targetSection && l.table_name === tableName)
+      .filter(l => l.parent_key === targetSection && l.table_name === tn)
       .reduce((max, l) => Math.max(max, l.sort_order), -1);
     const sortOrder = maxSort + 10;
 
     try {
       if (data.type === "field") {
         const hidden = layout.find(l =>
-          l.layout_type === "field" && l.table_name === tableName &&
+          l.layout_type === "field" && l.table_name === tn &&
           l.layout_key === data.field_name && l.properties?.hidden
         );
         if (hidden) {
@@ -133,7 +144,7 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               _table: "form_layout", domain, form_key: fk,
-              table_name: tableName, layout_type: "field",
+              table_name: tn, layout_type: "field",
               layout_key: data.field_name, parent_key: targetSection,
               sort_order: sortOrder,
               properties: {
@@ -166,7 +177,7 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               _table: "form_layout", domain, form_key: fk,
-              table_name: tableName, layout_type: "child_grid",
+              table_name: tn, layout_type: "child_grid",
               layout_key: data.table_name, parent_key: targetSection,
               sort_order: sortOrder,
               properties: { label: data.tab_label || data.table_name, col_span: 99 },
@@ -181,13 +192,19 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
     } catch (err) {
       console.error("Failed to place element:", err);
     }
-  }, [layout, tableName]);
+  }, [layout]);
 
+  // ── Field handlers ────────────────────────────────────────────────────────
   const handleFieldSaved = useCallback((updated: LayoutEntry) => {
     setLayout(prev => prev.map(l => l.oid === updated.oid ? { ...l, ...updated } : l));
     setSelectedField(null);
   }, []);
 
+  const handleFieldAdded = useCallback((created: LayoutEntry) => {
+    setLayout(prev => [...prev, created]);
+  }, []);
+
+  // ── Section handlers ──────────────────────────────────────────────────────
   const handleSectionSaved = useCallback((updated: LayoutEntry) => {
     setLayout(prev => prev.map(l => l.oid === updated.oid ? updated : l));
     setSelectedSection(null);
@@ -202,20 +219,42 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
     setLayout(prev => [...prev, created]);
   }, []);
 
-  const handleFieldAdded = useCallback((created: LayoutEntry) => {
+  // ── Tab handlers ──────────────────────────────────────────────────────────
+  const handleTabSaved = useCallback((updated: LayoutEntry) => {
+    setLayout(prev => prev.map(l => l.oid === updated.oid ? updated : l));
+    setSelectedTab(null);
+  }, []);
+
+  const handleTabDeleted = useCallback((oid: string) => {
+    setLayout(prev => prev.filter(l => l.oid !== oid));
+    setSelectedTab(null);
+  }, []);
+
+  const handleTabAdded = useCallback((created: LayoutEntry) => {
     setLayout(prev => [...prev, created]);
   }, []);
 
   return {
+    // Layout state
     layout, setLayout,
+    // Design mode
+    designMode, toggleDesignMode,
+    // Selection state
     selectedField, setSelectedField,
     selectedSection, setSelectedSection,
+    selectedTab, setSelectedTab,
+    // Field
     handleFieldReordered,
     handleElementDropped,
     handleFieldSaved,
+    handleFieldAdded,
+    // Section
     handleSectionSaved,
     handleSectionDeleted,
     handleSectionAdded,
-    handleFieldAdded,
+    // Tab
+    handleTabSaved,
+    handleTabDeleted,
+    handleTabAdded,
   };
 }
