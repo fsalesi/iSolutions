@@ -25,9 +25,9 @@ export function Section({ title, children, style, titleStyle, onClick }: {
 }
 
 // ── Field ──────────────────────────────────────────────────────────
-export function Field({ label, required, requiredMsg, children }: { label: string; required?: boolean; requiredMsg?: string; children: ReactNode }) {
+export function Field({ label, required, requiredMsg, fieldName, children }: { label: string; required?: boolean; requiredMsg?: string; fieldName?: string; children: ReactNode }) {
   return (
-    <div {...(required ? { "data-required": true, ...(requiredMsg ? { "data-required-msg": requiredMsg } : {}) } : {})}>
+    <div {...(required ? { "data-required": true, ...(requiredMsg ? { "data-required-msg": requiredMsg } : {}), ...(fieldName ? { "data-field-name": fieldName } : {}) } : {})}>
       <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
         {label}
         {required && <span style={{ color: "var(--danger-text)" }} className="ml-0.5">*</span>}

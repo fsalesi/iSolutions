@@ -260,7 +260,7 @@ export function useFieldHelper(config: FieldHelperConfig) {
     }
 
     return (
-      <Field key={name} label={label} required={required} requiredMsg={requiredMsg}>
+      <Field key={name} label={label} required={required} requiredMsg={requiredMsg} fieldName={required ? name : undefined}>
         {component}
       </Field>
     );

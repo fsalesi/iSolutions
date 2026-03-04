@@ -239,8 +239,14 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
     const missing: Element[] = [];
     container.querySelectorAll('[data-required]').forEach(fieldEl => {
       const input = fieldEl.querySelector('input, select, textarea') as HTMLInputElement | null;
-      const val = input?.value?.trim() ?? '';
-      if (!val) missing.push(fieldEl);
+      if (input) {
+        if (!input.value.trim()) missing.push(fieldEl);
+      } else {
+        // Non-input field (Toggle, Lookup, etc.) — read from form state directly
+        const fieldName = fieldEl.getAttribute('data-field-name');
+        const val = fieldName != null ? form[fieldName] : undefined;
+        if (val === null || val === undefined || val === '') missing.push(fieldEl);
+      }
     });
     if (missing.length > 0) {
       missing.forEach(el => {
@@ -254,7 +260,7 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
       return false;
     }
     return true;
-  }, [t]);
+  }, [t, form]);
 
   // Clear validation errors on input/change
   useEffect(() => {
