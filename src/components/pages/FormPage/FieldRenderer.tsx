@@ -2,6 +2,7 @@
 import { Input, Select } from "@/components/ui";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { Toggle } from "@/components/ui/Toggle";
+import { NumberInput } from "@/components/ui/NumberInput";
 
 export function FieldRenderer({ renderer, value, onChange, fieldKey, readOnly, properties }: {
   renderer: string; value: any; onChange: (v: any) => void; fieldKey: string;
@@ -14,8 +15,8 @@ export function FieldRenderer({ renderer, value, onChange, fieldKey, readOnly, p
     case "datetime":
       return <DatePicker value={value || ""} onChange={onChange} />;
     case "number":
-      return <Input type="number" value={String(value ?? "")} onChange={v => onChange(v)}
-        readOnly={readOnly} step={properties?.scale === 0 ? "1" : "any"} />;
+      return <NumberInput value={String(value ?? "")} onChange={onChange}
+        scale={properties?.scale ?? 2} readOnly={readOnly} />;
     case "textarea":
       return <textarea value={value ?? ""} onChange={e => onChange(e.target.value)} readOnly={readOnly}
         className="w-full px-3 py-2 text-sm rounded-lg"
