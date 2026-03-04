@@ -179,15 +179,17 @@ export function HeaderTabContent({ apiPath, tableName, tabKey, layout, row, onCh
                       .map(gc => ({ key: gc.layout_key, label: gc.properties?.label }));
                     return (
                       <div key={cell.fl.layout_key} onClick={gridClick} style={{ gridColumn: "1 / -1", ...gridDesignStyle }}>
-                        <InlineCrud
-                          apiPath={`${apiPath}?table=${childTable}`}
-                          table={childTable}
-                          columns={childCols}
-                          parentFilter={{ parentOid: row.oid, domain: row.domain }}
-                          saveExtras={{ domain: row.domain, [`oid_${tableName}`]: row.oid }}
-                          label={cell.fl.properties?.label || childTable}
-                          formKey={formKey}
-                        />
+                        <div style={{ pointerEvents: designMode ? "none" : undefined }}>
+                          <InlineCrud
+                            apiPath={`${apiPath}?table=${childTable}`}
+                            table={childTable}
+                            columns={childCols}
+                            parentFilter={{ parentOid: row.oid, domain: row.domain }}
+                            saveExtras={{ domain: row.domain, [`oid_${tableName}`]: row.oid }}
+                            label={cell.fl.properties?.label || childTable}
+                            formKey={formKey}
+                          />
+                        </div>
                       </div>
                     );
                   }
