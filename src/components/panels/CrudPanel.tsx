@@ -68,7 +68,6 @@ export interface CrudPanelProps {
   /** Custom empty state */
   renderEmpty?: () => ReactNode;
   /** Delete confirmation label */
-  deleteLabel?: string;
 
   className?: string;
   style?: React.CSSProperties;
@@ -97,7 +96,6 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
     onDesignToggle,
     savePayloadExtras,
     renderEmpty,
-    deleteLabel,
     className,
     style,
   },
@@ -397,7 +395,7 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
             {confirmDelete && form.oid && (
               <div className="mx-4 mt-2">
                 <InlineConfirm
-                  message={t("crud.confirm_delete", 'Delete "{record}"?', { record: deleteLabel || form.oid })}
+                  message={t("global.confirm_delete", "Are you sure you want to delete this record?")}
                   onConfirm={() => { handleDelete(); setConfirmDelete(false); }}
                   onCancel={() => setConfirmDelete(false)}
                 />
