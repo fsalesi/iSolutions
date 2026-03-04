@@ -5,6 +5,7 @@
  */
 import { useState } from "react";
 import { TabBar } from "@/components/ui";
+import { useT } from "@/context/TranslationContext";
 import type { LayoutEntry, Row, FormMeta } from "./types";
 import { HeaderTabContent } from "./HeaderTabContent";
 import { AddTabButton } from "./AddTabButton";
@@ -26,11 +27,12 @@ export function FormDetailTabs({ apiPath, meta, headerTabs, row, isNew, onChange
   headerTabs: LayoutEntry[];
   row: Row; isNew: boolean; onChange: (field: keyof Row, value: any) => void;
 }) {
+  const t = useT();
   const [activeTab, setActiveTab] = useState(headerTabs[0]?.layout_key || "general");
 
   const tabs = headerTabs.map(tab => ({
     key: tab.layout_key,
-    label: tab.properties?.label || tab.layout_key,
+    label: t(`form.${formKey}.${tab.layout_key}`, tab.properties?.label || tab.layout_key),
   }));
 
   return (

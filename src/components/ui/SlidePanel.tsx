@@ -6,6 +6,8 @@
  */
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
+interface TabDef { key: string; label: string; }
+
 interface SlidePanelProps {
   open: boolean;
   onClose: () => void;
@@ -14,9 +16,13 @@ interface SlidePanelProps {
   minWidth?: number;
   children: ReactNode;
   footer?: ReactNode;
+  /** Optional tab bar rendered between header and body */
+  tabs?: TabDef[];
+  activeTab?: string;
+  onTabChange?: (key: string) => void;
 }
 
-export function SlidePanel({ open, onClose, title, minWidth = 480, children, footer }: SlidePanelProps) {
+export function SlidePanel({ open, onClose, title, minWidth = 480, children, footer, tabs, activeTab, onTabChange }: SlidePanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [contentWidth, setContentWidth] = useState(0);
 
@@ -103,6 +109,28 @@ export function SlidePanel({ open, onClose, title, minWidth = 480, children, foo
             ✕
           </button>
         </div>
+
+        {/* Tabs */}
+        {tabs && tabs.length > 0 && (
+          <div
+            className="flex overflow-x-auto flex-shrink-0 px-2"
+            style={{ background: "var(--bg-surface)", borderBottom: "1px solid var(--border)" }}
+          >
+            {tabs.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => onTabChange?.(tab.key)}
+                className="flex items-center px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors"
+                style={{
+                  borderBottom: `2px solid ${activeTab === tab.key ? "var(--accent)" : "transparent"}`,
+                  color: activeTab === tab.key ? "var(--accent)" : "var(--text-secondary)",
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Body */}
         <div style={{ flex: 1, overflowY: "auto" }}>

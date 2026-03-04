@@ -5,6 +5,7 @@ import { Section, Field } from "@/components/ui";
 import type { LayoutEntry, Row } from "./types";
 import { FieldRenderer } from "./FieldRenderer";
 import { humanize } from "./utils";
+import { useT } from "@/context/TranslationContext";
 import { AddSectionButton } from "./AddSectionButton";
 import { InlineCrud } from "@/components/inline-crud/InlineCrud";
 import type { ColumnDef } from "@/components/data-grid/DataGrid";
@@ -18,6 +19,7 @@ export function HeaderTabContent({ apiPath, tableName, tabKey, layout, row, onCh
   formKey?: string;
   row: Row; onChange: (field: keyof Row, value: any) => void; isNew: boolean;
 }) {
+  const t = useT();
   const [draggedOid, setDraggedOid] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ sectionKey: string; index: number } | null>(null);
   const sections = layout
@@ -37,7 +39,7 @@ export function HeaderTabContent({ apiPath, tableName, tabKey, layout, row, onCh
         return (
           <Section
             key={sec.layout_key}
-            title={sec.properties?.label || sec.layout_key}
+            title={t(`form.${formKey}.${sec.layout_key}`, sec.properties?.label || sec.layout_key)}
             style={designMode ? {
               border: "2px dashed var(--accent)",
               borderRadius: 8,
@@ -236,7 +238,7 @@ export function HeaderTabContent({ apiPath, tableName, tabKey, layout, row, onCh
                       onMouseEnter={designMode && !draggedOid ? ev => { (ev.currentTarget as HTMLElement).style.outline = "2px dashed var(--accent)"; } : undefined}
                       onMouseLeave={designMode && !draggedOid ? ev => { (ev.currentTarget as HTMLElement).style.outline = "2px dashed transparent"; } : undefined}
                     >
-                      <Field label={fl.properties?.label || humanize(fl.layout_key)} required={fl.properties?.mandatory}>
+                      <Field label={t(`form.${formKey}.${fl.layout_key}`, fl.properties?.label || humanize(fl.layout_key))} required={fl.properties?.mandatory}>
                         <FieldRenderer
                           renderer={fl.properties?.renderer || "text"}
                           value={row[fl.layout_key]}
