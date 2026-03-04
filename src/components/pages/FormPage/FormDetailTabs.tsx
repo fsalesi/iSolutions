@@ -37,7 +37,7 @@ export function FormDetailTabs({ apiPath, meta, headerTabs, row, isNew, onChange
 
   return (
     <div>
-      {tabs.length > 1 && (
+      {(tabs.length > 1 || designMode) && (
         <TabBar
           tabs={tabs}
           active={activeTab}

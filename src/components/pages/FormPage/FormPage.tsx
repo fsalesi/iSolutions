@@ -127,6 +127,48 @@ export function FormPage({ formKey, apiPath, activeNav, onNavigate }: {
     [meta, design.layout],
   );
 
+  // Bootstrap a default tab + section if none exist when entering design mode
+  const handleDesignToggle = useCallback(async () => {
+    const isEntering = !design.designMode;
+    if (isEntering && meta) {
+      const hasTabs = design.layout.some(
+        l => l.layout_type === "tab" && l.table_name === meta.headerTable
+      );
+      if (!hasTabs) {
+        try {
+          // Create default tab
+          const tabRes = await fetch("/api/form_layout?table=form_layout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              _table: "form_layout", domain: "*", form_key: formKey,
+              table_name: meta.headerTable, layout_type: "tab",
+              layout_key: "general", parent_key: "", sort_order: 10,
+              properties: { label: "General" },
+            }),
+          });
+          const tab = tabRes.ok ? await tabRes.json() : null;
+
+          // Create default section inside that tab
+          const secRes = await fetch("/api/form_layout?table=form_layout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              _table: "form_layout", domain: "*", form_key: formKey,
+              table_name: meta.headerTable, layout_type: "section",
+              layout_key: "general_details", parent_key: "general", sort_order: 10,
+              properties: { label: "Details", columns: 2 },
+            }),
+          });
+          const sec = secRes.ok ? await secRes.json() : null;
+
+          if (tab) design.setLayout(prev => [...prev, tab, ...(sec ? [sec] : [])]);
+        } catch { /* proceed anyway */ }
+      }
+    }
+    design.toggleDesignMode();
+  }, [design, meta, formKey]);
+
   const renderBody = useCallback((props: CrudPanelBodyProps) => {
     if (!meta) return null;
     return (
@@ -145,12 +187,12 @@ export function FormPage({ formKey, apiPath, activeNav, onNavigate }: {
         onTabAdded={design.designMode ? design.handleTabAdded : undefined}
         onFieldReordered={design.handleFieldReordered}
         onElementDropped={design.designMode ? design.handleElementDropped : undefined}
-        onDesignToggle={design.toggleDesignMode}
+        onDesignToggle={handleDesignToggle}
         formKey={formKey}
         onLayoutUpdated={design.setLayout}
       />
     );
-  }, [meta, apiPath, headerTabs, design, formKey]);
+  }, [meta, apiPath, headerTabs, design, formKey, handleDesignToggle]);
 
   if (error) return <div style={{ padding: 24, color: "var(--danger-text)" }}>Error: {error}</div>;
   if (!meta) return <div style={{ padding: 24, color: "var(--text-muted)" }}>Loading form...</div>;
