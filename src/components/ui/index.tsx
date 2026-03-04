@@ -5,33 +5,38 @@
 import type { ReactNode, InputHTMLAttributes, SelectHTMLAttributes, CSSProperties } from "react";
 
 // ── Section ────────────────────────────────────────────────────────
-export function Section({ title, children, style, titleStyle, onClick }: {
+export function Section({ title, children, style, titleStyle, onClick, hideTitle }: {
   title: string; children: ReactNode;
   style?: CSSProperties; titleStyle?: CSSProperties;
   onClick?: () => void;
+  hideTitle?: boolean;
 }) {
   return (
     <div style={style}>
-      <h3
-        className="text-xs font-semibold uppercase tracking-wider mb-3"
-        style={{ color: "var(--section-title)", ...titleStyle }}
-        onClick={onClick}
-      >
-        {title}
-      </h3>
+      {!hideTitle && (
+        <h3
+          className="text-xs font-semibold uppercase tracking-wider mb-3"
+          style={{ color: "var(--section-title)", ...titleStyle }}
+          onClick={onClick}
+        >
+          {title}
+        </h3>
+      )}
       {children}
     </div>
   );
 }
 
 // ── Field ──────────────────────────────────────────────────────────
-export function Field({ label, required, requiredMsg, fieldName, children }: { label: string; required?: boolean; requiredMsg?: string; fieldName?: string; children: ReactNode }) {
+export function Field({ label, required, requiredMsg, fieldName, hideLabel, children }: { label: string; required?: boolean; requiredMsg?: string; fieldName?: string; hideLabel?: boolean; children: ReactNode }) {
   return (
     <div {...(required ? { "data-required": true, ...(requiredMsg ? { "data-required-msg": requiredMsg } : {}), ...(fieldName ? { "data-field-name": fieldName } : {}) } : {})}>
-      <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
-        {label}
-        {required && <span style={{ color: "var(--danger-text)" }} className="ml-0.5">*</span>}
-      </label>
+      {!hideLabel && (
+        <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
+          {label}
+          {required && <span style={{ color: "var(--danger-text)" }} className="ml-0.5">*</span>}
+        </label>
+      )}
       {children}
     </div>
   );

@@ -40,6 +40,7 @@ export function HeaderTabContent({ apiPath, tableName, tabKey, layout, row, onCh
           <Section
             key={sec.layout_key}
             title={t(`form.${formKey}.${sec.layout_key}`, sec.properties?.label || sec.layout_key)}
+            hideTitle={!designMode && sec.properties?.show_label === false}
             style={designMode ? {
               border: "2px dashed var(--accent)",
               borderRadius: 8,
@@ -186,7 +187,7 @@ export function HeaderTabContent({ apiPath, tableName, tabKey, layout, row, onCh
                             columns={childCols}
                             parentFilter={{ parentOid: row.oid, domain: row.domain }}
                             saveExtras={{ domain: row.domain, [`oid_${tableName}`]: row.oid }}
-                            label={cell.fl.properties?.label || childTable}
+                            label={cell.fl.properties?.show_label === false ? undefined : (cell.fl.properties?.label || childTable)}
                             formKey={formKey}
                           />
                         </div>
@@ -240,7 +241,7 @@ export function HeaderTabContent({ apiPath, tableName, tabKey, layout, row, onCh
                       onMouseEnter={designMode && !draggedOid ? ev => { (ev.currentTarget as HTMLElement).style.outline = "2px dashed var(--accent)"; } : undefined}
                       onMouseLeave={designMode && !draggedOid ? ev => { (ev.currentTarget as HTMLElement).style.outline = "2px dashed transparent"; } : undefined}
                     >
-                      <Field label={t(`form.${formKey}.${fl.layout_key}`, fl.properties?.label || humanize(fl.layout_key))} required={fl.properties?.mandatory}>
+                      <Field label={t(`form.${formKey}.${fl.layout_key}`, fl.properties?.label || humanize(fl.layout_key))} required={fl.properties?.mandatory} hideLabel={!designMode && fl.properties?.show_label === false}>
                         <FieldRenderer
                           renderer={fl.properties?.renderer || "text"}
                           value={row[fl.layout_key]}

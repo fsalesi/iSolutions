@@ -107,6 +107,9 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, 
             <Field label="Help Text">
               <Input value={props.help_text ?? ""} onChange={v => setProp("help_text", v)} />
             </Field>
+            <Field label="Show Label">
+              <Toggle value={props.show_label !== false} onChange={v => setProp("show_label", v)} />
+            </Field>
             <Field label="Hidden">
               <Toggle value={!!props.hidden} onChange={v => setProp("hidden", v)} />
             </Field>

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Field, Input, Select } from "@/components/ui";
+import { Field, Input, Select, Toggle } from "@/components/ui";
 import { SlidePanel } from "@/components/ui/SlidePanel";
 import type { LayoutEntry } from "../types";
 import { TranslationsSection } from "./TranslationsSection";
@@ -99,6 +99,9 @@ export function SectionPropertiesPanel({ entry, open, onClose, onSaved, onDelete
           <>
             <Field label="Label">
               <Input value={props.label ?? ""} onChange={v => setProp("label", v)} />
+            </Field>
+            <Field label="Show Label">
+              <Toggle value={props.show_label !== false} onChange={v => setProp("show_label", v)} />
             </Field>
             <Field label="Columns">
               <Select value={String(props.columns ?? "2")} onChange={v => setProp("columns", parseInt(v) || 2)}
