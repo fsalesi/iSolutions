@@ -199,7 +199,7 @@ export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, 
             onFieldClick={designMode ? design.setSelectedField : undefined}
             onSectionClick={designMode ? design.setSelectedSection : undefined}
             onSectionAdded={designMode ? design.handleSectionAdded : undefined}
-            onFieldReordered={design.handleFieldReordered}
+            onFieldMoved={design.handleFieldMoved}
             onElementDropped={designMode ? design.handleElementDropped : undefined}
             formKey={formKey}
           />

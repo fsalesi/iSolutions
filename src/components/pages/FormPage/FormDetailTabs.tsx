@@ -12,15 +12,15 @@ import { AddTabButton } from "./AddTabButton";
 
 export function FormDetailTabs({ apiPath, meta, headerTabs, row, isNew, onChange,
   designMode, onFieldClick, onSectionClick, onSectionAdded, onTabClick, onTabAdded,
-  onFieldReordered, onElementDropped, onDesignToggle, onLayoutUpdated, formKey }: {
+  onFieldMoved, onElementDropped, onDesignToggle, onLayoutUpdated, formKey }: {
   apiPath: string; meta: FormMeta; designMode?: boolean;
   onFieldClick?: (entry: LayoutEntry) => void;
   onSectionClick?: (entry: LayoutEntry) => void;
   onSectionAdded?: (entry: LayoutEntry) => void;
   onTabClick?: (entry: LayoutEntry) => void;
   onTabAdded?: (entry: LayoutEntry) => void;
-  onFieldReordered?: (oid: string, targetSection: string, targetEntryIdx: number, replaceSpacerOid?: string, appendOffset?: number) => void;
-  onElementDropped?: (data: any, targetSection: string, targetEntryIdx: number, replaceSpacerOid?: string, appendOffset?: number) => void;
+  onFieldMoved?: (oid: string, targetSection: string, targetRow: number, targetCol: number) => void;
+  onElementDropped?: (data: any, targetSection: string, targetRow: number, targetCol: number) => void;
   onDesignToggle?: () => void;
   onLayoutUpdated?: (layout: LayoutEntry[]) => void;
   formKey?: string;
@@ -65,7 +65,7 @@ export function FormDetailTabs({ apiPath, meta, headerTabs, row, isNew, onChange
           onFieldClick={onFieldClick}
           onSectionClick={onSectionClick}
           onSectionAdded={onSectionAdded}
-          onFieldReordered={onFieldReordered}
+          onFieldMoved={onFieldMoved}
           onElementDropped={onElementDropped}
           onDesignToggle={onDesignToggle}
           formKey={formKey}

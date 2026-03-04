@@ -185,7 +185,7 @@ export function FormPage({ formKey, apiPath, activeNav, onNavigate }: {
         onSectionAdded={design.designMode ? design.handleSectionAdded : undefined}
         onTabClick={design.designMode ? design.setSelectedTab : undefined}
         onTabAdded={design.designMode ? design.handleTabAdded : undefined}
-        onFieldReordered={design.handleFieldReordered}
+        onFieldMoved={design.handleFieldMoved}
         onElementDropped={design.designMode ? design.handleElementDropped : undefined}
         onDesignToggle={handleDesignToggle}
         formKey={formKey}
