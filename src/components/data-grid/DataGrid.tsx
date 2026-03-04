@@ -40,6 +40,7 @@ interface DataGridProps<T extends { oid: string }> {
   selectedId: string | null;
   /** Called when user clicks a row. Receives the oid and the full row object. */
   onSelect: (id: string, row: T) => void;
+  onNew?: () => void;
   searchPlaceholder?: string;
   renderCard?: (row: T, isSelected: boolean) => ReactNode;
   defaultSort?: SortState;
@@ -65,6 +66,7 @@ export function DataGrid<T extends { oid: string }>({
   parentFilter,
   selectedId,
   onSelect,
+  onNew,
   searchPlaceholder = "Search...",
   renderCard,
   defaultSort,
@@ -363,6 +365,14 @@ export function DataGrid<T extends { oid: string }>({
       {/* ── Toolbar ── */}
       {gridSettings.show_search !== false && (
       <div className="p-3 flex-shrink-0 flex gap-2 items-center" style={{ borderBottom: "1px solid var(--border-light)" }}>
+        {onNew && (
+          <button onClick={onNew}
+            className="p-2 rounded-lg transition-colors flex-shrink-0 flex items-center gap-1 text-sm font-medium"
+            style={{ background: "var(--accent)", color: "var(--accent-text)", border: "none", whiteSpace: "nowrap" }}
+          >
+            <Icon name="plus" size={14} /> Add
+          </button>
+        )}
         <div className="relative flex-1">
           <Icon name="search" size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" } as any} />
           <input
@@ -557,10 +567,25 @@ export function DataGrid<T extends { oid: string }>({
           )}
         </div>
       ) : (
-        <div className="flex-1 overflow-auto" ref={scrollRef}>
+        <div className="flex-1 overflow-auto" ref={scrollRef} style={gridSettings.show_search === false ? { marginTop: 12 } : undefined}>
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10" style={{ background: "var(--bg-surface-alt)" }}>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                {onNew && gridSettings.show_search === false && (
+                  <th
+                    className="px-2 py-2 text-xs select-none"
+                    style={{ width: 44 }}
+                  >
+                    <button
+                      onClick={onNew}
+                      className="flex items-center justify-center rounded-md"
+                      style={{ width: 28, height: 28, background: "var(--accent)", color: "var(--accent-text, #fff)", fontWeight: 700, fontSize: 20, lineHeight: 1, border: "none" }}
+                      title="Add record"
+                    >
+                      +
+                    </button>
+                  </th>
+                )}
                 {visibleColumns.map(col => (
                   <th key={col.key}
                     onClick={col.sortable !== false ? () => handleSort(col.key) : undefined}
@@ -649,9 +674,9 @@ export function DataGrid<T extends { oid: string }>({
             )}
             <tbody>
               {loading ? (
-                <tr><td colSpan={visibleColumns.length + (isAdmin && gridId && gridSettings.show_search === false ? 1 : 0)}><EmptyState>Loading...</EmptyState></td></tr>
+                <tr><td colSpan={visibleColumns.length + (isAdmin && gridId && gridSettings.show_search === false ? 1 : 0) + (onNew && gridSettings.show_search === false ? 1 : 0)}><EmptyState>Loading...</EmptyState></td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={visibleColumns.length + (isAdmin && gridId && gridSettings.show_search === false ? 1 : 0)}><EmptyState>No results found</EmptyState></td></tr>
+                <tr><td colSpan={visibleColumns.length + (isAdmin && gridId && gridSettings.show_search === false ? 1 : 0) + (onNew && gridSettings.show_search === false ? 1 : 0)}><EmptyState>No results found</EmptyState></td></tr>
               ) : (
                 <>
                   {rows.map(row => {
@@ -663,6 +688,7 @@ export function DataGrid<T extends { oid: string }>({
                         onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "var(--bg-hover)"; }}
                         onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
                       >
+                        {onNew && gridSettings.show_search === false && <td />}
                         {visibleColumns.map(col => (
                           <td key={col.key} className="px-3 py-2"
                             style={{
@@ -678,7 +704,7 @@ export function DataGrid<T extends { oid: string }>({
                       </tr>
                     );
                   })}
-                  {loadingMore && (<tr><td colSpan={visibleColumns.length + (isAdmin && gridId && gridSettings.show_search === false ? 1 : 0)}><LoadingIndicator /></td></tr>)}
+                  {loadingMore && (<tr><td colSpan={visibleColumns.length + (isAdmin && gridId && gridSettings.show_search === false ? 1 : 0) + (onNew && gridSettings.show_search === false ? 1 : 0)}><LoadingIndicator /></td></tr>)}
                 </>
               )}
             </tbody>

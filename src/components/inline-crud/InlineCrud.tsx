@@ -30,9 +30,11 @@ export interface InlineCrudProps {
   renderBody?: (props: CrudPanelBodyProps) => React.ReactNode;
   label?: string;
   formKey?: string;
+  inquiryOnly?: boolean;
+  allowAdd?: boolean;
 }
 
-export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, renderBody, label, formKey }: InlineCrudProps) {
+export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, renderBody, label, formKey, inquiryOnly = false, allowAdd = true }: InlineCrudProps) {
   const gridRef = useRef<DataPublisher>(null);
   const panelRef = useRef<CrudPanelRef>(null);
   const link = useLink(gridRef, panelRef);
@@ -145,7 +147,7 @@ export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, 
     setDesignMode(d => !d);
   };
 
-  const panelOpen = !!(link.selectedRow || link.isNew);
+  const panelOpen = !inquiryOnly && !!(link.selectedRow || link.isNew);
 
   const tabList = layoutTabs.map(t => ({
     key: t.layout_key,
@@ -216,16 +218,13 @@ export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, 
         </div>
       )}
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-        <button className="btn btn-sm btn-primary" onClick={link.onNew}>+ Add</button>
-      </div>
-
       <DataGrid
         apiPath={apiPath}
         columns={columns}
         parentFilter={parentFilter}
         selectedId={link.selectedId}
         onSelect={link.onSelect}
+        onNew={allowAdd ? link.onNew : undefined}
         pageSize={50}
         gridId={formKey ? `${formKey}:${table}` : table}
         ref={gridRef}

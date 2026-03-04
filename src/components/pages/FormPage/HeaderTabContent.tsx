@@ -234,6 +234,8 @@ export function HeaderTabContent({
                           saveExtras={{ domain: row.domain, [`oid_${tableName}`]: row.oid }}
                           label={entry.properties?.show_label === false ? undefined : (entry.properties?.label || childTable)}
                           formKey={formKey}
+                          inquiryOnly={entry.properties?.inquiry_only === true}
+                          allowAdd={entry.properties?.allow_add !== false}
                         />
                       </div>
                     )}

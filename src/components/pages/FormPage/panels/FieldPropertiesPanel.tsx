@@ -113,6 +113,19 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, 
             <Field label="Hidden">
               <Toggle value={!!props.hidden} onChange={v => setProp("hidden", v)} />
             </Field>
+            {entry?.layout_type === "child_grid" && (
+              <>
+                <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginTop: 8 }}>
+                  <div className="text-xs font-medium mb-3" style={{ color: "var(--text-secondary)" }}>Grid Behaviour</div>
+                </div>
+                <Field label="Allow Add">
+                  <Toggle value={props.allow_add !== false} onChange={v => setProp("allow_add", v)} />
+                </Field>
+                <Field label="Inquiry Only">
+                  <Toggle value={!!props.inquiry_only} onChange={v => setProp("inquiry_only", v)} />
+                </Field>
+              </>
+            )}
             {sections && sections.length > 0 && (
               <>
                 <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginTop: 8 }}>
