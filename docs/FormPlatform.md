@@ -61,3 +61,8 @@
 **Approvals snap on via inheritance.** FormPage → ApprovalFormPage. CrudRoute → ApprovalCrudRoute. Clean separation. Toggling approvals after generation modifies the `extends` line — with warnings and customer file protection.
 
 **Files never regenerated.** First Generate creates everything. Subsequent generates only ALTER TABLE. The one exception: toggling approvals changes the base class (with safeguards).
+
+
+## Potential Problems that need further discussion
+** What if I want to add another field to the screen which is not a schema field.
+** Lookups need a way to have onSelected auto populate other fields (based on the return json we should know which fields are available and can map a UI field to a json field)

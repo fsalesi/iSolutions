@@ -2,15 +2,20 @@
  * UI Primitives — shared form + layout components.
  * All styling uses CSS custom properties for theme support.
  */
-import type { ReactNode, InputHTMLAttributes, SelectHTMLAttributes } from "react";
+import type { ReactNode, InputHTMLAttributes, SelectHTMLAttributes, CSSProperties } from "react";
 
 // ── Section ────────────────────────────────────────────────────────
-export function Section({ title, children }: { title: string; children: ReactNode }) {
+export function Section({ title, children, style, titleStyle, onClick }: {
+  title: string; children: ReactNode;
+  style?: CSSProperties; titleStyle?: CSSProperties;
+  onClick?: () => void;
+}) {
   return (
-    <div>
+    <div style={style}>
       <h3
         className="text-xs font-semibold uppercase tracking-wider mb-3"
-        style={{ color: "var(--section-title)" }}
+        style={{ color: "var(--section-title)", ...titleStyle }}
+        onClick={onClick}
       >
         {title}
       </h3>
@@ -134,7 +139,10 @@ export function Badge({ children, variant = "neutral" }: { children: ReactNode; 
 // ── TabBar ─────────────────────────────────────────────────────────
 export type TabDef = { key: string; label: string; icon?: ReactNode };
 
-export function TabBar({ tabs, active, onChange }: { tabs: TabDef[]; active: string; onChange: (key: string) => void }) {
+export function TabBar({ tabs, active, onChange, onEditTab, trailing }: {
+  tabs: TabDef[]; active: string; onChange: (key: string) => void;
+  onEditTab?: (key: string) => void; trailing?: ReactNode;
+}) {
   return (
     <div
       className="flex overflow-x-auto flex-shrink-0 px-2"
@@ -152,8 +160,17 @@ export function TabBar({ tabs, active, onChange }: { tabs: TabDef[]; active: str
         >
           {tab.icon}
           {tab.label}
+          {onEditTab && (
+            <span
+              onClick={e => { e.stopPropagation(); onEditTab(tab.key); }}
+              style={{ marginLeft: 4, cursor: "pointer", opacity: 0.6, fontSize: 11 }}
+              title="Edit tab"
+            >⚙</span>
+          )}
         </button>
       ))}
+      {trailing}
     </div>
   );
 }
+export { Toggle } from "./Toggle";

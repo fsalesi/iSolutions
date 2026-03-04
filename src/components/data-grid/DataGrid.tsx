@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, type ReactNode } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo, useImperativeHandle, type ReactNode } from "react";
 import { Icon } from "@/components/icons/Icon";
 import { useTranslation } from "@/context/TranslationContext";
 import { AdvancedSearch, serializeFilters, countConditions, type FilterTree } from "./AdvancedSearch";
@@ -16,6 +16,12 @@ import { useSchemaDiscovery } from "./datagrid/useSchemaDiscovery";
 import { useColumnManager, ColumnPicker } from "./datagrid/ColumnManager";
 import { useExportPanel, ExportDropdown, type ExportConfig } from "./datagrid/ExportPanel";
 
+// ── Publisher interface for useLink / external refresh ──
+export interface DataPublisher {
+  /** Re-fetch the current page of data. */
+  refresh: () => void;
+}
+
 interface DataGridProps<T extends { oid: string }> {
   /** Table name for auto-discovering columns via /api/columns. */
   table?: string;
@@ -23,9 +29,15 @@ interface DataGridProps<T extends { oid: string }> {
   columns?: ColumnDef<T>[];
   /** Which column keys are visible by default (order matters). If omitted, all columns shown. */
   defaultVisible?: string[];
-  fetchPage: FetchPage<T>;
+  /** Custom fetch function. When omitted AND `table` is provided, DataGrid builds its own generic fetch. */
+  fetchPage?: FetchPage<T>;
+  /** Base API path. Defaults to `/api/{table}`. Only used when DataGrid builds its own fetchPage. */
+  apiPath?: string;
+  /** Filter conditions for child grids, merged into every fetch as query params. */
+  parentFilter?: Record<string, string | number>;
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  /** Called when user clicks a row. Receives the oid and the full row object. */
+  onSelect: (id: string, row: T) => void;
   searchPlaceholder?: string;
   renderCard?: (row: T, isSelected: boolean) => ReactNode;
   defaultSort?: SortState;
@@ -37,13 +49,19 @@ interface DataGridProps<T extends { oid: string }> {
   exportConfig?: ExportConfig;
   colTypes?: Record<string, ColType>;
   colScales?: Record<string, number>;
+  /** Column keys that are searched by the search box */
+  searchColumns?: string[];
+  /** Ref exposing DataPublisher interface (refresh). React 19: ref is a regular prop. */
+  ref?: React.Ref<DataPublisher>;
 }
 
 export function DataGrid<T extends { oid: string }>({
   table,
   columns: columnOverrides,
   defaultVisible,
-  fetchPage,
+  fetchPage: fetchPageProp,
+  apiPath: apiPathProp,
+  parentFilter,
   selectedId,
   onSelect,
   searchPlaceholder = "Search...",
@@ -57,11 +75,69 @@ export function DataGrid<T extends { oid: string }>({
   exportConfig,
   colTypes: colTypesProp = {},
   colScales: colScalesProp = {},
+  searchColumns: searchColumnsProp = [],
+  ref,
 }: DataGridProps<T>) {
   const { t, locale } = useTranslation();
   const isMobile = useIsMobile();
   const showExpandBtn = !isMobile && onToggleExpand;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const refreshTrigger = useRef(0);
+  const [, forceRefresh] = useState(0);
+
+  // ── Expose publisher interface (refresh) via ref ──
+  useImperativeHandle(ref, () => ({
+    refresh: () => {
+      refreshTrigger.current++;
+      forceRefresh(n => n + 1);
+    },
+  }));
+  // ── Built-in fetchPage when table provided and no custom fetchPage ──
+  const resolvedApiPath = apiPathProp || (table ? `/api/${table}` : "");
+  const [autoSearchColumns, setAutoSearchColumns] = useState<string[]>([]);
+  const searchColumns = searchColumnsProp.length > 0 ? searchColumnsProp : autoSearchColumns;
+  const searchableSet = useMemo(() => new Set(searchColumns), [searchColumns]);
+
+  const builtInFetchPage: FetchPage<T> | undefined = useMemo(() => {
+    if (fetchPageProp || !resolvedApiPath) return undefined;
+    return async ({ offset, limit, search, sort, dir, filters }) => {
+      const params = new URLSearchParams({
+        offset: String(offset), limit: String(limit), sort, dir,
+        ...(search ? { search } : {}),
+        ...(filters ? { filters } : {}),
+      });
+      // Merge parentFilter into query params
+      if (parentFilter) {
+        for (const [k, v] of Object.entries(parentFilter)) {
+          params.set(k, String(v));
+        }
+      }
+      const sep = resolvedApiPath.includes("?") ? "&" : "?";
+      const res = await fetch(`${resolvedApiPath}${sep}${params}`);
+      return res.json();
+    };
+  }, [fetchPageProp, resolvedApiPath, parentFilter]);
+
+  const fetchPage = fetchPageProp || builtInFetchPage!;
+
+  // Capture searchColumns from first API response (auto-discovery)
+  const searchColsSet = useRef(false);
+  const wrappedFetchPage: FetchPage<T> = useMemo(() => {
+    return async (params) => {
+      const result = await fetchPage(params);
+      if (result.searchColumns && !searchColsSet.current) {
+        searchColsSet.current = true;
+        setAutoSearchColumns(result.searchColumns);
+      }
+      return result;
+    };
+  }, [fetchPage]);
+
+  // -- Per-column quick filters --
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [activeColFilter, setActiveColFilter] = useState<string | null>(null);
+  const colFilterInputRef = useRef<HTMLInputElement>(null);
+  const activeColFilterCount = useMemo(() => Object.values(columnFilters).filter(Boolean).length, [columnFilters]);
 
   // ── Schema auto-discovery + merge ──
   const { columns, colTypes, colScales } = useSchemaDiscovery<T>(
@@ -74,6 +150,20 @@ export function DataGrid<T extends { oid: string }>({
   const [filters, setFilters] = useState<FilterTree>(null);
   const [appliedFilters, setAppliedFilters] = useState<string>("");
   const [advSearchOpen, setAdvSearchOpen] = useState(false);
+
+  // -- Combine advanced filters + column filters into one serialized string --
+  const effectiveFilters = useMemo(() => {
+    const colConditions = Object.entries(columnFilters)
+      .filter(([, v]) => v.trim())
+      .map(([field, value]) => ({ type: "condition" as const, field, operator: "contains", value: value.trim() }));
+    if (!colConditions.length && !appliedFilters) return "";
+    if (!colConditions.length) return appliedFilters;
+    const children: any[] = [...colConditions];
+    if (appliedFilters) {
+      try { children.push(JSON.parse(appliedFilters)); } catch {}
+    }
+    return JSON.stringify({ type: "group", logic: "and", children });
+  }, [columnFilters, appliedFilters]);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Saved filters for quick-select dropdown on filter button
@@ -93,6 +183,13 @@ export function DataGrid<T extends { oid: string }>({
     fetch(`/api/saved-filters?userId=${userId}&gridId=${gridId}`)
       .then(r => r.json()).then(setSavedFilters).catch(() => {});
   }, [advSearchOpen, gridId, userId]);
+
+  // Auto-focus column filter input when it appears
+  useEffect(() => {
+    if (activeColFilter && colFilterInputRef.current) {
+      setTimeout(() => colFilterInputRef.current?.focus(), 0);
+    }
+  }, [activeColFilter]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -141,8 +238,8 @@ export function DataGrid<T extends { oid: string }>({
   const hasMore = rows.length < total;
 
   const cacheKey = useCallback(
-    (offset: number) => `${search}|${appliedFilters}|${sort.field}|${sort.dir}|${offset}`,
-    [search, appliedFilters, sort]
+    (offset: number) => `${search}|${effectiveFilters}|${sort.field}|${sort.dir}|${offset}`,
+    [search, effectiveFilters, sort]
   );
 
   const loadChunk = useCallback(
@@ -170,10 +267,10 @@ export function DataGrid<T extends { oid: string }>({
       }
 
       try {
-        const result = await fetchPage({
+        const result = await wrappedFetchPage({
           offset, limit: pageSize, search,
           sort: sort.field, dir: sort.dir,
-          filters: appliedFilters || undefined,
+          filters: effectiveFilters || undefined,
         });
 
         if (preload) {
@@ -192,16 +289,16 @@ export function DataGrid<T extends { oid: string }>({
         if (fetchInFlight.current === key) fetchInFlight.current = null;
       }
     },
-    [fetchPage, pageSize, search, sort, appliedFilters, cacheKey]
+    [wrappedFetchPage, pageSize, search, sort, effectiveFilters, cacheKey]
   );
 
-  // Fresh load on search/sort change
+  // Fresh load on search/sort/refresh change
   useEffect(() => {
     prefetchCache.current = null;
     nextOffset.current = 0;
     scrollRef.current?.scrollTo(0, 0);
     loadChunk(0, { replace: true });
-  }, [search, sort, appliedFilters]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [search, sort, effectiveFilters, refreshTrigger.current]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Prefetch next chunk
   useEffect(() => {
@@ -412,7 +509,7 @@ export function DataGrid<T extends { oid: string }>({
           ) : (
             <>
               {rows.map(row => (
-                <div key={row.oid} onClick={() => onSelect(row.oid)}>
+                <div key={row.oid} onClick={() => onSelect(row.oid, row)}>
                   {renderCard ? renderCard(row, selectedId === row.oid)
                     : <DefaultCard row={row} columns={visibleColumns} isSelected={selectedId === row.oid} colTypes={colTypes} colScales={colScales} locale={locale} />}
                 </div>
@@ -434,12 +531,69 @@ export function DataGrid<T extends { oid: string }>({
                   >
                     <div className="flex items-center gap-1" style={{ justifyContent: colAlign(col.key, colTypes) === "right" ? "flex-end" : colAlign(col.key, colTypes) === "center" ? "center" : "flex-start" }}>
                       {col.label}
+                      {searchableSet.has(col.key) && (
+                        columnFilters[col.key] ? (
+                          <span
+                            title={`${t("grid.clear_filter", "Clear filter")}: ${columnFilters[col.key]}`}
+                            style={{ color: "var(--danger-text)", display: "inline-flex", flexShrink: 0, cursor: "pointer" }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              setColumnFilters(prev => { const next = { ...prev }; delete next[col.key]; return next; });
+                              setActiveColFilter(null);
+                            }}
+                          >
+                            <Icon name="x" size={10} />
+                          </span>
+                        ) : (
+                          <span
+                            title={t("grid.searchable_column", "Click to filter this column")}
+                            style={{ color: "var(--text-muted)", opacity: 0.5, display: "inline-flex", flexShrink: 0, cursor: "pointer" }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              setActiveColFilter(prev => prev === col.key ? null : col.key);
+                            }}
+                          >
+                            <Icon name="filter" size={10} />
+                          </span>
+                        )
+                      )}
                       {sort.field === col.key && (<Icon name={sort.dir === "asc" ? "sortAsc" : "sortDesc"} size={12} />)}
                     </div>
                   </th>
                 ))}
               </tr>
             </thead>
+            {activeColFilter && (
+              <thead>
+                <tr style={{ background: "var(--bg-surface)" }}>
+                  {visibleColumns.map(col => (
+                    <th key={col.key} className="px-1 py-1" style={{ fontWeight: "normal" }}>
+                      {col.key === activeColFilter ? (
+                        <ColumnFilterInput
+                          value={columnFilters[col.key] || ""}
+                          onChange={val => setColumnFilters(prev => {
+                            const next = { ...prev };
+                            if (val) next[col.key] = val; else delete next[col.key];
+                            return next;
+                          })}
+                          onClose={() => setActiveColFilter(null)}
+                          inputRef={colFilterInputRef}
+                          placeholder={col.label || col.key}
+                        />
+                      ) : columnFilters[col.key] ? (
+                        <div className="flex items-center gap-1 px-2 py-1 text-xs rounded"
+                          style={{ background: "var(--accent-light)", color: "var(--accent)" }}>
+                          <span className="truncate flex-1">{columnFilters[col.key]}</span>
+                          <button onClick={() => setColumnFilters(prev => {
+                            const next = { ...prev }; delete next[col.key]; return next;
+                          })} style={{ flexShrink: 0 }}><Icon name="x" size={10} /></button>
+                        </div>
+                      ) : null}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+            )}
             <tbody>
               {loading ? (
                 <tr><td colSpan={visibleColumns.length}><EmptyState>Loading...</EmptyState></td></tr>
@@ -450,7 +604,7 @@ export function DataGrid<T extends { oid: string }>({
                   {rows.map(row => {
                     const isSelected = selectedId === row.oid;
                     return (
-                      <tr key={row.oid} onClick={() => onSelect(row.oid)}
+                      <tr key={row.oid} onClick={() => onSelect(row.oid, row)}
                         className="cursor-pointer transition-colors"
                         style={{ background: isSelected ? "var(--bg-selected)" : "transparent", borderBottom: "1px solid var(--border-light)", borderLeft: isSelected ? "2px solid var(--accent)" : "2px solid transparent" }}
                         onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "var(--bg-hover)"; }}
@@ -497,6 +651,41 @@ function LoadingIndicator() {
     <div className="py-4 text-center text-xs" style={{ color: "var(--text-muted)" }}>
       <span className="inline-block animate-spin mr-2" style={{ width: 14, height: 14, border: "2px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%" }} />
       Loading more...
+    </div>
+  );
+}
+
+function ColumnFilterInput({ value, onChange, onClose, inputRef, placeholder }: {
+  value: string; onChange: (v: string) => void; onClose: () => void;
+  inputRef: React.RefObject<HTMLInputElement | null>; placeholder: string;
+}) {
+  const [draft, setDraft] = useState(value);
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        ref={inputRef}
+        type="text"
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === "Enter") { onChange(draft); onClose(); }
+          if (e.key === "Escape") { onClose(); }
+        }}
+        onBlur={() => { onChange(draft); onClose(); }}
+        placeholder={placeholder}
+        className="w-full px-2 py-1 text-xs rounded outline-none"
+        style={{
+          background: "var(--input-bg)", border: "1px solid var(--border-focus)",
+          color: "var(--text-primary)", boxShadow: "0 0 0 2px var(--ring-focus)",
+        }}
+      />
+      {draft && (
+        <button
+          onMouseDown={e => { e.preventDefault(); setDraft(""); onChange(""); onClose(); }}
+          style={{ color: "var(--text-muted)", flexShrink: 0 }}>
+          <Icon name="x" size={12} />
+        </button>
+      )}
     </div>
   );
 }

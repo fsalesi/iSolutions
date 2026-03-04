@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { CrudPage, type CrudPageConfig } from "@/components/crud-page/CrudPage";
+import { SplitCrudPage } from "./SplitCrudPage";
 import type { ColumnDef } from "@/components/data-grid/DataGrid";
 import type { CrudAction } from "@/components/crud-toolbar/CrudToolbar";
+import type { CrudPanelBodyProps } from "@/components/panels/CrudPanel";
 import { Section, TabBar, type TabDef } from "@/components/ui";
 import { useT } from "@/context/TranslationContext";
 import { useSession } from "@/context/SessionContext";
@@ -86,8 +87,8 @@ function UserGroupsField({ userId }: { userId: string }) {
 }
 
 function ProfileTab({ user, onChange, isNew, colTypes, colScales, requiredFields }: {
-  user: User; onChange: (f: keyof User, v: any) => void; isNew: boolean;
-  colTypes: Record<string, string>; colScales: Record<string, number>; requiredFields?: string[];
+  user: Record<string, any>; onChange: (f: string, v: any) => void; isNew: boolean;
+  colTypes: Record<string, string>; colScales: Record<string, number>; requiredFields: string[];
 }) {
   const t = useT();
   const { field } = useFieldHelper({ row: user, onChange, table: "users", colTypes: colTypes as any, colScales, requiredFields });
@@ -134,8 +135,8 @@ function ProfileTab({ user, onChange, isNew, colTypes, colScales, requiredFields
 }
 
 function IPurchaseTab({ user, onChange, colTypes, colScales, requiredFields }: {
-  user: User; onChange: (f: keyof User, v: any) => void;
-  colTypes: Record<string, string>; colScales: Record<string, number>; requiredFields?: string[];
+  user: Record<string, any>; onChange: (f: string, v: any) => void;
+  colTypes: Record<string, string>; colScales: Record<string, number>; requiredFields: string[];
 }) {
   const t = useT();
   const { domain } = useSession();
@@ -154,10 +155,7 @@ function IPurchaseTab({ user, onChange, colTypes, colScales, requiredFields }: {
   );
 }
 
-function UserTabs({ row, onChange, isNew, colTypes, colScales, requiredFields }: {
-  row: User; isNew: boolean; onChange: (f: keyof User, v: any) => void;
-  colTypes: Record<string, string>; colScales: Record<string, number>; requiredFields?: string[];
-}) {
+function UserTabs({ row, onChange, isNew, colTypes, colScales, requiredFields }: CrudPanelBodyProps) {
   const t = useT();
   const [activeTab, setActiveTab] = useState("profile");
   const tabs: TabDef[] = [
@@ -175,14 +173,16 @@ function UserTabs({ row, onChange, isNew, colTypes, colScales, requiredFields }:
   );
 }
 
+const renderBody = (props: CrudPanelBodyProps) => <UserTabs {...props} />;
+
+const COLUMNS: ColumnDef<User>[] = [
+  { key: "user_id", locked: true },
+];
+
 export default function UsersPage({ activeNav, onNavigate, selectRecordOid, selectSeq }: {
   activeNav: string; onNavigate: (k: string, oid?: string) => void; selectRecordOid?: string; selectSeq?: number;
 }) {
   const t = useT();
-
-  const columns: ColumnDef<User>[] = useMemo(() => [
-    { key: "user_id", locked: true },
-  ], []);
 
   const extraActions: CrudAction[] = useMemo(() => [
     { key: "password", icon: "key",      label: t("users.tab_password", "Password"), separator: true },
@@ -191,13 +191,9 @@ export default function UsersPage({ activeNav, onNavigate, selectRecordOid, sele
     { key: "import",   icon: "upload",   label: t("users.import", "Import") },
   ], [t]);
 
-  const config = useMemo<CrudPageConfig<User>>(() => ({
-    title: t("users.title", "Users"),
-    apiPath: "/api/users",
-    columns,
-    renderTabs: (props) => <UserTabs {...props} />,
-    extraActions,
-  }), [t, columns, extraActions]);
-
-  return <CrudPage config={config} activeNav={activeNav} onNavigate={onNavigate} selectRecordOid={selectRecordOid} selectSeq={selectSeq} />;
+  return (
+    <SplitCrudPage title={t("users.title", "Users")} table="users"
+      columns={COLUMNS} renderBody={renderBody} extraActions={extraActions}
+      activeNav={activeNav} onNavigate={onNavigate} selectRecordOid={selectRecordOid} selectSeq={selectSeq} />
+  );
 }

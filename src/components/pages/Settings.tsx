@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useEffect } from "react";
-import { CrudPage, type CrudPageConfig } from "@/components/crud-page/CrudPage";
+import { useEffect } from "react";
+import { SplitCrudPage } from "./SplitCrudPage";
 import type { ColumnDef } from "@/components/data-grid/DataGrid";
-import { Section } from "@/components/ui";
+import type { CrudPanelBodyProps } from "@/components/panels/CrudPanel";
 import { useT } from "@/context/TranslationContext";
 import { useFieldHelper } from "@/components/ui/useFieldHelper";
+import { Section } from "@/components/ui";
 import { DomainLookup } from "@/components/lookup/presets";
 
 type Row = { oid: string; [key: string]: any };
@@ -18,10 +19,9 @@ const COLUMNS: ColumnDef<Row>[] = [
   { key: "value" },
 ];
 
-function Detail({ row, isNew, onChange, colTypes, colScales, requiredFields }: {
-  row: Row; isNew: boolean; onChange: (f: keyof Row, v: any) => void;
-  colTypes: Record<string, string>; colScales: Record<string, number>; requiredFields?: string[];
-}) {
+const DEFAULTS = { owner: "SYSTEM", domain: "*", form: "*" };
+
+function Detail({ row, isNew, onChange, colTypes, colScales, requiredFields }: CrudPanelBodyProps) {
   const t = useT();
   const { field } = useFieldHelper({ row, onChange, table: "settings", colTypes: colTypes as any, colScales, requiredFields });
 
@@ -40,17 +40,26 @@ function Detail({ row, isNew, onChange, colTypes, colScales, requiredFields }: {
   );
 }
 
+const renderBody = (props: CrudPanelBodyProps) => (
+  <div className="flex-1 overflow-y-auto p-4 sm:p-5"><Detail {...props} /></div>
+);
+
 export default function Settings({ activeNav, onNavigate, selectRecordOid, selectSeq }: {
   activeNav: string; onNavigate: (k: string, oid?: string) => void; selectRecordOid?: string; selectSeq?: number;
 }) {
   const t = useT();
-  const config = useMemo((): CrudPageConfig<Row> => ({
-    title: t("settings.title", "System Settings"),
-    apiPath: "/api/settings",
-    columns: COLUMNS,
-    defaultValues: { owner: "SYSTEM", domain: "*", form: "*" },
-    renderDetail: (props) => <Detail {...props} />,
-  }), [t]);
 
-  return <CrudPage config={config} activeNav={activeNav} onNavigate={onNavigate} selectRecordOid={selectRecordOid} selectSeq={selectSeq} />;
+  return (
+    <SplitCrudPage
+      title={t("settings.title", "System Settings")}
+      table="settings"
+      columns={COLUMNS}
+      defaultValues={DEFAULTS}
+      renderBody={renderBody}
+      activeNav={activeNav}
+      onNavigate={onNavigate}
+      selectRecordOid={selectRecordOid}
+      selectSeq={selectSeq}
+    />
+  );
 }

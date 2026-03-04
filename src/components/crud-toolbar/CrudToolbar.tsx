@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { Icon } from "@/components/icons/Icon";
 import { useT } from "@/context/TranslationContext";
+import { useSession } from "@/context/SessionContext";
 
 export type CrudAction = {
   key: string;
@@ -27,6 +28,9 @@ interface CrudToolbarProps {
   deleteDisabled?: boolean;
   /** Additional screen-specific actions */
   extraActions?: CrudAction[];
+  /** Design mode toggle (CrudToolbar shows button if user is admin) */
+  designMode?: boolean;
+  onDesignToggle?: () => void;
   children?: ReactNode;
 }
 
@@ -34,8 +38,10 @@ export function CrudToolbar({
   onSave, onNew, onDelete, onCopy,
   saveDisabled, deleteDisabled,
   extraActions = [],
+  designMode, onDesignToggle,
 }: CrudToolbarProps) {
   const t = useT();
+  const { user } = useSession();
   const baseActions: CrudAction[] = [
     { key: "save", icon: "save", label: t("crud.save", "Save"), variant: "primary", disabled: saveDisabled, onClick: onSave },
     { key: "new", icon: "plus", label: t("crud.new", "New"), onClick: onNew },
@@ -43,7 +49,12 @@ export function CrudToolbar({
     { key: "copy", icon: "copy", label: t("crud.copy", "Copy"), onClick: onCopy },
   ];
 
-  const allActions = [...baseActions, ...extraActions];
+  const designAction: CrudAction[] = user?.isAdmin && onDesignToggle ? [
+    { key: "design-mode", icon: designMode ? "check" : "settings", label: designMode ? "Done" : "Design",
+      onClick: onDesignToggle, variant: designMode ? "primary" : "default" as const, separator: !designMode },
+  ] : [];
+
+  const allActions = [...baseActions, ...extraActions, ...designAction];
 
   return (
     <div

@@ -102,7 +102,7 @@ function SplitHandle({ onMouseDown, onReset }: {
 
 
 // ── Inline Confirm ──────────────────────────────────────────────
-function InlineConfirm({ message, onConfirm, onCancel }: {
+export function InlineConfirm({ message, onConfirm, onCancel }: {
   message: string; onConfirm: () => void; onCancel: () => void;
 }) {
   const t = useT();
@@ -211,6 +211,12 @@ export interface CrudPageConfig<TRow extends { oid: string }> {
   extraActions?: CrudAction[];
   /** Default values for new rows (merged into emptyRow) */
   defaultValues?: Partial<TRow>;
+  /** Pre-supplied column types (skips /api/columns fetch when provided) */
+  initialColTypes?: Record<string, string>;
+  /** Pre-supplied column scales */
+  initialColScales?: Record<string, number>;
+  /** Override the derived table name (used for audit/notes/columns). Default: derived from apiPath. */
+  tableName?: string;
 
 }
 
@@ -251,14 +257,21 @@ export function CrudPage<TRow extends { oid: string }>({
   const [colScales, setColScales] = useState<Record<string, number>>({});
   const [requiredFields, setRequiredFields] = useState<string[]>([]);
   const requiredFieldsSet = useRef(false);
+  const [searchColumns, setSearchColumns] = useState<string[]>([]);
+  const searchColumnsSet = useRef(false);
 
   // ── Auto-derive everything from apiPath ──
-  const tableName = config.apiPath.replace("/api/", "");
+  const tableName = config.tableName || config.apiPath.replace("/api/", "");
   const xform = (raw: any) => raw as TRow;
   const gridId = tableName;
   const colTypesUrl = `/api/columns?table=${tableName}`;
 
   useEffect(() => {
+    if (config.initialColTypes) {
+      setColTypes(config.initialColTypes as Record<string, ColType>);
+      if (config.initialColScales) setColScales(config.initialColScales);
+      return;
+    }
     fetch(colTypesUrl).then(r => r.json()).then((cols: { key: string; type: string; scale?: number }[]) => {
       const typeMap: Record<string, ColType> = {};
       const scaleMap: Record<string, number> = {};
@@ -269,7 +282,7 @@ export function CrudPage<TRow extends { oid: string }>({
       setColTypes(typeMap);
       setColScales(scaleMap);
     }).catch(() => {});
-  }, [colTypesUrl]);
+  }, [colTypesUrl, config.initialColTypes, config.initialColScales]);
 
 
   // Columns are now auto-discovered by DataGrid via the table prop.
@@ -305,7 +318,7 @@ export function CrudPage<TRow extends { oid: string }>({
       ...(search ? { search } : {}),
       ...(filters ? { filters } : {}),
     });
-    const res = await fetch(`${config.apiPath}?${params}`);
+    const sep = config.apiPath.includes("?") ? "&" : "?"; const res = await fetch(`${config.apiPath}${sep}${params}`);
     return res.json();
   };
   const fetchPage: FetchPage<TRow> = async (params) => {
@@ -313,6 +326,10 @@ export function CrudPage<TRow extends { oid: string }>({
     if (result.requiredFields && !requiredFieldsSet.current) {
       requiredFieldsSet.current = true;
       setRequiredFields(result.requiredFields);
+    }
+    if (result.searchColumns && !searchColumnsSet.current) {
+      searchColumnsSet.current = true;
+      setSearchColumns(result.searchColumns);
     }
     return result;
   };
@@ -370,7 +387,7 @@ export function CrudPage<TRow extends { oid: string }>({
     // Clear validation errors
     document.querySelectorAll('.fld-err').forEach(el => el.classList.remove('fld-err'));
     document.querySelectorAll('.fld-err-msg').forEach(el => el.remove());
-    fetch(`${config.apiPath}?oid=${encodeURIComponent(oid)}&limit=1`)
+    fetch(`${config.apiPath}${config.apiPath.includes("?") ? "&" : "?"}oid=${encodeURIComponent(oid)}&limit=1`)
       .then(r => r.json())
       .then(data => {
         const raw = data.rows?.[0];
@@ -463,7 +480,7 @@ export function CrudPage<TRow extends { oid: string }>({
 
   const handleDelete = useCallback(async () => {
     if (!selectedRec) return;
-    await fetch(`${config.apiPath}?oid=${selectedRec.oid}`, { method: "DELETE" });
+    await fetch(`${config.apiPath}${config.apiPath.includes("?") ? "&" : "?"}oid=${selectedRec.oid}`, { method: "DELETE" });
     setSelectedOid(null);
     setSelectedRec(null);
     setForm(emptyRow());
@@ -498,10 +515,10 @@ export function CrudPage<TRow extends { oid: string }>({
 
   // ── Build extraActions: inject audit button if table is known ──
   const allExtraActions = useMemo<CrudAction[]>(() => {
-    const actions = [...(config.extraActions || [])];
+    const extra = (config.extraActions || []).filter(a => a.key !== "audit" && a.key !== "notes");
     if (auditTable) {
-      const filtered = actions.filter(a => a.key !== "audit" && a.key !== "notes");
-      filtered.push({
+      const actions: CrudAction[] = [];
+      actions.push({
         key: "notes",
         icon: "messageSquare",
         label: t("crud.notes", "Notes"),
@@ -509,7 +526,7 @@ export function CrudPage<TRow extends { oid: string }>({
         disabled: isNew || !selectedRec,
         onClick: () => setNotesOpen(true),
       });
-      filtered.push({
+      actions.push({
         key: "audit",
         icon: "shield",
         label: t("crud.audit", "Audit"),
@@ -517,9 +534,10 @@ export function CrudPage<TRow extends { oid: string }>({
         disabled: isNew || !selectedRec,
         onClick: () => setAuditOpen(true),
       });
-      return filtered;
+      actions.push(...extra);
+      return actions;
     }
-    return actions;
+    return extra;
   }, [config.extraActions, auditTable, isNew, selectedRec, noteCount, t]);
 
   const auditRecordOid = useMemo(() => {
@@ -605,6 +623,7 @@ export function CrudPage<TRow extends { oid: string }>({
             gridId={gridId}
             userId={user.userId}
             exportConfig={exportCfg}
+            searchColumns={searchColumns}
           />
         </div>
 

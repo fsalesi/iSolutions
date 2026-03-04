@@ -25,6 +25,7 @@ export type PageResult<T> = {
   offset: number;
   limit: number;
   requiredFields?: string[];
+  searchColumns?: string[];
 };
 
 export type FetchPage<T> = (params: {

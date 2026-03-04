@@ -9,6 +9,9 @@ import Locales from "@/components/pages/Locales";
 import Translations from "@/components/pages/Translations";
 import Settings from "@/components/pages/Settings";
 import GroupsPage from "@/components/pages/GroupsPage";
+import EntityDesigner from "@/components/pages/EntityDesigner";
+import { FormPage } from "@/components/pages/FormPage";
+import { formPageRegistry } from "@/components/forms/registry";
 
 export default function RootPage() {
   const { loggedIn, ready } = useSession();
@@ -50,8 +53,22 @@ export default function RootPage() {
     return <GroupsPage activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;
   }
 
+  if (activeNav === "entity_designer") {
+    return <EntityDesigner activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;
+  }
+
   if (activeNav === "translations") {
     return <Translations activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;
+  }
+
+  if (activeNav.startsWith("form:")) {
+    const formKey = activeNav.slice(5);
+    // Three-tier resolution: registry has generated page → fallback to generic FormPage
+    const RegisteredPage = formPageRegistry[formKey];
+    if (RegisteredPage) {
+      return <RegisteredPage activeNav={activeNav} onNavigate={handleNavigate} />;
+    }
+    return <FormPage formKey={formKey} apiPath={`/api/forms/${formKey}`} activeNav={activeNav} onNavigate={handleNavigate} />;
   }
 
   return <UsersPage activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;

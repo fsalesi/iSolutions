@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   }
 
   const res = await db.query(`
-    SELECT column_name, data_type, numeric_scale
+    SELECT column_name, data_type, numeric_scale, is_nullable
     FROM information_schema.columns
     WHERE table_name = $1 AND table_schema = 'public'
     ORDER BY ordinal_position
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
       else if (dt === "boolean") type = "boolean";
       else if (dt.includes("timestamp")) type = "datetime";
       else if (dt === "date") type = "date";
-      const col: any = { key: r.column_name, type };
+      const col: any = { key: r.column_name, type, nullable: r.is_nullable === 'YES' };
       if (scale !== undefined) col.scale = scale;
       return col;
     });

@@ -159,7 +159,7 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
         [...params, limit, offset]
       );
 
-      return NextResponse.json({ rows: dataR.rows, total, offset, limit, requiredFields: cfg.requiredFields || [] });
+      return NextResponse.json({ rows: dataR.rows, total, offset, limit, requiredFields: cfg.requiredFields || [], searchColumns: cfg.searchColumns || [] });
     } catch (err: any) {
       if (err instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
       console.error(`GET /api/${cfg.table} error:`, err);

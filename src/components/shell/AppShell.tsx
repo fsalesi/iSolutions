@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { Sidebar, type NavSection } from "./Sidebar";
 import { Header } from "./Header";
 import { NotificationBell } from "./NotificationBell";
@@ -33,6 +33,11 @@ export function AppShell({ children, title, subtitle, showBack, onBack, activeNa
     return user.domains.split(",").map(d => d.trim()).filter(Boolean);
   }, [user.domains]);
 
+  // Dynamic menu entries from generated forms
+  const [genForms, setGenForms] = useState<{form_key:string;form_name:string;menu_category:string}[]>([]);
+  useEffect(() => {
+    fetch("/api/nav").then(r => r.json()).then(setGenForms).catch(() => {});
+  }, []);
   const t = useT();
 
   const NAV_SECTIONS: NavSection[] = useMemo(() => [
@@ -55,11 +60,19 @@ export function AppShell({ children, title, subtitle, showBack, onBack, activeNa
       { key: "forms", label: t("nav.forms", "Workflow Forms"), icon: "briefcase" },
       { key: "rules", label: t("nav.rules", "Approval Rules"), icon: "shield" },
     ]},
+    { key: "platform", label: t("nav.platform", "Platform"), icon: "edit", items: [
+      { key: "entity_designer", label: t("nav.entity_designer", "Entity Designer"), icon: "edit" },
+    ]},
     { key: "i18n", label: t("nav.i18n", "Internationalization"), icon: "globe", items: [
       { key: "locales", label: t("nav.locales", "Locales"), icon: "globe" },
       { key: "translations", label: t("nav.translations", "Translations"), icon: "messageSquare" },
     ]},
-  ], [t]);
+  ].map(sec => {
+    const extra = genForms
+      .filter(f => f.menu_category.toLowerCase() === sec.key)
+      .map(f => ({ key: `form:${f.form_key}`, label: f.form_name, icon: "fileText" }));
+    return extra.length ? { ...sec, items: [...sec.items, ...extra] } : sec;
+  }), [t, genForms]);
 
   const activeNav = controlledNav ?? internalNav;
   const handleNavigate = (key: string, recordOid?: string) => {

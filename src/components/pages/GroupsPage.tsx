@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { CrudPage, type CrudPageConfig } from "@/components/crud-page/CrudPage";
+import { SplitCrudPage } from "./SplitCrudPage";
 import type { ColumnDef } from "@/components/data-grid/DataGrid";
+import type { CrudPanelBodyProps } from "@/components/panels/CrudPanel";
 import { Section, TabBar, type TabDef, Input } from "@/components/ui";
 import { useT } from "@/context/TranslationContext";
 import { useFieldHelper } from "@/components/ui/useFieldHelper";
@@ -12,11 +13,11 @@ type Row = { oid: string; [key: string]: any };
 type MemberRecord = { oid: string; group_id: string; member_id: string; is_excluded: boolean };
 type ChecklistItem = { id: string; label: string; sub?: string };
 
-/* ── General Tab ─────────────────────────────────────── */
+/* ── General Tab ─────────────────────────────────────────── */
 function GeneralTab({ row, isNew, onChange, colTypes, colScales, requiredFields }: {
-  row: Row; isNew: boolean; onChange: (f: keyof Row, v: any) => void;
+  row: Record<string, any>; isNew: boolean; onChange: (f: string, v: any) => void;
   colTypes: Record<string, string>; colScales: Record<string, number>;
-  requiredFields?: string[];
+  requiredFields: string[];
 }) {
   const t = useT();
   const { field } = useFieldHelper({ row, onChange, table: "groups", colTypes: colTypes as any, colScales, requiredFields });
@@ -33,8 +34,8 @@ function GeneralTab({ row, isNew, onChange, colTypes, colScales, requiredFields 
   );
 }
 
-/* ── Members Tab ─────────────────────────────────────── */
-function MembersTab({ row }: { row: Row }) {
+/* ── Members Tab ─────────────────────────────────────────── */
+function MembersTab({ row }: { row: Record<string, any> }) {
   const t = useT();
   const [search, setSearch] = useState("");
   const [showSelected, setShowSelected] = useState(false);
@@ -79,7 +80,6 @@ function MembersTab({ row }: { row: Row }) {
   const selectedCount = memberMap.size;
 
   // Snapshot initial members for stable sort order
-  // Reset snapshot when group changes
   useEffect(() => { initialMembersRef.current = null; }, [groupId]);
   const initialMembersRef = useRef<Set<string> | null>(null);
   if (initialMembersRef.current === null && memberMap.size > 0) {
@@ -291,11 +291,8 @@ function MembersTab({ row }: { row: Row }) {
   );
 }
 
-/* ── Tabbed Detail ─────────────────────────────────────── */
-function GroupTabs({ row, isNew, onChange, colTypes, colScales, requiredFields }: {
-  row: Row; isNew: boolean; onChange: (f: keyof Row, v: any) => void;
-  colTypes: Record<string, string>; colScales: Record<string, number>; requiredFields?: string[];
-}) {
+/* ── Tabbed Detail ─────────────────────────────────────────── */
+function GroupTabs({ row, isNew, onChange, colTypes, colScales, requiredFields }: CrudPanelBodyProps) {
   const t = useT();
   const [activeTab, setActiveTab] = useState("general");
   const tabs: TabDef[] = [
@@ -313,23 +310,21 @@ function GroupTabs({ row, isNew, onChange, colTypes, colScales, requiredFields }
   );
 }
 
-/* ── Page Component ──────────────────────────────────── */
+const renderBody = (props: CrudPanelBodyProps) => <GroupTabs {...props} />;
+
+const COLUMNS: ColumnDef<Row>[] = [
+  { key: "group_id", locked: true },
+  { key: "description" },
+];
+
+/* ── Page Component ──────────────────────────────────────── */
 export default function GroupsPage({ activeNav, onNavigate, selectRecordOid, selectSeq }: {
   activeNav: string; onNavigate: (k: string, oid?: string) => void; selectRecordOid?: string; selectSeq?: number;
 }) {
   const t = useT();
-
-  const columns: ColumnDef<Row>[] = useMemo(() => [
-    { key: "group_id", locked: true },
-    { key: "description" },
-  ], []);
-
-  const config = useMemo<CrudPageConfig<Row>>(() => ({
-    title: t("groups.title", "Groups"),
-    apiPath: "/api/groups",
-    columns,
-    renderTabs: (props) => <GroupTabs {...props} />,
-  }), [t, columns]);
-
-  return <CrudPage config={config} activeNav={activeNav} onNavigate={onNavigate} selectRecordOid={selectRecordOid} selectSeq={selectSeq} />;
+  return (
+    <SplitCrudPage title={t("groups.title", "Groups")} table="groups"
+      columns={COLUMNS} renderBody={renderBody}
+      activeNav={activeNav} onNavigate={onNavigate} selectRecordOid={selectRecordOid} selectSeq={selectSeq} />
+  );
 }
