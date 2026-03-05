@@ -236,7 +236,7 @@ export class CrudRoute {
       if (!tableName) {
         const tRes = await db.query(
           `SELECT table_name, is_header, parent_table, tab_label, sort_order
-           FROM form_tables WHERE form_key = $1 ORDER BY sort_order`,
+           FROM form_tables WHERE form_key = $1 AND is_generated = true AND to_be_deleted = false ORDER BY sort_order`,
           [this.formKey]
         );
         const headerTable = tRes.rows.find((r: any) => r.is_header)?.table_name || "";
@@ -459,7 +459,7 @@ export class CrudRoute {
       // Cascade delete children if header
       if (meta.isHeader) {
         const childTables = await db.query(
-          `SELECT table_name FROM form_tables WHERE form_key = $1 AND NOT is_header`,
+          `SELECT table_name FROM form_tables WHERE form_key = $1 AND NOT is_header AND is_generated = true AND to_be_deleted = false`,
           [this.formKey]
         );
         for (const child of childTables.rows) {

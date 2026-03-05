@@ -11,8 +11,23 @@ import { useFieldHelper } from "@/components/ui/useFieldHelper";
 import { Icon } from "@/components/icons/Icon";
 
 type Row = { oid: string; [key: string]: any };
-type FormTable = { oid: string; form_key: string; table_name: string; is_header: boolean; parent_table: string; tab_label: string; has_attachments: boolean; sort_order: number };
-type FormField = { oid: string; form_key: string; table_name: string; field_name: string; data_type: string; max_length: number | null; precision: number | null; scale: number | null; is_nullable: boolean; default_value: string; is_indexed: boolean; is_unique: boolean; is_copyable: boolean; case_sensitive: boolean; sort_order: number; created_at: string; updated_at: string };
+type FormTable = { oid: string; form_key: string; table_name: string; is_header: boolean; parent_table: string; tab_label: string; has_attachments: boolean; sort_order: number; to_be_deleted: boolean; is_generated: boolean };
+type FormField = { oid: string; form_key: string; table_name: string; field_name: string; data_type: string; max_length: number | null; precision: number | null; scale: number | null; is_nullable: boolean; default_value: string; is_indexed: boolean; is_unique: boolean; is_copyable: boolean; case_sensitive: boolean; sort_order: number; created_at: string; updated_at: string; to_be_deleted: boolean; is_generated: boolean; is_dirty: boolean };
+type TableStatus = "new" | "pending_delete" | "clean";
+type FieldStatus = "new" | "modified" | "pending_delete" | "clean";
+
+function tableStatus(t: FormTable): TableStatus {
+  if (t.to_be_deleted) return "pending_delete";
+  if (!t.is_generated) return "new";
+  return "clean";
+}
+
+function fieldStatus(f: FormField): FieldStatus {
+  if (f.to_be_deleted) return "pending_delete";
+  if (!f.is_generated) return "new";
+  if (f.is_dirty) return "modified";
+  return "clean";
+}
 
 const DATA_TYPES = [
   { value: "text", label: "Text" },
@@ -88,8 +103,7 @@ function GeneralTab({ row, isNew, onChange, colTypes, colScales, requiredFields,
         const execData = await execRes.json();
         setResult({ executed: 0, warnings: 0, errors: execData.errors || [], filesCreated: execData.filesCreated || [], filesSkipped: execData.filesSkipped || [] });
         setGenState("done");
-        if (execData.is_generated) {
-          onChange("is_generated" as keyof Row, true);
+        if (!execData.errors || execData.errors.length === 0) {
           onChange("last_generated_at" as keyof Row, new Date().toISOString());
           setIsDirty(false);
         }
@@ -114,8 +128,7 @@ function GeneralTab({ row, isNew, onChange, colTypes, colScales, requiredFields,
       setResult({ executed: data.executed, warnings: data.warnings, errors: data.errors, filesCreated: data.filesCreated || [], filesSkipped: data.filesSkipped || [] });
       setOps(data.ops || []);
       setGenState("done");
-      if (data.is_generated) {
-        onChange("is_generated" as keyof Row, true);
+      if (!data.errors || data.errors.length === 0) {
         onChange("last_generated_at" as keyof Row, new Date().toISOString());
         setIsDirty(false);
       }
@@ -168,10 +181,11 @@ function GeneralTab({ row, isNew, onChange, colTypes, colScales, requiredFields,
                 onClick={handlePreview}
               >
                 <Icon name="zap" size={14} />
-                {row.is_generated ? "Re-generate Schema" : "Generate Schema"}
+                Generate Schema
               </button>
-              {row.is_generated && !isDirty && <Badge variant="success">Generated</Badge>}
-              {row.is_generated && isDirty && <Badge variant="warning">Schema Out of Sync</Badge>}
+              {!row.last_generated_at && <Badge variant="warning">Never Generated</Badge>}
+              {row.last_generated_at && !isDirty && <Badge variant="success">Generated</Badge>}
+              {row.last_generated_at && isDirty && <Badge variant="warning">Schema Out of Sync</Badge>}
             </div>
           )}
 
@@ -290,7 +304,6 @@ function TablesTab({ row }: { row: Row }) {
   const [draft, setDraft] = useState<Partial<FormTable>>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-
   const fetchTables = useCallback(() => {
     if (!formKey) return;
     const filters = buildFilters("form_key", formKey);
@@ -301,6 +314,30 @@ function TablesTab({ row }: { row: Row }) {
   }, [formKey]);
 
   useEffect(() => { fetchTables(); }, [fetchTables]);
+
+  // Load all fields for the form so we can show per-table dirty counts
+  const [allFields, setAllFields] = useState<FormField[]>([]);
+  useEffect(() => {
+    if (!formKey) { setAllFields([]); return; }
+    const filters = buildFilters("form_key", formKey);
+    fetch(`/api/form_fields?filters=${encodeURIComponent(filters)}&limit=1000&sort=sort_order`)
+      .then(r => r.json())
+      .then(data => { console.log("[TablesTab] allFields loaded:", data.rows?.length, data.rows?.map((f:any)=>({n:f.field_name,d:f.is_dirty,t:f.to_be_deleted}))); setAllFields(data.rows || []); })
+      .catch((e) => { console.log("[TablesTab] allFields error:", e); setAllFields([]); });
+  }, [formKey]);
+
+  // Compute per-table dirty field counts from local data (no schema-diff API needed)
+  const tableDirtyCount = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const f of allFields) {
+      if (f.field_name.startsWith("oid_")) continue; // skip FK fields
+      const s = fieldStatus(f);
+      if (s === "new" || s === "modified" || s === "pending_delete") {
+        map[f.table_name] = (map[f.table_name] || 0) + 1;
+      }
+    }
+    return map;
+  }, [allFields]);
 
   if (isNew) return <div className="p-4 text-sm" style={{ color: "var(--text-muted)" }}>Save the form first to add tables.</div>;
 
@@ -377,13 +414,37 @@ function TablesTab({ row }: { row: Row }) {
   };
 
   const deleteTable = async (tbl: FormTable) => {
-    if (!confirm(`Delete table "${tbl.table_name}" and all its fields? This cannot be undone.`)) return;
+    const action = tbl.to_be_deleted ? "restore" : "mark for deletion";
+    if (!confirm(`${action === "mark for deletion" ? "Mark" : "Restore"} table "${tbl.table_name}"?`)) return;
     await fetch("/api/form_tables", {
-      method: "DELETE",
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ oid: tbl.oid }),
+      body: JSON.stringify({ oid: tbl.oid, to_be_deleted: !tbl.to_be_deleted }),
     });
     fetchTables();
+  };
+
+  const resetTable = async (tbl: FormTable) => {
+    const dirtyCount = tableDirtyCount[tbl.table_name] || 0;
+    if (!confirm(`Revert all ${dirtyCount} change${dirtyCount !== 1 ? "s" : ""} to "${tbl.table_name}"?\n\n• New fields will be deleted\n• Fields marked for deletion will be restored\n• Modified fields will be reverted to their generated state`)) return;
+    try {
+      const res = await fetch("/api/form_fields/reset-table", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ form_key: formKey, table_name: tbl.table_name }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert("Reset failed: " + data.error); return; }
+      fetchTables();
+      // Reload all fields
+      const filters = buildFilters("form_key", formKey);
+      fetch(`/api/form_fields?filters=${encodeURIComponent(filters)}&limit=1000&sort=sort_order`)
+        .then(r => r.json())
+        .then(d => setAllFields(d.rows || []))
+        .catch(() => {});
+    } catch (err) {
+      alert("Reset error: " + err);
+    }
   };
 
   const startAdd = () => { setAdding(true); setEditing(null); setDraft({ sort_order: (tables.length + 1) * 10 }); setError(""); };
@@ -421,23 +482,44 @@ function TablesTab({ row }: { row: Row }) {
                 onMouseLeave={e => (e.currentTarget.style.background = "")}
                 onClick={() => startEdit(tbl)}
               >
-                <td className="px-3 py-2 font-mono text-xs" style={{ color: "var(--text-primary)" }}>{tbl.table_name}</td>
+                <td className="px-3 py-2 font-mono text-xs" style={{ color: tbl.to_be_deleted ? "var(--text-muted)" : "var(--text-primary)" }}>
+                  <span className="flex items-center gap-2">
+                    <span style={{ textDecoration: tbl.to_be_deleted ? "line-through" : "none" }}>{tbl.table_name}</span>
+                    {tableStatus(tbl) === "pending_delete" && <Badge variant="danger">Marked for deletion</Badge>}
+                    {tableStatus(tbl) === "new" && <Badge variant="success">New</Badge>}
+                    {tableStatus(tbl) === "clean" && tableDirtyCount[tbl.table_name] > 0 && (
+                      <Badge variant="warning">{tableDirtyCount[tbl.table_name]} field{tableDirtyCount[tbl.table_name] !== 1 ? "s" : ""} changed</Badge>
+                    )}
+                  </span>
+                </td>
                 <td className="px-3 py-2">
-                  <Badge variant={tbl.is_header ? "info" : "neutral"}>{tbl.is_header ? "Header" : "Child"}</Badge>
+                  <Badge variant={tbl.is_header ? "success" : "warning"}>{tbl.is_header ? "Header" : "Child"}</Badge>
                 </td>
                 <td className="px-3 py-2 font-mono text-xs" style={{ color: "var(--text-muted)" }}>{tbl.parent_table || "—"}</td>
                 <td className="px-3 py-2" style={{ color: "var(--text-primary)" }}>{tbl.tab_label}</td>
-                <td className="px-3 py-2">{tbl.has_attachments ? <Badge variant="info">Yes</Badge> : "—"}</td>
+                <td className="px-3 py-2">{tbl.has_attachments ? <Badge variant="success">Yes</Badge> : "—"}</td>
                 <td className="px-3 py-2" style={{ color: "var(--text-muted)" }}>{tbl.sort_order}</td>
                 <td className="px-3 py-2 text-right">
-                  <button
-                    className="p-1 rounded transition-colors"
-                    style={{ color: "var(--danger-text)" }}
-                    onClick={e => { e.stopPropagation(); deleteTable(tbl); }}
-                    title="Delete table"
-                  >
-                    <Icon name="trash" size={14} />
-                  </button>
+                  <div className="flex items-center justify-end gap-1">
+                    {tableStatus(tbl) === "clean" && (tableDirtyCount[tbl.table_name] || 0) > 0 && (
+                      <button
+                        className="p-1 rounded transition-colors"
+                        style={{ color: "var(--warning-text)" }}
+                        onClick={e => { e.stopPropagation(); resetTable(tbl); }}
+                        title="Revert all field changes to last generated state"
+                      >
+                        <Icon name="rotate-ccw" size={14} />
+                      </button>
+                    )}
+                    <button
+                      className="p-1 rounded transition-colors"
+                      style={{ color: tbl.to_be_deleted ? "var(--success-text)" : "var(--danger-text)" }}
+                      onClick={e => { e.stopPropagation(); deleteTable(tbl); }}
+                      title={tbl.to_be_deleted ? "Restore table" : "Mark table for deletion"}
+                    >
+                      <Icon name={tbl.to_be_deleted ? "undo" : "trash"} size={14} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -505,13 +587,16 @@ function TablesTab({ row }: { row: Row }) {
           </div>
         </div>
       ) : (
-        <button
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg font-medium transition-colors"
-          style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
-          onClick={startAdd}
-        >
-          <Icon name="plus" size={14} /> Add Table
-        </button>
+        <>
+          <button
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg font-medium transition-colors"
+            style={{ background: "var(--btn-primary-bg)", color: "var(--btn-primary-text)" }}
+            onClick={startAdd}
+          >
+            <Icon name="plus" size={14} /> Add Table
+          </button>
+
+        </>
       )}
     </div>
   );
@@ -531,7 +616,6 @@ function FieldsTab({ row }: { row: Row }) {
   const [draft, setDraft] = useState<Partial<FormField>>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-
   // Fetch tables for selector
   useEffect(() => {
     if (!formKey) return;
@@ -631,12 +715,23 @@ function FieldsTab({ row }: { row: Row }) {
   };
 
   const deleteField = async (fld: FormField) => {
-    if (!confirm(`Delete field "${fld.field_name}"? On next generate this will DROP the column.`)) return;
-    await fetch("/api/form_fields", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ oid: fld.oid }),
-    });
+    // New fields (not yet generated to DB) are deleted immediately
+    const isNew = !fld.is_generated;
+    if (isNew) {
+      if (!confirm(`Delete new field "${fld.field_name}"?`)) return;
+      await fetch(`/api/form_fields?oid=${fld.oid}`, {
+        method: "DELETE",
+      });
+    } else {
+      // Existing fields toggle to_be_deleted flag
+      const action = fld.to_be_deleted ? "restore" : "mark for deletion";
+      if (!confirm(`${action === "mark for deletion" ? "Mark" : "Restore"} field "${fld.field_name}"?`)) return;
+      await fetch("/api/form_fields", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oid: fld.oid, to_be_deleted: !fld.to_be_deleted }),
+      });
+    }
     fetchFields();
   };
 
@@ -693,35 +788,29 @@ function FieldsTab({ row }: { row: Row }) {
                   onMouseLeave={e => (e.currentTarget.style.background = "")}
                   onClick={() => startEdit(fld)}
                 >
-                  <td className="px-3 py-2 font-mono text-xs" style={{ color: "var(--text-primary)" }}>
+                  <td className="px-3 py-2 font-mono text-xs" style={{ color: fld.to_be_deleted ? "var(--text-muted)" : "var(--text-primary)" }}>
                     <span className="flex items-center gap-2">
-                      {fld.field_name}
-                      {(() => {
-                        if (!row.is_generated || !row.last_generated_at) return null;
-                        const gen = new Date(row.last_generated_at as string).getTime();
-                        const created = new Date(fld.created_at).getTime();
-                        const updated = new Date(fld.updated_at).getTime();
-                        if (created > gen) return <Badge variant="warning">New</Badge>;
-                        if (updated > gen) return <Badge variant="warning">Modified</Badge>;
-                        return null;
-                      })()}
+                      <span style={{ textDecoration: fld.to_be_deleted ? "line-through" : "none" }}>{fld.field_name}</span>
+                      {fieldStatus(fld) === "pending_delete" && <Badge variant="danger">Marked for deletion</Badge>}
+                      {fieldStatus(fld) === "new" && <Badge variant="success">New</Badge>}
+                      {fieldStatus(fld) === "modified" && <Badge variant="warning">Modified</Badge>}
                     </span>
                   </td>
                   <td className="px-3 py-2 font-mono text-xs" style={{ color: "var(--text-muted)" }}>{typeLabel}</td>
                   <td className="px-3 py-2">{fld.is_nullable ? "Yes" : "No"}</td>
                   <td className="px-3 py-2">
-                    {fld.is_unique ? <Badge variant="warning">Unique</Badge> : fld.is_indexed ? <Badge variant="neutral">Yes</Badge> : "—"}
+                    {fld.is_unique ? <Badge variant="warning">Unique</Badge> : fld.is_indexed ? <Badge variant="success">Yes</Badge> : "—"}
                   </td>
                   <td className="px-3 py-2 font-mono text-xs" style={{ color: "var(--text-muted)" }}>{fld.default_value || "—"}</td>
                   <td className="px-3 py-2" style={{ color: "var(--text-muted)" }}>{fld.sort_order}</td>
                   <td className="px-3 py-2 text-right">
                     <button
                       className="p-1 rounded transition-colors"
-                      style={{ color: "var(--danger-text)" }}
+                      style={{ color: fld.to_be_deleted ? "var(--success-text)" : "var(--danger-text)" }}
                       onClick={e => { e.stopPropagation(); deleteField(fld); }}
-                      title="Delete field"
+                      title={fld.to_be_deleted ? "Restore field" : "Mark field for deletion"}
                     >
-                      <Icon name="trash" size={14} />
+                      <Icon name={fld.to_be_deleted ? "undo" : "trash"} size={14} />
                     </button>
                   </td>
                 </tr>
@@ -888,9 +977,8 @@ export default function EntityDesigner({ activeNav, onNavigate, selectRecordOid,
     { key: "form_key", locked: true },
     { key: "form_name" },
     { key: "has_approvals" },
-    { key: "is_generated", label: "Schema",
+    { key: "needs_generate", label: "Schema",
       render: (row: Row) => {
-        if (!row.is_generated) return <span style={{ color: "var(--text-muted)" }}>—</span>;
         if (row.needs_generate) return <Badge variant="warning">Out of Sync</Badge>;
         return <Badge variant="success">Generated</Badge>;
       },

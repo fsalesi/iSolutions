@@ -9,8 +9,6 @@ import type { ComponentType } from "react";
 interface FormPageProps {
   activeNav: string;
   onNavigate: (key: string, oid?: string) => void;
-  selectRecordOid?: string;
-  selectSeq?: number;
 }
 
 export const formPageRegistry: Record<string, ComponentType<FormPageProps>> = {

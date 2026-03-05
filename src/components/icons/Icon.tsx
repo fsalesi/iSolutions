@@ -76,4 +76,6 @@ const ICON_PATHS: Record<string, string> = {
   expand:     "M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7",
   collapse:   "M4 14h6v6M20 10h-6V4M10 14l-7 7M14 10l7-7",
   filter:     "M22 3H2l8 9.46V19l4 2v-8.54L22 3z",
+  undo:       "M3 7v6h6M21 17a9 9 0 00-9-9 9 9 0 00-6.219 2.5L3 13",
+  "rotate-ccw": "M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 005.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 013.51 15",
 };

@@ -39,8 +39,18 @@ export async function POST(req: NextRequest) {
     let filesSkipped: string[] = [];
 
     if (result.errors.length === 0) {
+      // Mark tables and fields FIRST (triggers updated_at), then stamp the form last
       await db.query(
-        `UPDATE forms SET is_generated = true, last_generated_at = now(), needs_generate = false WHERE form_key = $1`,
+        `UPDATE form_tables SET is_generated = true WHERE form_key = $1 AND to_be_deleted = false`,
+        [form_key]
+      );
+      await db.query(
+        `UPDATE form_fields SET is_generated = true, is_dirty = false WHERE form_key = $1 AND to_be_deleted = false`,
+        [form_key]
+      );
+      // last_generated_at must be set AFTER fields so it's >= all field updated_at values
+      await db.query(
+        `UPDATE forms SET last_generated_at = now(), needs_generate = false WHERE form_key = $1`,
         [form_key]
       );
 
@@ -60,7 +70,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ops,
       ...result,
-      is_generated: result.errors.length === 0,
       layoutInserted,
       filesCreated,
       filesSkipped,
