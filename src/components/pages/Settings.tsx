@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { SplitCrudPage } from "./SplitCrudPage";
 import type { ColumnDef } from "@/components/data-grid/DataGrid";
 import type { CrudPanelBodyProps } from "@/components/panels/CrudPanel";
@@ -24,12 +23,6 @@ const DEFAULTS = { owner: "SYSTEM", domain: "*", form: "*" };
 function Detail({ row, isNew, onChange, colTypes, colScales, requiredFields }: CrudPanelBodyProps) {
   const t = useT();
   const { field } = useFieldHelper({ row, onChange, table: "settings", colTypes: colTypes as any, colScales, requiredFields });
-
-  useEffect(() => {
-    if (!row.owner) onChange("owner", "SYSTEM");
-    if (!row.domain) onChange("domain", "*");
-    if (!row.form)  onChange("form",   "*");
-  }, [row.owner, row.domain, row.form, onChange]);
 
   return (
     <Section title={t("settings.section_general", "General")}>

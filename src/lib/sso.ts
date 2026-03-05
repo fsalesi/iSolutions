@@ -1,5 +1,5 @@
-import { db } from "./db";
 import { NextRequest } from "next/server";
+import { getSystemSetting } from "./settings";
 
 export interface ProviderConfig {
   clientId: string;
@@ -17,8 +17,7 @@ export interface ProviderMeta {
 
 /**
  * Returns the public origin (scheme + host) for the request.
- * Respects X-Forwarded-Proto and X-Forwarded-Host set by Nginx Proxy Manager
- * so we get https://isolutions.salesi.net instead of http://localhost:3001.
+ * Respects X-Forwarded-Proto and X-Forwarded-Host set by Nginx Proxy Manager.
  */
 export function getOrigin(req: NextRequest): string {
   const proto = req.headers.get("x-forwarded-proto") ?? req.nextUrl.protocol.replace(":", "");
@@ -33,19 +32,17 @@ export type SSOState =
 
 /** Reads SSO_LOGIN and SSO_CHOICE and returns the login mode */
 export async function getSSOState(): Promise<SSOState> {
-  const { rows } = await db.query(
-    `SELECT setting_name, value FROM settings
-     WHERE owner = 'SYSTEM' AND domain = '*' AND setting_name IN ('SSO_LOGIN', 'SSO_CHOICE')`
-  );
-  const map: Record<string, string> = {};
-  for (const r of rows) map[r.setting_name] = r.value;
+  const [login, choice] = await Promise.all([
+    getSystemSetting("SSO_LOGIN"),
+    getSystemSetting("SSO_CHOICE"),
+  ]);
 
-  if (map["SSO_LOGIN"]?.toLowerCase() !== "true") return { mode: "off" };
+  if (login?.toLowerCase() !== "true") return { mode: "off" };
 
-  const choice = (map["SSO_CHOICE"] ?? "")
+  const providers = (choice ?? "")
     .split(",").map((s: string) => s.trim().toLowerCase()).filter(Boolean);
 
-  if (choice.length > 0) return { mode: "choice", providers: choice };
+  if (providers.length > 0) return { mode: "choice", providers };
   return { mode: "auto" };
 }
 
@@ -54,27 +51,15 @@ export async function getSSOState(): Promise<SSOState> {
 export async function getProviderConfig(provider: string): Promise<ProviderConfig | null> {
   const isGeneric = provider === "generic";
   const P = provider.toUpperCase();
+  const s = (name: string) => isGeneric ? name : `${name}_${P}`;
 
-  const names = isGeneric
-    ? ["SSO_CLIENT_ID", "SSO_CLIENT_SECRET", "SSO_AUTHORIZATION_URL", "SSO_TOKEN_URL", "SSO_LOGOFF_URL"]
-    : [`SSO_CLIENT_ID_${P}`, `SSO_CLIENT_SECRET_${P}`, `SSO_AUTHORIZATION_URL_${P}`, `SSO_TOKEN_URL_${P}`, `SSO_LOGOFF_URL_${P}`];
-
-  const { rows } = await db.query(
-    `SELECT setting_name, value FROM settings
-     WHERE owner = 'SYSTEM' AND domain = '*' AND setting_name = ANY($1)`,
-    [names]
-  );
-
-  const map: Record<string, string> = {};
-  for (const r of rows) map[r.setting_name] = r.value;
-
-  const key = (k: string) => isGeneric ? map[k] || "" : map[`${k}_${P}`] || "";
-
-  const clientId     = key("SSO_CLIENT_ID");
-  const clientSecret = key("SSO_CLIENT_SECRET");
-  const authUrl      = key("SSO_AUTHORIZATION_URL");
-  const tokenUrl     = key("SSO_TOKEN_URL");
-  const logoffUrl    = key("SSO_LOGOFF_URL");
+  const [clientId, clientSecret, authUrl, tokenUrl, logoffUrl] = await Promise.all([
+    getSystemSetting(s("SSO_CLIENT_ID")),
+    getSystemSetting(s("SSO_CLIENT_SECRET")),
+    getSystemSetting(s("SSO_AUTHORIZATION_URL")),
+    getSystemSetting(s("SSO_TOKEN_URL")),
+    getSystemSetting(s("SSO_LOGOFF_URL")),
+  ]);
 
   if (!clientId || !clientSecret || !authUrl || !tokenUrl) return null;
   if (clientSecret.startsWith("REPLACE_WITH")) return null;
@@ -85,8 +70,14 @@ export async function getProviderConfig(provider: string): Promise<ProviderConfi
     OKTA:      "openid email profile",
   };
 
-  return { clientId, clientSecret, authorizationUrl: authUrl, tokenUrl, logoffUrl,
-           scope: scopes[P] ?? "openid email profile" };
+  return {
+    clientId,
+    clientSecret,
+    authorizationUrl: authUrl,
+    tokenUrl,
+    logoffUrl: logoffUrl ?? "",
+    scope: scopes[P] ?? "openid email profile",
+  };
 }
 
 /**
