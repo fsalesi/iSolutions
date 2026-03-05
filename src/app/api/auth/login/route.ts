@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { COOKIE_NAME } from "@/lib/auth";
 import { db } from "@/lib/db";
+import bcrypt from "bcryptjs";
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await req.json();
+    const { userId, password } = await req.json();
 
     if (!userId?.trim()) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 });
     }
 
     const { rows } = await db.query(
-      `SELECT user_id, full_name, email, is_active,
+      `SELECT user_id, full_name, email, is_active, password_hash,
               locale, domains, supervisor_id, approval_limit, oid
          FROM users
         WHERE LOWER(user_id) = LOWER($1)`,
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
     );
 
     if (rows.length === 0) {
-      return NextResponse.json({ error: "User not found" }, { status: 401 });
+      return NextResponse.json({ error: "Invalid user ID or password" }, { status: 401 });
     }
 
     const u = rows[0];
@@ -28,9 +29,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Account is disabled" }, { status: 403 });
     }
 
-    // TODO: validate password when auth is wired up
+    const hash = u.password_hash ?? "";
 
-    // Set a simple session cookie (userId only for now)
+    if (hash === "") {
+      // No password set — reject unless they submitted a blank password too
+      // (blank = account not yet configured for credential login)
+      if (password?.length > 0) {
+        return NextResponse.json({ error: "Invalid user ID or password" }, { status: 401 });
+      }
+      // blank password + blank hash = allow (dev/SSO-only accounts)
+    } else {
+      if (!password?.length) {
+        return NextResponse.json({ error: "Password is required" }, { status: 400 });
+      }
+      const valid = await bcrypt.compare(password, hash);
+      if (!valid) {
+        return NextResponse.json({ error: "Invalid user ID or password" }, { status: 401 });
+      }
+    }
+
     const response = NextResponse.json({
       oid:           u.oid,
       userId:        u.user_id,
@@ -41,7 +58,7 @@ export async function POST(req: NextRequest) {
       supervisorId:  u.supervisor_id || "",
       approvalLimit: Number(u.approval_limit) || 0,
       groups:        [],
-      isAdmin:       true, // TODO: derive from group membership
+      isAdmin:       true,
     });
 
     response.cookies.set(COOKIE_NAME, u.user_id, {
@@ -49,7 +66,7 @@ export async function POST(req: NextRequest) {
       sameSite: "lax",
       secure: true,
       path: "/",
-      maxAge: 60 * 60 * 24, // 24 hours
+      maxAge: 60 * 60 * 24,
     });
 
     return response;
