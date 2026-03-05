@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { emitToUser } from "@/lib/sseRegistry";
 
 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const tableRegex = /^[a-z_][a-z0-9_]*$/i;
@@ -136,6 +137,14 @@ export async function POST(req: NextRequest) {
          VALUES ($1, $2, $3, $4, $5, $5)`,
         [userId, note.id, table_name, record_oid, currentUser]
       );
+
+      // Push real-time event if the mentioned user has an open tab
+      emitToUser(userId, "notification", {
+        note_id: note.id,
+        table_name,
+        record_oid,
+        author: currentUser,
+      });
     }
 
     // Return the created note with author name

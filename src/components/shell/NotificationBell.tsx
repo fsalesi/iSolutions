@@ -108,33 +108,18 @@ export function NotificationBell({ onNavigate }: NotificationBellProps) {
   // Inject CSS once
   useEffect(() => { ensureStyles(); }, []);
 
-  /* ── poll unread count every 5s ──────────────────────────── */
+  /* ── fetch initial unread count ─────────────────────────────────── */
   useEffect(() => {
-    const poll = async () => {
-      try {
-        const res = await fetch("/api/notifications/count");
-        const data = await res.json();
-        const newCount = data.unread || 0;
-
-        // Detect NEW notifications arriving
-        if (prevUnreadRef.current !== null && newCount > prevUnreadRef.current) {
-          playDing();
-          setBellAnim(true);
-          setBadgeAnim(true);
-          setTimeout(() => setBellAnim(false), 700);
-          setTimeout(() => setBadgeAnim(false), 6500); // 0.3s pop + 3×2s pulse
-        }
-
-        prevUnreadRef.current = newCount;
-        setUnread(newCount);
-      } catch { /* ignore */ }
-    };
-    poll();
-    const id = setInterval(poll, 5000);
-    return () => clearInterval(id);
+    fetch("/api/notifications/count")
+      .then(r => r.json())
+      .then(data => {
+        const count = data.unread || 0;
+        prevUnreadRef.current = count;
+        setUnread(count);
+      })
+      .catch(() => {});
   }, []);
 
-  /* ── fetch full list when dropdown opens ─────────────────── */
   const fetchList = useCallback(async () => {
     setLoading(true);
     try {
@@ -145,6 +130,40 @@ export function NotificationBell({ onNavigate }: NotificationBellProps) {
     setLoading(false);
   }, []);
 
+
+  /* ── SSE: real-time notification push ────────────────────────────── */
+  useEffect(() => {
+    const es = new EventSource("/api/events/stream");
+
+    es.addEventListener("notification", () => {
+      // A new notification arrived — bump the count and animate
+      setUnread(prev => {
+        const next = prev + 1;
+        prevUnreadRef.current = next;
+        return next;
+      });
+      playDing();
+      setBellAnim(true);
+      setBadgeAnim(true);
+      setTimeout(() => setBellAnim(false), 700);
+      setTimeout(() => setBadgeAnim(false), 6500);
+
+      // If dropdown is open, refresh the list live
+      setOpen(prev => {
+        if (prev) fetchList();
+        return prev;
+      });
+    });
+
+    es.onerror = () => {
+      // Browser auto-reconnects on error — nothing to do
+    };
+
+    return () => es.close();
+  }, [fetchList]);
+
+
+  /* ── fetch full list when dropdown opens ─────────────────── */
   useEffect(() => { if (open) fetchList(); }, [open, fetchList]);
 
   /* ── close on outside click ──────────────────────────────── */
@@ -183,11 +202,19 @@ export function NotificationBell({ onNavigate }: NotificationBellProps) {
   };
 
   const handleClick = async (n: Notification) => {
-    console.log("[NotificationBell] clicked notification", { table: n.table_name, oid: n.record_oid, hasOnNavigate: !!onNavigate });
     if (!n.is_read) await markRead(n.id);
     setOpen(false);
-    console.log("[NotificationBell] calling onNavigate", n.table_name, n.record_oid);
-    onNavigate?.(n.table_name, n.record_oid);
+
+    // Resolve table_name → form_key (e.g. "requisition" → "POReq")
+    // Fall back to the raw table name if no form is found (hand-rolled pages handle their own keys)
+    let navKey = n.table_name;
+    try {
+      const res = await fetch(`/api/forms/resolve?table=${encodeURIComponent(n.table_name)}`);
+      const data = await res.json();
+      if (data.form_key) navKey = data.form_key;
+    } catch { /* ignore — fall back to table name */ }
+
+    onNavigate?.(navKey, n.record_oid);
   };
 
   return (
