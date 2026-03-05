@@ -59,7 +59,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       .then(data => {
         setUser(data);
         setLoggedIn(true);
-        // Set initial domain from user's domain list
         if (data.domains) {
           const first = data.domains.split(",")[0]?.trim();
           if (first) setDomainState(first);
@@ -92,11 +91,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
-    setUser(EMPTY_USER);
-    setLoggedIn(false);
-    setDomainState("");
-    setFormState("");
-    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    // Don't update state — just clear the cookie and hard-redirect.
+    // If we setLoggedIn(false) first, LoginScreen mounts before the redirect
+    // fires and the SSO auto-redirect wins the race.
+    fetch("/api/auth/logout", { method: "POST" })
+      .catch(() => {})
+      .finally(() => { window.location.href = "/logged-out"; });
   }, []);
 
   const setDomain = useCallback((d: string) => setDomainState(d), []);
