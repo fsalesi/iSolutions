@@ -28,7 +28,8 @@ function Detail({ row, isNew, onChange, colTypes, colScales, requiredFields }: C
   useEffect(() => {
     if (!row.owner) onChange("owner", "SYSTEM");
     if (!row.domain) onChange("domain", "*");
-  }, [row.owner, row.domain, onChange]);
+    if (!row.form)  onChange("form",   "*");
+  }, [row.owner, row.domain, row.form, onChange]);
 
   return (
     <Section title={t("settings.section_general", "General")}>
