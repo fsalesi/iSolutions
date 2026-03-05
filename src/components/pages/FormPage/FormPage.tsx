@@ -17,11 +17,13 @@ import { AddFieldPanel } from "./panels/AddFieldPanel";
 import { FormDetailTabs } from "./FormDetailTabs";
 import { useDesignLayout } from "./useDesignLayout";
 
-export function FormPage({ formKey, apiPath, activeNav, onNavigate }: {
+export function FormPage({ formKey, apiPath, activeNav, onNavigate, selectRecordOid, selectSeq }: {
   formKey: string;
   apiPath: string;
   activeNav: string;
   onNavigate: (k: string, oid?: string) => void;
+  selectRecordOid?: string;
+  selectSeq?: number;
 }) {
   const [meta, setMeta] = useState<FormMeta | null>(null);
   const [error, setError] = useState("");
@@ -220,6 +222,8 @@ export function FormPage({ formKey, apiPath, activeNav, onNavigate }: {
         activeNav={activeNav}
         onNavigate={onNavigate}
         gridId={`${formKey}:${meta.headerTable}`}
+        selectRecordOid={selectRecordOid}
+        selectSeq={selectSeq}
       />
 
       <FieldPropertiesPanel

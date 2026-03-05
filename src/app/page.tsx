@@ -24,12 +24,14 @@ export default function RootPage() {
   const [selectOid, setSelectOid] = useState<string | undefined>();
   const [selectSeq, setSelectSeq] = useState(0);
 
+  const HARD_WIRED = new Set(["pasoe_brokers","locales","settings","groups","entity_designer","translations","users","profile"]);
   const handleNavigate = useCallback((key: string, recordOid?: string) => {
-    setActiveNav(key);
-    sessionStorage.setItem("activeNav", key);
+    const resolved = (!key.startsWith("form:") && !HARD_WIRED.has(key)) ? `form:${key}` : key;
+    setActiveNav(resolved);
+    sessionStorage.setItem("activeNav", resolved);
     setSelectOid(recordOid);
     if (recordOid) setSelectSeq(s => s + 1);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Wait for session check to complete
   if (!ready) return null;
@@ -66,7 +68,7 @@ export default function RootPage() {
     // Three-tier resolution: registry has generated page → fallback to generic FormPage
     const RegisteredPage = formPageRegistry[formKey];
     if (RegisteredPage) {
-      return <RegisteredPage activeNav={activeNav} onNavigate={handleNavigate} />;
+      return <RegisteredPage activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;
     }
     return <FormPage formKey={formKey} apiPath={`/api/forms/${formKey}`} activeNav={activeNav} onNavigate={handleNavigate} />;
   }
