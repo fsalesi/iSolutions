@@ -6,6 +6,7 @@ import { Toggle } from "@/components/ui/Toggle";
 import { Icon } from "@/components/icons/Icon";
 import { IconPicker } from "@/components/ui/IconPicker";
 import type { DesignAction, DbToolbarAction } from "./useToolbarActions";
+import { TranslationsSection } from "@/components/pages/FormPage/panels/TranslationsSection";
 
 const VARIANT_OPTIONS = [
   { value: "default", label: "Default" },
@@ -14,6 +15,11 @@ const VARIANT_OPTIONS = [
 ];
 
 const STANDARD_KEYS = new Set(["save", "new", "delete", "copy"]);
+
+const PANEL_TABS = [
+  { key: "properties", label: "Properties" },
+  { key: "translations", label: "Translations" },
+];
 
 // ─── Main component ────────────────────────────────────────────────────────────
 type Props = {
@@ -40,6 +46,7 @@ export function ToolbarActionPropertiesPanel({
   const [isHidden,  setIsHidden]  = useState<boolean | null>(false);
   const [sortOrder, setSortOrder] = useState("10");
   const [actionKey, setActionKey] = useState("");
+  const [activeTab, setActiveTab] = useState("properties");
   const [saving,    setSaving]    = useState(false);
   const [deleting,  setDeleting]  = useState(false);
   const [error,     setError]     = useState("");
@@ -59,6 +66,7 @@ export function ToolbarActionPropertiesPanel({
       setActionKey(action.key || "");
     }
     setError("");
+    setActiveTab("properties");
   }, [open, action, addMode]);
 
   const handleSave = async () => {
@@ -109,8 +117,15 @@ export function ToolbarActionPropertiesPanel({
   const title = addMode ? "Add Toolbar Button" : `Edit Button: ${action?.label || action?.key}`;
 
   return (
-    <SlidePanel open={open} onClose={onClose} title={title}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "16px 20px" }}>
+    <SlidePanel open={open} onClose={onClose} title={title}
+      tabs={!addMode ? PANEL_TABS : undefined}
+      activeTab={activeTab} onTabChange={setActiveTab}>
+      <div style={{ padding: "16px 20px" }}>
+        {activeTab === "translations" && !addMode && (
+          <TranslationsSection formKey={formKey} layoutKey={action?.key || ""} />
+        )}
+        {(activeTab === "properties" || addMode) && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
         {addMode && (
           <Field label="Action Key">
@@ -177,6 +192,8 @@ export function ToolbarActionPropertiesPanel({
             </button>
           )}
         </div>
+        </div>
+        )}
       </div>
     </SlidePanel>
   );
