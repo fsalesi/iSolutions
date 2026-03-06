@@ -401,6 +401,8 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, onDeleted,
         presetName={props.lookup_preset}
         properties={props}
         onPropertiesChange={updates => setProps(updates)}
+        layoutFields={((layoutEntries || []).filter(l => l.layout_type === "field").map(l => l.layout_key))}
+        formKey={entry.form_key || ""}
       />
     </SlidePanel>
   );
