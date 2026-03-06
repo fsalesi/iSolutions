@@ -15,6 +15,7 @@ import {
 } from "./CrudPanelContext";
 import { CrudToolbar, type CrudAction } from "@/components/crud-toolbar/CrudToolbar";
 import { useToolbarActions, type DesignAction } from "@/components/crud-toolbar/useToolbarActions";
+import { ToolbarActionPropertiesPanel } from "@/components/crud-toolbar/ToolbarActionPropertiesPanel";
 import { Icon } from "@/components/icons/Icon";
 import { AuditPanel } from "@/components/audit-panel/AuditPanel";
 import { NotesPanel } from "@/components/notes-panel/NotesPanel";
@@ -66,10 +67,6 @@ export interface CrudPanelProps {
   onDesignToggle?: () => void;
   /** Form key — used to load/save toolbar action overrides */
   formKey?: string;
-  /** Called when a toolbar button is clicked in design mode */
-  onButtonDesignClick?: (action: DesignAction) => void;
-  /** Called when "Add Button" is clicked in design mode */
-  onAddButton?: () => void;
   /** Extra data merged into save payload (e.g. parent FK) */
   savePayloadExtras?: Record<string, any>;
   /** Custom empty state */
@@ -102,8 +99,6 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
     designMode,
     onDesignToggle,
     formKey,
-    onButtonDesignClick,
-    onAddButton,
     savePayloadExtras,
     renderEmpty,
     className,
@@ -378,6 +373,13 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
   const { visibleActions, allDesignActions, dbActions, setDbActions, reload: reloadToolbar } =
     useToolbarActions(formKey, tableName, baseActionsForHook, allExtraActions);
 
+  // ── Toolbar designer state (owned here so reloadToolbar is accessible) ──
+  const [selectedToolbarAction, setSelectedToolbarAction] = useState<DesignAction | null>(null);
+  const [toolbarAddMode, setToolbarAddMode] = useState(false);
+  const handleButtonDesignClick = (action: DesignAction) => setSelectedToolbarAction(action);
+  const handleAddButton = () => setToolbarAddMode(true);
+  const closeToolbarPanel = () => { setSelectedToolbarAction(null); setToolbarAddMode(false); };
+
   // ── Has record? ──
   const hasRecord = !!(row || isNewProp);
   const showFooter = hasRecord && !isNewProp && !!form.oid;
@@ -402,8 +404,8 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
               designMode={designMode}
               onDesignToggle={onDesignToggle}
               resolvedActions={designMode ? allDesignActions : (formKey ? visibleActions : undefined)}
-              onButtonDesignClick={designMode ? onButtonDesignClick : undefined}
-              onAddButton={designMode ? onAddButton : undefined}
+              onButtonDesignClick={designMode ? handleButtonDesignClick : undefined}
+              onAddButton={designMode ? handleAddButton : undefined}
             />
 
             {error && (
@@ -481,6 +483,18 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
         open={auditOpen}
         onClose={() => setAuditOpen(false)}
       />
+      {formKey && (
+        <ToolbarActionPropertiesPanel
+          action={selectedToolbarAction}
+          open={!!selectedToolbarAction || toolbarAddMode}
+          formKey={formKey}
+          tableName={tableName}
+          addMode={toolbarAddMode}
+          onClose={closeToolbarPanel}
+          onSaved={() => { closeToolbarPanel(); reloadToolbar(); }}
+          onDeleted={() => { closeToolbarPanel(); reloadToolbar(); }}
+        />
+      )}
     </CrudPanelContext.Provider>
   );
 });
