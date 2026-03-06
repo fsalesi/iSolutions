@@ -21,7 +21,7 @@ import bcrypt from "bcryptjs";
 
 /* ── Types ── */
 
-export type ColType = "text" | "number" | "boolean" | "date" | "datetime";
+export type ColType = "text" | "number" | "boolean" | "date" | "datetime" | "image";
 
 export interface TableMeta {
   formKey: string;
@@ -299,7 +299,17 @@ export class CrudRoute {
 
       const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
       const restricted = new Set([...this.restrictedFields, ...this.passwordFields]);
-      const selectCols = meta.allColumns.filter(c => !restricted.has(c)).map(c => `"${c}"`).join(", ");
+      // Image fields (bytea): never send binary over the wire — select a boolean
+      // presence flag instead. transformRow in the generated route converts to URL.
+      const imageFields = new Set(
+        Object.entries(meta.colTypes).filter(([, t]) => t === "image").map(([k]) => k)
+      );
+      const selectCols = meta.allColumns
+        .filter(c => !restricted.has(c))
+        .map(c => imageFields.has(c)
+          ? `(CASE WHEN "${c}" IS NOT NULL THEN true ELSE NULL END) AS "${c}"`
+          : `"${c}"`)
+        .join(", ");
 
       const countR = await db.query(`SELECT COUNT(*)::int AS total FROM "${tableName}" ${where}`, params);
       const total = countR.rows[0].total;

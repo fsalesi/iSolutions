@@ -8,7 +8,7 @@
  *   3. customer/forms/<formKey>/route.ts      — Customer API route shim
  *   4. customer/forms/<formKey>/Page.tsx       — Customer page shim
  */
-import { existsSync, mkdirSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
 /* ── Helpers ── */
@@ -42,7 +42,8 @@ function productRouteTemplate(
     ? `
   async transformRow(row: Record<string, any>, meta: TableMeta): Promise<Record<string, any>> {
     const out = { ...row };
-${imageFields.map(f => `    if (out["${f}"] != null) out["${f}"] = \`/api/forms/${formKey}/image?field=${f}&oid=\${out.oid}\`;`).join("\n")}
+${imageFields.map(f => `    // CrudRoute SELECTs image fields as a boolean presence flag (true = has data, null = empty)
+    out["${f}"] = out["${f}"] === true ? \`/api/blob?table=\${meta.tableName}&field=${f}&oid=\${out.oid}\` : null;`).join("\n")}
     return out;
   }
 `
@@ -249,6 +250,31 @@ export function generateFormFiles(formKey: string, _formName: string, special: S
       mkdirSync(join(fullPath, ".."), { recursive: true });
       writeFileSync(fullPath, file.content, "utf-8");
       created.push(file.path);
+    }
+  }
+
+  // ── Patch /api/blob/route.ts ALLOWED set for any image fields ─────────────
+  if (special.imageFields.length > 0) {
+    const blobRoutePath = join(projectRoot, "src", "app", "api", "blob", "route.ts");
+    if (existsSync(blobRoutePath)) {
+      let blobRoute = readFileSync(blobRoutePath, "utf-8");
+      let changed = false;
+      for (const field of special.imageFields) {
+        const entry = `"${formKey}.${field}"`;
+        if (!blobRoute.includes(entry)) {
+          // Insert the new entry just before the closing comment/bracket line
+          blobRoute = blobRoute.replace(
+            "  // add future bytea fields here",
+            `  ${entry},
+  // add future bytea fields here`
+          );
+          changed = true;
+        }
+      }
+      if (changed) {
+        writeFileSync(blobRoutePath, blobRoute, "utf-8");
+        created.push("src/app/api/blob/route.ts (ALLOWED patched)");
+      }
     }
   }
 

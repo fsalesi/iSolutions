@@ -3,7 +3,7 @@
  * Used by all API routes that support the nested AND/OR filter tree.
  */
 
-type ColType = "text" | "number" | "boolean" | "date" | "datetime";
+type ColType = "text" | "number" | "boolean" | "date" | "datetime" | "image";
 
 type FilterCondition = {
   type: "condition"; field: string; operator: string; value: string; value2?: string;

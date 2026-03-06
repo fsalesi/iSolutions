@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import type { LookupConfig } from "./LookupTypes";
 import { ddColKey, ddColType } from "./LookupTypes";
 import { Flag } from "@/components/ui/Flag";
@@ -86,6 +87,7 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const dragIdx = useRef<number>(-1);
   const chipRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -292,7 +294,9 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
   useEffect(() => {
     if (!open) return;
     function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const inContainer = containerRef.current?.contains(e.target as Node);
+      const inDropdown = dropdownRef.current?.contains(e.target as Node);
+      if (!inContainer && !inDropdown) {
         setOpen(false);
         setSearch("");
       }
@@ -533,9 +537,10 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
           )}
         </div>
 
-        {/* Dropdown */}
-        {open && displayResults.length > 0 && dropdownPos && (
+        {/* Dropdown — rendered in a portal so position:fixed escapes any CSS transform ancestor (e.g. SlidePanel) */}
+        {open && displayResults.length > 0 && dropdownPos && createPortal(
           <div
+            ref={dropdownRef}
             style={{
               position: "fixed",
               left: dropdownPos.left,
@@ -612,10 +617,10 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
               </div>
             )}
           </div>
-        )}
+        , document.body)}
 
-        {/* Empty state */}
-        {open && search.length >= minChars && displayResults.length === 0 && !loading && dropdownPos && (
+        {/* Empty state — also portalled */}
+        {open && search.length >= minChars && displayResults.length === 0 && !loading && dropdownPos && createPortal(
           <div
             style={{
               position: "fixed",
@@ -637,7 +642,7 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
           >
             No results found
           </div>
-        )}
+        , document.body)}
       </div>
 
       {/* Browse modal */}
