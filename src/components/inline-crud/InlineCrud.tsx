@@ -103,6 +103,7 @@ export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, 
         open={panelOpen}
         onClose={link.onDeleted}
         title={link.isNew ? "New Record" : "Edit Record"}
+        storageKey={formKey ? `${formKey}:${table}` : undefined}
       >
         {panelOpen && (
           <CrudPanel

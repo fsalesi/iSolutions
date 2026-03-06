@@ -3,8 +3,10 @@
  * SlidePanel — right-edge overlay drawer.
  * Auto-sizes width to fit toolbar content (never clips buttons).
  * Falls back to minWidth when content is narrower.
+ * If storageKey is provided, the user can drag the left edge to resize
+ * and the width is persisted to localStorage under that key.
  */
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useCallback, type ReactNode } from "react";
 
 interface TabDef { key: string; label: string; }
 
@@ -20,11 +22,25 @@ interface SlidePanelProps {
   tabs?: TabDef[];
   activeTab?: string;
   onTabChange?: (key: string) => void;
+  /** If provided, enables drag-to-resize and persists width to localStorage under this key */
+  storageKey?: string;
 }
 
-export function SlidePanel({ open, onClose, title, minWidth = 480, children, footer, tabs, activeTab, onTabChange }: SlidePanelProps) {
+export function SlidePanel({ open, onClose, title, minWidth = 480, children, footer, tabs, activeTab, onTabChange, storageKey }: SlidePanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [contentWidth, setContentWidth] = useState(0);
+  const [savedWidth, setSavedWidth] = useState<number | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<{ x: number; width: number } | null>(null);
+
+  // Load persisted width from localStorage on mount
+  useEffect(() => {
+    if (!storageKey) return;
+    try {
+      const stored = localStorage.getItem(`slidePanel:${storageKey}`);
+      if (stored) setSavedWidth(Number(stored));
+    } catch {}
+  }, [storageKey]);
 
   // Close on Escape
   useEffect(() => {
@@ -41,7 +57,6 @@ export function SlidePanel({ open, onClose, title, minWidth = 480, children, foo
     const measure = () => {
       const panel = panelRef.current;
       if (!panel) return;
-      // Find any flex-wrap toolbar and temporarily unwrap to measure
       const toolbars = panel.querySelectorAll<HTMLElement>(".flex-wrap");
       let maxW = 0;
       toolbars.forEach(tb => {
@@ -53,15 +68,48 @@ export function SlidePanel({ open, onClose, title, minWidth = 480, children, foo
       setContentWidth(maxW);
     };
 
-    // Measure after paint
     const frame = requestAnimationFrame(measure);
     return () => cancelAnimationFrame(frame);
   }, [open]);
 
-  const resolvedWidth = Math.min(
-    Math.max(minWidth, contentWidth + 40), // +40 for panel chrome (padding/border)
-    typeof window !== "undefined" ? window.innerWidth * 0.9 : 900
-  );
+  const maxWidth = typeof window !== "undefined" ? window.innerWidth * 0.9 : 900;
+  const autoWidth = Math.min(Math.max(minWidth, contentWidth + 40), maxWidth);
+  const resolvedWidth = savedWidth !== null ? Math.min(Math.max(minWidth, savedWidth), maxWidth) : autoWidth;
+
+  // Drag-to-resize
+  const onDragMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!storageKey || !panelRef.current) return;
+    e.preventDefault();
+    dragStart.current = { x: e.clientX, width: panelRef.current.offsetWidth };
+    setDragging(true);
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!dragging) return;
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!dragStart.current) return;
+      const delta = dragStart.current.x - e.clientX; // dragging left = wider
+      const newWidth = Math.min(Math.max(minWidth, dragStart.current.width + delta), maxWidth);
+      setSavedWidth(newWidth);
+    };
+
+    const onMouseUp = (e: MouseEvent) => {
+      if (!dragStart.current || !storageKey) return;
+      const delta = dragStart.current.x - e.clientX;
+      const newWidth = Math.min(Math.max(minWidth, dragStart.current.width + delta), maxWidth);
+      try { localStorage.setItem(`slidePanel:${storageKey}`, String(newWidth)); } catch {}
+      dragStart.current = null;
+      setDragging(false);
+    };
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [dragging, minWidth, maxWidth, storageKey]);
 
   return (
     <>
@@ -88,10 +136,25 @@ export function SlidePanel({ open, onClose, title, minWidth = 480, children, foo
           borderLeft: "1px solid var(--border)",
           boxShadow: "-4px 0 24px rgba(0,0,0,0.12)",
           transform: open ? "translateX(0)" : "translateX(100%)",
-          transition: "transform 250ms cubic-bezier(0.4,0,0.2,1), width 200ms ease",
+          transition: dragging ? "none" : "transform 250ms cubic-bezier(0.4,0,0.2,1), width 200ms ease",
           display: "flex", flexDirection: "column",
         }}
       >
+        {/* Drag handle — only shown when storageKey is set */}
+        {storageKey && (
+          <div
+            onMouseDown={onDragMouseDown}
+            style={{
+              position: "absolute", top: 0, left: 0, bottom: 0, width: 6,
+              cursor: "ew-resize",
+              zIndex: 10,
+              background: dragging ? "var(--accent)" : "transparent",
+              transition: "background 150ms ease",
+            }}
+            title="Drag to resize"
+          />
+        )}
+
         {/* Header */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -106,7 +169,7 @@ export function SlidePanel({ open, onClose, title, minWidth = 480, children, foo
             className="text-lg"
             style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer", padding: 4, lineHeight: 1 }}
           >
-            ✕
+            ×
           </button>
         </div>
 
@@ -148,6 +211,11 @@ export function SlidePanel({ open, onClose, title, minWidth = 480, children, foo
           </div>
         )}
       </div>
+
+      {/* Full-screen drag overlay prevents text selection / iframe stealing during resize */}
+      {dragging && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, cursor: "ew-resize" }} />
+      )}
     </>
   );
 }
