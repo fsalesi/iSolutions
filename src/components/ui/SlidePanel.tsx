@@ -84,7 +84,7 @@ export function SlidePanel({ open, onClose, title, minWidth = 480, children, foo
           position: "fixed", top: 0, right: 0, bottom: 0, zIndex: 51,
           width: resolvedWidth,
           maxWidth: "90vw",
-          background: "var(--bg-body)",
+          background: "var(--bg-surface)",
           borderLeft: "1px solid var(--border)",
           boxShadow: "-4px 0 24px rgba(0,0,0,0.12)",
           transform: open ? "translateX(0)" : "translateX(100%)",
