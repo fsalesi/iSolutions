@@ -17,17 +17,18 @@ const ALL_LOCALES = Object.keys(LOCALE_NAMES);
  * Saves each translation independently on blur.
  * Designed to live inside a dedicated "Translations" tab in a SlidePanel.
  */
-export function TranslationsSection({ formKey, layoutKey }: {
+export function TranslationsSection({ formKey, layoutKey, namespace: namespaceProp }: {
   formKey: string;
   layoutKey: string;
+  namespace?: string;
 }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
 
-  const namespace = `form.${formKey}`;
+  const namespace = namespaceProp ?? `form.${formKey}`;
 
   useEffect(() => {
-    if (!formKey || !layoutKey) return;
+    if (!layoutKey || !namespace) return;
     fetch(`/api/translations/inline?namespace=${encodeURIComponent(namespace)}&key=${encodeURIComponent(layoutKey)}`)
       .then(r => r.json())
       .then(data => setValues(data || {}))

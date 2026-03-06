@@ -14,7 +14,7 @@ const VARIANT_OPTIONS = [
   { value: "danger",  label: "Danger (red)" },
 ];
 
-const STANDARD_KEYS = new Set(["save", "new", "delete", "copy"]);
+const STANDARD_KEYS = new Set(["save", "new", "delete", "copy", "audit", "notes"]);
 
 const PANEL_TABS = [
   { key: "properties", label: "Properties" },
@@ -122,7 +122,11 @@ export function ToolbarActionPropertiesPanel({
       activeTab={activeTab} onTabChange={setActiveTab}>
       <div style={{ padding: "16px 20px" }}>
         {activeTab === "translations" && !addMode && (
-          <TranslationsSection formKey={formKey} layoutKey={action?.key || ""} />
+          <TranslationsSection
+            formKey={formKey}
+            layoutKey={action?.key || ""}
+            namespace={action && STANDARD_KEYS.has(action.key) ? "crud" : undefined}
+          />
         )}
         {(activeTab === "properties" || addMode) && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
