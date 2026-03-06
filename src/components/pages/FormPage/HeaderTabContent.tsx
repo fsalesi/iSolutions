@@ -61,9 +61,9 @@ function assignPositions(entries: LayoutEntry[], cols: number): LayoutEntry[] {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function HeaderTabContent({
-  apiPath, tableName, tabKey, layout, row, onChange, isNew,
+  apiPath, tableName, tabKey, layout, row, onChange,
   designMode, onFieldClick, onSectionClick, onSectionAdded,
-  onFieldMoved, onElementDropped, onDesignToggle, formKey, buttonHandlers,
+  onFieldMoved, onElementDropped, formKey, buttonHandlers,
 }: {
   apiPath: string;
   tableName: string;
@@ -74,13 +74,11 @@ export function HeaderTabContent({
   onSectionClick?: (entry: LayoutEntry) => void;
   onSectionAdded?: (entry: LayoutEntry) => void;
   onFieldMoved?: (oid: string, targetSection: string, targetRow: number, targetCol: number) => void;
-  onElementDropped?: (data: any, targetSection: string, targetRow: number, targetCol: number) => void;
-  onDesignToggle?: () => void;
+  onElementDropped?: (data: unknown, targetSection: string, targetRow: number, targetCol: number) => void;
   formKey?: string;
   buttonHandlers?: Record<string, (ctx: ButtonHandlerContext) => void | Promise<void>>;
   row: Row;
-  onChange: (field: keyof Row, value: any) => void;
-  isNew: boolean;
+  onChange: (field: string, value: unknown) => void;
 }) {
   const t = useT();
   const [draggedOid, setDraggedOid] = useState<string | null>(null);
@@ -232,7 +230,7 @@ export function HeaderTabContent({
                           columns={layout
                             .filter(l => l.layout_type === "grid_column" && l.table_name === childTable)
                             .sort((a, b) => a.sort_order - b.sort_order)
-                            .map(gc => ({ key: gc.layout_key, label: gc.properties?.label })) as ColumnDef<any>[]}
+                            .map(gc => ({ key: gc.layout_key, label: gc.properties?.label })) as ColumnDef<Row>[]}
                           parentFilter={{ parentOid: row.oid, domain: row.domain }}
                           saveExtras={{ domain: row.domain, [`oid_${tableName}`]: row.oid }}
                           label={entry.properties?.show_label === false ? undefined : (entry.properties?.label || childTable)}

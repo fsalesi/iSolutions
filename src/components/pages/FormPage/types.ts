@@ -12,6 +12,11 @@ export interface LayoutEntry {
   properties: Record<string, any>;
 }
 
+export interface FormStructure {
+  tables: TableInfo[];
+  headerTable: string;
+}
+
 export interface TableInfo {
   table_name: string;
   is_header: boolean;
@@ -25,6 +30,7 @@ export interface FormField {
   data_type: string;
   table_name: string;
   is_nullable: boolean;
+  scale?: number;
 }
 
 export interface FormMeta {
