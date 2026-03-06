@@ -36,6 +36,7 @@ export function FormDetailTabs({ apiPath, meta, headerTabs, row, isNew, onChange
   const tabs = headerTabs.map(tab => ({
     key: tab.layout_key,
     label: t(`form.${formKey}.${tab.layout_key}`, tab.properties?.label || tab.layout_key),
+    icon: tab.properties?.icon ? <Icon name={tab.properties.icon} size={14} /> : undefined,
   }));
 
   const showDesignIcon = !!user?.isAdmin && !!onDesignToggle;

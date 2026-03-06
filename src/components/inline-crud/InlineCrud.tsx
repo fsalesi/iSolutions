@@ -156,6 +156,7 @@ export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, 
   const tabList = layoutTabs.map(t => ({
     key: t.layout_key,
     label: t.properties?.label || humanize(t.layout_key),
+    icon: t.properties?.icon || "",
   }));
 
   const layoutRenderBody = (props: CrudPanelBodyProps) => {
@@ -191,7 +192,7 @@ export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, 
             {tabList.map(tab => (
               <button key={tab.key}
                 onClick={() => setActiveTabKey(tab.key)}
-                className="flex items-center px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors"
                 style={{
                   borderBottom: `2px solid ${effectiveTabKey === tab.key ? "var(--accent)" : "transparent"}`,
                   color: effectiveTabKey === tab.key ? "var(--accent)" : "var(--text-secondary)",
@@ -201,6 +202,7 @@ export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, 
                   if (entry) design.setSelectedTab(entry);
                 } : undefined}
               >
+                {tab.icon && <Icon name={tab.icon} size={14} />}
                 {tab.label}
               </button>
             ))}
