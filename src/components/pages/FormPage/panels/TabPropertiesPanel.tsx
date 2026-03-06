@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { Field, Input } from "@/components/ui";
+import { IconPicker } from "@/components/ui/IconPicker";
 import { SlidePanel } from "@/components/ui/SlidePanel";
 import type { LayoutEntry } from "../types";
 import { TranslationsSection } from "./TranslationsSection";
@@ -19,6 +20,7 @@ export function TabPropertiesPanel({ entry, open, onClose, onSaved, onDeleted, t
 }) {
   const [activeTab, setActiveTab] = useState("properties");
   const [label, setLabel] = useState("");
+  const [icon, setIcon] = useState("");
   const [sortOrder, setSortOrder] = useState(0);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -27,6 +29,7 @@ export function TabPropertiesPanel({ entry, open, onClose, onSaved, onDeleted, t
   useEffect(() => {
     if (entry) {
       setLabel(entry.properties?.label || "");
+      setIcon(entry.properties?.icon || "");
       setSortOrder(entry.sort_order);
       setActiveTab("properties");
     }
@@ -39,11 +42,11 @@ export function TabPropertiesPanel({ entry, open, onClose, onSaved, onDeleted, t
       const res = await fetch("/api/form_layout?table=form_layout", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ oid: entry.oid, _table: "form_layout", properties: { ...entry.properties, label }, sort_order: sortOrder }),
+        body: JSON.stringify({ oid: entry.oid, _table: "form_layout", properties: { ...entry.properties, label, icon }, sort_order: sortOrder }),
       });
       if (!res.ok) { const d = await res.json(); setError(d.error || "Save failed"); return; }
       const saved = await res.json();
-      onSaved({ ...entry, properties: saved.properties || { ...entry.properties, label }, sort_order: sortOrder });
+      onSaved({ ...entry, properties: saved.properties || { ...entry.properties, label, icon }, sort_order: sortOrder });
     } catch (e: any) { setError(e.message); }
     finally { setSaving(false); }
   };
@@ -87,6 +90,9 @@ export function TabPropertiesPanel({ entry, open, onClose, onSaved, onDeleted, t
           <>
             <Field label="Label">
               <Input value={label} onChange={setLabel} />
+            </Field>
+            <Field label="Icon">
+              <IconPicker value={icon} onChange={setIcon} />
             </Field>
             <Field label="Sort Order">
               <Input type="number" value={String(sortOrder)} onChange={v => setSortOrder(parseInt(v) || 0)} />
