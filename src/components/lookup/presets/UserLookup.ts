@@ -13,3 +13,7 @@ export const UserLookup = (overrides?: Partial<LookupConfig>): LookupConfig => (
   placeholder: "Search users...",
   ...overrides,
 });
+
+/** Filtered to active users only. Use for supervisor, delegate, buyer, etc. */
+export const ActiveUserLookup = (overrides?: Partial<LookupConfig>): LookupConfig =>
+  UserLookup({ baseFilters: { is_active: true }, placeholder: "Search active users...", ...overrides });

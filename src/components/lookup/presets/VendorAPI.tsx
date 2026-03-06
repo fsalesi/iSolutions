@@ -1,12 +1,11 @@
 import type { LookupConfig } from "../LookupTypes";
 
 /**
- * Vendor (Supplier) lookup — calls QAD via PASOE.
- *
- * Uses fetchFn to hit /api/qad/vendors which proxies to besupplier.p.
- * Domain comes from session context — pass it in overrides.
+ * VendorAPI — internal implementation for vendor lookup via QAD/PASOE.
+ * Contains fetchFn, renderRow and other non-serializable config.
+ * Use VendorLookup (the thin wrapper) for designer-facing usage.
  */
-export const VendorLookup = (overrides: Partial<LookupConfig> & { domain: string }): LookupConfig => {
+export const VendorAPI = (overrides: Partial<LookupConfig> & { domain: string }): LookupConfig => {
   const { domain, ...rest } = overrides;
 
   return {

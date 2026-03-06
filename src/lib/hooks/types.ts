@@ -43,4 +43,6 @@ export interface CrudHooks {
   afterSave?: (body: Record<string, any>, ctx: HookContext) => Promise<void>;
   /** Runs before DELETE. Throw ValidationError to reject. */
   beforeDelete?: (oid: string, ctx: Omit<HookContext, "isNew">) => Promise<void>;
+  /** Runs after GET list query — enrich rows with virtual fields. */
+  transformRows?: (rows: Record<string, any>[], db: Pool) => Promise<Record<string, any>[]>;
 }

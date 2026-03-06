@@ -22,7 +22,8 @@ async function defaultFetch(apiPath: string, params: { search: string; limit: nu
     const tree = { type: "group" as const, logic: "and" as const, children: Object.entries(baseFilters).map(([field, value]) => ({ type: "condition" as const, field, operator: "eq", value: String(value) })) };
     qs.set("filters", JSON.stringify(tree));
   }
-  const res = await fetch(`${apiPath}?${qs}`);
+  const sep = apiPath.includes("?") ? "&" : "?";
+  const res = await fetch(`${apiPath}${sep}${qs}`);
   if (!res.ok) return { rows: [], total: 0 };
   return res.json() as Promise<{ rows: any[]; total: number }>;
 }
@@ -35,6 +36,7 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
     valueField,
     displayField,
     displayFormat,
+    displayTemplate,
     dropdownLimit = 10,
     dropdownColumns,
     preload = false,
@@ -163,6 +165,7 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
 
   function formatDisplay(record: any): string {
     if (displayFormat) return displayFormat(record);
+    if (displayTemplate) return displayTemplate.replace(/\{(\w+)\}/g, (_, k) => String(record[k] ?? ""));
     const v = record[valueField];
     const d = record[displayField];
     if (valueField === displayField || !d) return String(v ?? "");

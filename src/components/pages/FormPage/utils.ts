@@ -11,6 +11,7 @@ export const RENDERER_OPTIONS = [
   { value: "datetime", label: "Date/Time" },
   { value: "checkbox", label: "Checkbox" },
   { value: "select", label: "Select" },
+  { value: "lookup", label: "Lookup" },
   { value: "readonly", label: "Read-only" },
 ];
 

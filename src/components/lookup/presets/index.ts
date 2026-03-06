@@ -1,6 +1,6 @@
 export { LocaleLookup } from "./LocaleLookup";
-export { UserLookup } from "./UserLookup";
-export { ActiveUserLookup } from "./ActiveUserLookup";
+export { UserLookup, ActiveUserLookup } from "./UserLookup";
 export { DomainLookup } from "./DomainLookup";
-export { GroupLookup } from "./GroupLookup";
+export { GroupLookup, ActiveGroupLookup } from "./GroupLookup";
+export { VendorAPI } from "./VendorAPI";
 export { VendorLookup } from "./VendorLookup";

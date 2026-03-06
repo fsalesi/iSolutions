@@ -5,6 +5,8 @@ import { SlidePanel } from "@/components/ui/SlidePanel";
 import type { LayoutEntry } from "../types";
 import { RENDERER_OPTIONS, MANDATORY_OPTIONS, READONLY_OPTIONS } from "../utils";
 import { TranslationsSection } from "./TranslationsSection";
+import { LookupPropertiesPanel } from "./LookupPropertiesPanel";
+import * as LookupPresets from "@/components/lookup/presets";
 
 const PANEL_TABS = [
   { key: "properties", label: "Properties" },
@@ -24,6 +26,7 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, 
   const [sortOrder, setSortOrder] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [lookupPanelOpen, setLookupPanelOpen] = useState(false);
 
   useEffect(() => {
     if (entry) {
@@ -85,6 +88,33 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, 
             <Field label="Renderer">
               <Select value={props.renderer ?? "text"} onChange={v => setProp("renderer", v)} options={RENDERER_OPTIONS} />
             </Field>
+
+            {props.renderer === "lookup" && (
+              <Field label="Lookup">
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Select
+                    value={props.lookup_preset ?? ""}
+                    onChange={v => setProp("lookup_preset", v)}
+                    options={[
+                      { value: "", label: "— Select preset —" },
+                      ...Object.keys(LookupPresets)
+                        .filter(k => k.endsWith("Lookup"))
+                        .map(k => ({ value: k, label: k })),
+                    ]}
+                  />
+                  <button
+                    onClick={() => setLookupPanelOpen(true)}
+                    title="Configure lookup properties"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                      width: 38, height: 38, borderRadius: 6,
+                      background: "var(--bg-muted)", border: "1px solid var(--border)", color: "var(--text-secondary)",
+                      cursor: "pointer" }}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                  </button>
+                </div>
+              </Field>
+            )}
             <Field label="Column Span">
               <Select value={String(props.col_span ?? "1")} onChange={v => setProp("col_span", parseInt(v) || 1)}
                 options={Array.from({ length: sectionColumns || 2 }, (_, i) => ({
@@ -147,6 +177,13 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, 
           <TranslationsSection formKey={entry.form_key || ""} layoutKey={entry.layout_key} />
         )}
       </div>
+      <LookupPropertiesPanel
+        open={lookupPanelOpen}
+        onClose={() => setLookupPanelOpen(false)}
+        presetName={props.lookup_preset}
+        properties={props}
+        onPropertiesChange={updates => setProps(updates)}
+      />
     </SlidePanel>
   );
 }

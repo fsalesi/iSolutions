@@ -48,6 +48,12 @@ function mergeHooks(a?: CrudHooks, b?: CrudHooks): CrudHooks | undefined {
       if (a.beforeDelete) await a.beforeDelete(oid, ctx);
       if (b.beforeDelete) await b.beforeDelete(oid, ctx);
     } : undefined,
+
+    transformRows: (a.transformRows || b.transformRows) ? async (rows, db) => {
+      if (a.transformRows) rows = await a.transformRows(rows, db);
+      if (b.transformRows) rows = await b.transformRows(rows, db);
+      return rows;
+    } : undefined,
   };
 }
 

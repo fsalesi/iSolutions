@@ -41,6 +41,9 @@ export interface LookupConfig {
   /** Optional: custom display formatter (text only) */
   displayFormat?: (record: any) => string;
 
+  /** Optional: template string for display, e.g. "{group_id} - {description}". Serializable alternative to displayFormat. */
+  displayTemplate?: string;
+
   /** Optional: custom row renderer for dropdown (JSX — shows flag, icon, etc.) */
   renderRow?: (record: any) => ReactNode;
 

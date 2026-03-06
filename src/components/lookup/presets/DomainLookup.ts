@@ -1,24 +1,11 @@
 import type { LookupConfig } from "../LookupTypes";
 
 /**
- * Domain lookup — preloaded from ALLOWED_DOMAINS system setting. Single-select by default.
+ * Domain lookup — reads the ALLOWED_DOMAINS system setting via /api/settings/list.
+ * Single-select by default, preloaded on mount.
  */
 export const DomainLookup = (overrides?: Partial<LookupConfig>): LookupConfig => ({
-  fetchFn: async ({ search }) => {
-    const res = await fetch("/api/settings/value?name=ALLOWED_DOMAINS");
-    const data = await res.json();
-    const raw: string = data.value || "";
-    let rows = raw
-      .split(",")
-      .map((s: string) => s.trim())
-      .filter(Boolean)
-      .map((code: string) => ({ code }));
-    if (search) {
-      const lower = search.toLowerCase();
-      rows = rows.filter((r: { code: string }) => r.code.toLowerCase().includes(lower));
-    }
-    return { rows, total: rows.length };
-  },
+  apiPath: "/api/settings/list?name=ALLOWED_DOMAINS",
   valueField: "code",
   displayField: "code",
   multiple: false,

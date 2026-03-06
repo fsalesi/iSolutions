@@ -117,6 +117,7 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
   async function GET(req: NextRequest) {
     try {
       requireAuth(req);
+      const hooks = getHooks(cfg.table);
       const url = req.nextUrl;
       const offset = Math.max(0, parseInt(url.searchParams.get("offset") || "0"));
       const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get("limit") || "50")));
@@ -159,7 +160,9 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
         [...params, limit, offset]
       );
 
-      return NextResponse.json({ rows: dataR.rows, total, offset, limit, requiredFields: cfg.requiredFields || [], searchColumns: cfg.searchColumns || [] });
+      let rows = dataR.rows;
+      if (hooks?.transformRows) rows = await hooks.transformRows(rows, db);
+      return NextResponse.json({ rows, total, offset, limit, requiredFields: cfg.requiredFields || [], searchColumns: cfg.searchColumns || [] });
     } catch (err: any) {
       if (err instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
       console.error(`GET /api/${cfg.table} error:`, err);
@@ -205,7 +208,8 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
         await hooks.afterSave(body, { db, isNew: true, oid: res.rows[0].oid, table: cfg.table });
       }
 
-      return NextResponse.json(res.rows[0], { status: 201 });
+      const [postRow] = hooks?.transformRows ? await hooks.transformRows([res.rows[0]], db) : [res.rows[0]];
+      return NextResponse.json(postRow, { status: 201 });
     } catch (e: any) {
       if (e instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
       if (e instanceof ValidationError) {
@@ -267,7 +271,8 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
         await hooks.afterSave(body, { db, isNew: false, oid, table: cfg.table });
       }
 
-      return NextResponse.json(res.rows[0]);
+      const [putRow] = hooks?.transformRows ? await hooks.transformRows([res.rows[0]], db) : [res.rows[0]];
+      return NextResponse.json(putRow);
     } catch (e: any) {
       if (e instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
       if (e instanceof ValidationError) {

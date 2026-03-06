@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo } from "react";
 import { SplitCrudPage } from "./SplitCrudPage";
 import type { ColumnDef } from "@/components/data-grid/DataGrid";
 import type { CrudAction } from "@/components/crud-toolbar/CrudToolbar";
@@ -9,82 +9,11 @@ import { Section, TabBar, type TabDef } from "@/components/ui";
 import { useT } from "@/context/TranslationContext";
 import { useSession } from "@/context/SessionContext";
 import { useFieldHelper } from "@/components/ui/useFieldHelper";
-import { LocaleLookup, ActiveUserLookup, DomainLookup, GroupLookup, VendorLookup } from "@/components/lookup/presets";
-import { Lookup } from "@/components/lookup/Lookup";
+import { LocaleLookup, ActiveUserLookup, DomainLookup, ActiveGroupLookup, VendorLookup } from "@/components/lookup/presets";
 import { Icon } from "@/components/icons/Icon";
 
 type User = { oid: string; [key: string]: any };
 
-/* ── User Groups field (reads/writes group_members table) ── */
-function UserGroupsField({ userId }: { userId: string }) {
-  const t = useT();
-  const [value, setValue] = useState("");
-  const [memberMap, setMemberMap] = useState<Map<string, string>>(new Map()); // group_id → oid
-  const loadedRef = useRef(false);
-
-  // Load once on mount
-  useEffect(() => {
-    if (!userId || loadedRef.current) return;
-    loadedRef.current = true;
-    const filters = JSON.stringify({ type: "group", logic: "and", children: [{ type: "condition", field: "member_id", operator: "eq", value: userId }] });
-    fetch(`/api/group_members?filters=${encodeURIComponent(filters)}&limit=1000`)
-      .then(r => r.json())
-      .then(data => {
-        const rows = data.rows || [];
-        const map = new Map<string, string>();
-        rows.forEach((r: any) => map.set(r.group_id.toLowerCase(), r.oid));
-        setMemberMap(map);
-        setValue(rows.map((r: any) => r.group_id).join(","));
-      })
-      .catch(() => {});
-  }, [userId]);
-
-  const handleChange = useCallback((newVal: string) => {
-    const prev = new Set(value.split(",").filter(Boolean).map(s => s.toLowerCase()));
-    const next = new Set(newVal.split(",").filter(Boolean).map(s => s.toLowerCase()));
-    const nextRaw = newVal.split(",").filter(Boolean);
-
-    // Added
-    for (const g of nextRaw) {
-      if (!prev.has(g.toLowerCase())) {
-        const tempOid = "temp-" + Date.now() + "-" + g;
-        setMemberMap(m => new Map(m).set(g.toLowerCase(), tempOid));
-        fetch("/api/group_members", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ group_id: g, member_id: userId }),
-        })
-          .then(r => r.json())
-          .then(saved => setMemberMap(m => { const n = new Map(m); if (n.get(g.toLowerCase())?.startsWith("temp-")) n.set(g.toLowerCase(), saved.oid); return n; }))
-          .catch(() => {});
-      }
-    }
-
-    // Removed
-    for (const g of prev) {
-      if (!next.has(g)) {
-        const oid = memberMap.get(g);
-        if (oid) {
-          setMemberMap(m => { const n = new Map(m); n.delete(g); return n; });
-          fetch(`/api/group_members?oid=${oid}`, { method: "DELETE" }).catch(() => {});
-        }
-      }
-    }
-
-    setValue(newVal);
-  }, [value, memberMap, userId]);
-
-  const config = useMemo(() => GroupLookup({ multiple: true, placeholder: t("users.search_groups", "Search groups...") }), [t]);
-
-  return (
-    <div>
-      <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
-        {t("users.groups", "Groups")}
-      </label>
-      <Lookup value={value} onChange={handleChange} config={config} />
-    </div>
-  );
-}
 
 function ProfileTab({ user, onChange, isNew, colTypes, colScales, requiredFields }: {
   user: Record<string, any>; onChange: (f: string, v: any) => void; isNew: boolean;
@@ -110,7 +39,7 @@ function ProfileTab({ user, onChange, isNew, colTypes, colScales, requiredFields
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 mt-4">
           {field("domains", { type: "lookup", lookup: DomainLookup({ multiple: true }) })}
-          {!isNew && <UserGroupsField userId={user.user_id} />}
+          {!isNew && field("groups", { type: "lookup", lookup: ActiveGroupLookup({ multiple: true, placeholder: t("users.search_groups", "Search groups...") }) })}
         </div>
       </Section>
       <Section title={t("users.section_contact", "Contact")}>
