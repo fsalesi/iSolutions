@@ -5,6 +5,7 @@
  */
 import { FormPage } from "@/components/pages/FormPage";
 import type { ButtonHandlerContext } from "@/components/crud-toolbar/types";
+import type { LookupHandlers } from "@/components/pages/FormPage";
 
 interface Props {
   activeNav: string;
@@ -25,12 +26,16 @@ export const buttonHandlers: Record<string, (ctx: ButtonHandlerContext) => void 
 
 };
 
+export const lookupHandlers: LookupHandlers = {
+};
+
 export default function POReqPage({ activeNav, onNavigate, selectRecordOid, selectSeq }: Props) {
   return (
     <FormPage
       formKey="POReq"
       apiPath="/api/forms/POReq"
       buttonHandlers={buttonHandlers}
+      lookupHandlers={lookupHandlers}
       activeNav={activeNav}
       onNavigate={onNavigate}
       selectRecordOid={selectRecordOid}

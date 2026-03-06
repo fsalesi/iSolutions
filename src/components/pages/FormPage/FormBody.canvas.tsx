@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import type { LayoutEntry, Row } from "./types";
+import type { LayoutEntry, Row, FieldChangeOptions, LookupHandlers } from "./types";
 import { humanize } from "./utils";
 import { Icon } from "@/components/icons/Icon";
 import { HeaderTabContent } from "./HeaderTabContent";
@@ -14,7 +14,9 @@ export interface FormBodyCanvasProps {
   tableName: string;
   layout: LayoutEntry[];
   row: Row;
-  onChange: (field: string, value: unknown) => void;
+  rowVersion: number;
+  onChange: (field: string, value: unknown, options?: FieldChangeOptions) => void;
+  lookupHandlers?: LookupHandlers;
   keyFields?: string[];
   designMode?: boolean;
   onFieldClick?: (entry: LayoutEntry) => void;
@@ -36,7 +38,9 @@ export function FormBodyCanvas({
   tableName,
   layout,
   row,
+  rowVersion,
   onChange,
+  lookupHandlers,
   keyFields,
   designMode,
   onFieldClick,
@@ -133,7 +137,9 @@ export function FormBodyCanvas({
           tabKey={effectiveTabKey}
           layout={layout}
           row={row}
+          rowVersion={rowVersion}
           onChange={onChange}
+          lookupHandlers={lookupHandlers}
           keyFields={keyFields}
           designMode={designMode}
           onFieldClick={onFieldClick}

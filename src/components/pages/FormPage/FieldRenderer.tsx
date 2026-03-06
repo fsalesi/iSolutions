@@ -205,6 +205,8 @@ export function FieldRenderer({
   recordOid,
   tableName,
   row,
+  rowVersion,
+  onLookupResolved,
 }: {
   renderer: string;
   value: any;
@@ -215,6 +217,8 @@ export function FieldRenderer({
   recordOid?: string;
   tableName?: string;
   row?: Record<string, any>;
+  rowVersion?: number;
+  onLookupResolved?: (event: { record: Record<string, any> | null; reason: "select" | "hydrate" | "clear" }) => void;
 }) {
   switch (renderer) {
     case "checkbox":
@@ -284,6 +288,13 @@ export function FieldRenderer({
 
 
       const config = isCustom ? (overrides as any) : presetFn(overrides);
+      const baseOnResolve = config.onResolve;
+      if (baseOnResolve || onLookupResolved) {
+        config.onResolve = (record: Record<string, any> | null, context: { reason: "select" | "hydrate" | "clear"; value: any }) => {
+          baseOnResolve?.(record, context);
+          onLookupResolved?.({ record, reason: context.reason });
+        };
+      }
       if (!config.apiPath && !config.fetchFn) {
         return <span style={{ color: "var(--text-muted)", fontSize: "var(--font-sm)", fontStyle: "italic" }}>
           Custom lookup: set API Path and Value Field
@@ -294,7 +305,7 @@ export function FieldRenderer({
           Lookup config missing value field
         </span>;
       }
-      return <Lookup config={config} value={value ?? ""} onChange={onChange} />;
+      return <Lookup config={config} value={value ?? ""} onChange={onChange} hydrateNonce={String(rowVersion ?? "")} />;
     }
     case "text":
     default:

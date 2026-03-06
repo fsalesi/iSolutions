@@ -16,6 +16,8 @@ export function ddColType(col: DropdownColumn): DropdownColumnType | undefined {
   return typeof col === "string" ? undefined : col.type;
 }
 
+export type LookupResolveReason = "select" | "hydrate" | "clear";
+
 export interface LookupConfig {
   // --- Data Source (provide ONE of these) ---
 
@@ -82,6 +84,9 @@ export interface LookupConfig {
 
   /** Callback when a record is selected — use for cascading other fields */
   onSelect?: (record: any) => void;
+
+  /** Callback for select/hydrate/clear events */
+  onResolve?: (record: any | null, context: { reason: LookupResolveReason; value: any }) => void;
 
   /** Callback when selection is cleared */
   onClear?: () => void;

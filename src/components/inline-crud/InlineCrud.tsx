@@ -69,6 +69,7 @@ export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, 
         tableName={table}
         layout={design.layout}
         row={props.row as Row}
+        rowVersion={props.rowVersion}
         onChange={props.onChange}
         {...designBindings}
         formKey={formKey}

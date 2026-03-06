@@ -4,6 +4,7 @@ import {
   useState, useCallback, useEffect, useMemo, useRef,
   forwardRef, useImperativeHandle, type ReactNode,
 } from "react";
+import type { FieldChangeOptions } from "@/components/pages/FormPage/types";
 import { Panel } from "./Panel";
 import { InlineConfirm } from "./InlineConfirm";
 import { AuditFooter } from "./AuditFooter";
@@ -27,8 +28,9 @@ import { useConfirm } from "@/context/ConfirmContext";
 
 export interface CrudPanelBodyProps {
   row: Record<string, any>;
+  rowVersion: number;
   isNew: boolean;
-  onChange: (field: string, value: any) => void;
+  onChange: (field: string, value: any, options?: FieldChangeOptions) => void;
   colTypes: Record<string, string>;
   colScales: Record<string, number>;
   requiredFields: string[];
@@ -166,6 +168,7 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
 
   // ── CRUD state ──
   const [form, setForm] = useState<Record<string, any>>(row ?? {});
+  const [rowVersion, setRowVersion] = useState(0);
   const [isDirty, setIsDirty] = useState(false);
   const dirtyRef = useRef(false);
   const [saving, setSaving] = useState(false);
@@ -189,6 +192,7 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
     } else {
       setForm({});
     }
+    setRowVersion(v => v + 1);
     setIsDirty(false);
     setError("");
     setConfirmDelete(false);
@@ -236,9 +240,9 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
   }, []);
 
   // ── Field change ──
-  const handleFieldChange = useCallback((field: string, value: any) => {
+  const handleFieldChange = useCallback((field: string, value: any, options?: FieldChangeOptions) => {
     setForm(prev => ({ ...prev, [field]: value }));
-    setIsDirty(true);
+    if (options?.markDirty !== false) setIsDirty(true);
     setError("");
   }, []);
 
@@ -315,6 +319,7 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
         return;
       }
       setForm(data);
+      setRowVersion(v => v + 1);
       setIsDirty(false);
       onSaved(data);
     } catch {
@@ -335,6 +340,7 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
   // ── Copy ──
   const handleCopy = useCallback(() => {
     setForm(prev => ({ ...prev, oid: "" }));
+    setRowVersion(v => v + 1);
     setIsDirty(true);
     onNew(); // tells parent "we're now in new-record mode"
   }, [onNew]);
@@ -455,6 +461,7 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
             <div data-detail-body className="flex-1 overflow-y-auto">
               {renderBody({
                 row: form,
+                rowVersion,
                 isNew: isNewProp,
                 onChange: handleFieldChange,
                 colTypes,

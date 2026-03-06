@@ -4,8 +4,9 @@
  * This file is NEVER overwritten by re-generate.
  */
 import { FormPage } from "@/components/pages/FormPage";
-import { buttonHandlers as productHandlers } from "@/components/forms/POReq/Page";
+import { buttonHandlers as productHandlers, lookupHandlers as productLookupHandlers } from "@/components/forms/POReq/Page";
 import type { ButtonHandlerContext } from "@/components/crud-toolbar/types";
+import type { LookupHandlers } from "@/components/pages/FormPage";
 
 interface Props {
   activeNav: string;
@@ -34,12 +35,17 @@ export const buttonHandlers: Record<string, (ctx: ButtonHandlerContext) => void 
   },
 };
 
+export const lookupHandlers: LookupHandlers = {
+  ...productLookupHandlers,
+};
+
 export default function CustomerPOReqPage({ activeNav, onNavigate, selectRecordOid, selectSeq }: Props) {
   return (
     <FormPage
       formKey="POReq"
       apiPath="/api/forms/POReq"
       buttonHandlers={buttonHandlers}
+      lookupHandlers={lookupHandlers}
       activeNav={activeNav}
       onNavigate={onNavigate}
       selectRecordOid={selectRecordOid}

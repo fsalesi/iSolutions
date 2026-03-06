@@ -44,3 +44,23 @@ export interface FormMeta {
 }
 
 export type Row = Record<string, any> & { oid: string };
+
+export type LookupResolveReason = "select" | "hydrate" | "clear";
+
+export interface FieldChangeOptions {
+  markDirty?: boolean;
+}
+
+export interface LookupHandlerContext {
+  reason: LookupResolveReason;
+  sourceField: string;
+  sourceRecord: Record<string, any> | null;
+  row: Row;
+  oid: string;
+  isNew: boolean;
+  setField: (field: string, value: unknown, options?: FieldChangeOptions) => void;
+  setFields: (values: Record<string, unknown>, options?: FieldChangeOptions) => void;
+  getField: (field: string) => unknown;
+}
+
+export type LookupHandlers = Record<string, (ctx: LookupHandlerContext) => void | Promise<void>>;

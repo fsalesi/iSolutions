@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import type { LookupConfig } from "./LookupTypes";
+import type { LookupConfig, LookupResolveReason } from "./LookupTypes";
 import { ddColKey, ddColType } from "./LookupTypes";
 import { Flag } from "@/components/ui/Flag";
 import { LookupBrowseModal } from "./LookupBrowseModal";
@@ -13,6 +13,7 @@ interface LookupProps {
   config: LookupConfig;
   label?: string;
   domain?: string;
+  hydrateNonce?: string;
 }
 
 /** Default fetcher for local PG API routes */
@@ -32,7 +33,7 @@ async function defaultFetch(apiPath: string, params: { search: string; limit: nu
   return res.json() as Promise<{ rows: any[]; total: number }>;
 }
 
-export function Lookup({ value, onChange, config, label, domain: domainProp }: LookupProps) {
+export function Lookup({ value, onChange, config, label, domain: domainProp, hydrateNonce }: LookupProps) {
   const {
     apiPath,
     fetchFn,
@@ -47,6 +48,7 @@ export function Lookup({ value, onChange, config, label, domain: domainProp }: L
     browsable = true,
     multiple = false,
     onSelect,
+    onResolve,
     onClear,
     placeholder,
     readOnly = false,
@@ -97,6 +99,17 @@ export function Lookup({ value, onChange, config, label, domain: domainProp }: L
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const dragIdx = useRef<number>(-1);
   const chipRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const lastHydratedValueRef = useRef<string | null>(null);
+
+  const emitResolve = useCallback((record: any | null, reason: LookupResolveReason, resolvedValue: any) => {
+    onResolve?.(record, { reason, value: resolvedValue });
+  }, [onResolve]);
+
+  // Force a fresh hydrate pass when parent row version changes (e.g. save response).
+  useEffect(() => {
+    lastHydratedValueRef.current = null;
+  }, [hydrateNonce]);
+
 
   // Reposition dropdown on scroll/resize while open
   useEffect(() => {
@@ -138,6 +151,8 @@ export function Lookup({ value, onChange, config, label, domain: domainProp }: L
   useEffect(() => {
     if (!value || (multiple && selectedValues.length === 0)) {
       setDisplayText("");
+      setDisplayRecord(null);
+      lastHydratedValueRef.current = null;
       return;
     }
     if (!multiple) {
@@ -146,6 +161,10 @@ export function Lookup({ value, onChange, config, label, domain: domainProp }: L
       if (cached) {
         setDisplayText(formatDisplay(cached));
         setDisplayRecord(cached);
+        if (lastHydratedValueRef.current !== v) {
+          lastHydratedValueRef.current = v;
+          emitResolve(cached, "hydrate", cached[valueField]);
+        }
         return;
       }
       // Fetch the record to get display text
@@ -155,13 +174,17 @@ export function Lookup({ value, onChange, config, label, domain: domainProp }: L
           cache.current.set(v, match);
           setDisplayText(formatDisplay(match));
           setDisplayRecord(match);
+          if (lastHydratedValueRef.current !== v) {
+            lastHydratedValueRef.current = v;
+            emitResolve(match, "hydrate", match[valueField]);
+          }
         } else {
           setDisplayText(v); // fallback to raw value
           setDisplayRecord(null);
         }
       });
     }
-  }, [value, multiple, selectedValues.length, displayField, displayTemplate]);
+  }, [value, multiple, selectedValues.length, displayField, displayTemplate, doFetch, emitResolve, valueField, hydrateNonce]);
 
   // Preload on mount
   useEffect(() => {
@@ -242,6 +265,7 @@ export function Lookup({ value, onChange, config, label, domain: domainProp }: L
   function selectRecord(record: any) {
     const val = record[valueField];
     cache.current.set(String(val), record);
+    lastHydratedValueRef.current = String(val);
 
     if (multiple) {
       const existing = selectedValues.includes(String(val));
@@ -260,6 +284,7 @@ export function Lookup({ value, onChange, config, label, domain: domainProp }: L
     }
 
     onSelect?.(record);
+    emitResolve(record, "select", val);
   }
 
   // Remove a chip (multi-select)
@@ -274,6 +299,8 @@ export function Lookup({ value, onChange, config, label, domain: domainProp }: L
     setDisplayText("");
     setSearch("");
     onClear?.();
+    emitResolve(null, "clear", multiple ? [] : null);
+    lastHydratedValueRef.current = null;
     inputRef.current?.focus();
   }
 

@@ -23,8 +23,9 @@ import {
   useFormStructure,
 } from "./FormBody";
 import type { ButtonHandlerContext } from "@/components/crud-toolbar/types";
+import type { LookupHandlers } from "./types";
 
-export function FormPage({ formKey, apiPath, activeNav, onNavigate, selectRecordOid, selectSeq, buttonHandlers }: {
+export function FormPage({ formKey, apiPath, activeNav, onNavigate, selectRecordOid, selectSeq, buttonHandlers, lookupHandlers }: {
   formKey: string;
   apiPath: string;
   activeNav: string;
@@ -32,6 +33,7 @@ export function FormPage({ formKey, apiPath, activeNav, onNavigate, selectRecord
   selectRecordOid?: string;
   selectSeq?: number;
   buttonHandlers?: Record<string, (ctx: ButtonHandlerContext) => void | Promise<void>>;
+  lookupHandlers?: LookupHandlers;
 }) {
   const { structure, loading: structureLoading, error: structureError } = useFormStructure(apiPath);
 
@@ -85,14 +87,16 @@ export function FormPage({ formKey, apiPath, activeNav, onNavigate, selectRecord
         apiPath={apiPath}
         meta={{ ...meta, layout: design.layout }}
         row={props.row as Row}
+        rowVersion={props.rowVersion}
         onChange={props.onChange}
+        lookupHandlers={lookupHandlers}
         keyFields={props.keyFields}
         {...designBindings}
         formKey={formKey}
         buttonHandlers={buttonHandlers}
       />
     );
-  }, [meta, apiPath, design.layout, designBindings, formKey, buttonHandlers]);
+  }, [meta, apiPath, design.layout, designBindings, formKey, buttonHandlers, lookupHandlers]);
 
   const isLoading = !meta || metadataLoading || structureLoading;
   const status = getFormStatus(error, isLoading);

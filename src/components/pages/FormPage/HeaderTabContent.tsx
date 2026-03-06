@@ -1,10 +1,10 @@
 /* IMPORTANT: RUNTIME FORMS RULE - DO NOT use form_fields anywhere in runtime forms code. Use table_schema/information_schema (+ form_tables for structure) instead. */
 "use client";
 import { Icon } from "@/components/icons/Icon";
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import React from "react";
 import { Section, Field } from "@/components/ui";
-import type { LayoutEntry, Row } from "./types";
+import type { LayoutEntry, Row, FieldChangeOptions, LookupHandlers, LookupResolveReason } from "./types";
 import { FieldRenderer } from "./FieldRenderer";
 import { humanize } from "./utils";
 import { useT } from "@/context/TranslationContext";
@@ -59,10 +59,62 @@ function assignPositions(entries: LayoutEntry[], cols: number): LayoutEntry[] {
   });
 }
 
+function parseLookupMappings(raw: unknown): Array<{ source: string; target: string }> {
+  if (raw == null) return [];
+
+  if (Array.isArray(raw)) {
+    return raw
+      .map((m) => {
+        if (!m || typeof m !== "object") return null;
+        const source = String((m as any).source ?? "").trim();
+        const target = String((m as any).target ?? "").trim();
+        return source && target ? { source, target } : null;
+      })
+      .filter((m): m is { source: string; target: string } => !!m);
+  }
+
+  if (typeof raw === "object") {
+    return Object.entries(raw as Record<string, unknown>)
+      .map(([target, source]) => ({ source: String(source ?? "").trim(), target: String(target ?? "").trim() }))
+      .filter((m) => m.source && m.target);
+  }
+
+  if (typeof raw !== "string") return [];
+  const text = raw.trim();
+  if (!text) return [];
+
+  if ((text.startsWith("{") && text.endsWith("}")) || (text.startsWith("[") && text.endsWith("]"))) {
+    try {
+      return parseLookupMappings(JSON.parse(text));
+    } catch {
+      // fall through to delimited parser
+    }
+  }
+
+  return text
+    .split(",")
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .map((token) => {
+      if (token.includes("|")) {
+        const [source, target] = token.split("|").map((v) => v.trim());
+        return source && target ? { source, target } : null;
+      }
+      if (token.includes("->")) {
+        const [source, target] = token.split("->").map((v) => v.trim());
+        return source && target ? { source, target } : null;
+      }
+      const field = token.trim();
+      return field ? { source: field, target: field } : null;
+    })
+    .filter((m): m is { source: string; target: string } => !!m);
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function HeaderTabContent({
-  apiPath, tableName, tabKey, layout, row, onChange,
+  apiPath, tableName, tabKey, layout, row, rowVersion, onChange,
+  lookupHandlers,
   keyFields,
   designMode, onFieldClick, onSectionClick, onSectionAdded,
   onFieldMoved, onElementDropped, formKey, buttonHandlers,
@@ -80,7 +132,9 @@ export function HeaderTabContent({
   formKey?: string;
   buttonHandlers?: Record<string, (ctx: ButtonHandlerContext) => void | Promise<void>>;
   row: Row;
-  onChange: (field: string, value: unknown) => void;
+  rowVersion: number;
+  onChange: (field: string, value: unknown, options?: FieldChangeOptions) => void;
+  lookupHandlers?: LookupHandlers;
   keyFields?: string[];
 }) {
   const t = useT();
@@ -90,6 +144,67 @@ export function HeaderTabContent({
   const sections = layout
     .filter(l => l.layout_type === "section" && l.table_name === tableName && l.parent_key === tabKey)
     .sort((a, b) => a.sort_order - b.sort_order);
+
+  const fieldPropsByKey = useMemo(() => {
+    const map = new Map<string, Record<string, any>>();
+    for (const item of layout) {
+      if (item.layout_type !== "field" || item.table_name !== tableName) continue;
+      map.set(item.layout_key, item.properties || {});
+    }
+    return map;
+  }, [layout, tableName]);
+
+  const applyLookupResolution = useCallback((sourceEntry: LayoutEntry, sourceRecord: Record<string, any> | null, reason: LookupResolveReason) => {
+    const sourceProps = sourceEntry.properties || {};
+    const mappings = parseLookupMappings(
+      sourceProps.lookup_field_map
+      ?? sourceProps.lookup_other_fields
+      ?? sourceProps.lookup_extra_fields
+      ?? sourceProps.other_fields
+    );
+
+    const hydrateNonTransient = sourceProps.lookup_hydrate_non_transient === true || sourceProps.lookup_rehydrate_non_transient === true;
+    const markDirty = reason !== "hydrate";
+
+    for (const map of mappings) {
+      const targetProps = fieldPropsByKey.get(map.target) || {};
+      if (reason === "hydrate" && targetProps.transient !== true && !hydrateNonTransient) continue;
+
+      const nextValue = sourceRecord ? (sourceRecord[map.source] ?? null) : null;
+      if (row[map.target] !== nextValue) {
+        onChange(map.target, nextValue, { markDirty });
+      }
+    }
+
+    const handlerName = String(sourceProps.lookup_handler || "").trim();
+    const handler = (handlerName ? lookupHandlers?.[handlerName] : undefined) || lookupHandlers?.[sourceEntry.layout_key];
+    if (!handler) return;
+
+    const setField = (field: string, value: unknown, options?: FieldChangeOptions) => {
+      const merged = options?.markDirty == null ? { ...options, markDirty } : options;
+      onChange(field, value, merged);
+    };
+
+    const setFields = (values: Record<string, unknown>, options?: FieldChangeOptions) => {
+      for (const [k, v] of Object.entries(values)) {
+        setField(k, v, options);
+      }
+    };
+
+    void Promise.resolve(handler({
+      reason,
+      sourceField: sourceEntry.layout_key,
+      sourceRecord,
+      row,
+      oid: String(row.oid || ""),
+      isNew: !row.oid,
+      setField,
+      setFields,
+      getField: (field: string) => row[field],
+    })).catch((err) => {
+      console.error("Lookup handler failed for " + sourceEntry.layout_key + ":", err);
+    });
+  }, [fieldPropsByKey, lookupHandlers, onChange, row]);
 
   return (
     <div>
@@ -309,6 +424,8 @@ export function HeaderTabContent({
                       recordOid={row.oid}
                       tableName={fl.table_name || tableName}
                       row={row}
+                      rowVersion={rowVersion}
+                      onLookupResolved={({ record, reason }) => applyLookupResolution(fl, record, reason)}
                     />
                   </Field>
                 </div>

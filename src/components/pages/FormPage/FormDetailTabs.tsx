@@ -4,7 +4,7 @@
  * FormDetailTabs — thin wrapper around FormBodyCanvas for header-table forms.
  */
 import { useT } from "@/context/TranslationContext";
-import type { LayoutEntry, Row, FormMeta } from "./types";
+import type { LayoutEntry, Row, FormMeta, FieldChangeOptions, LookupHandlers } from "./types";
 import { FormBodyCanvas } from "./FormBody";
 import type { ButtonHandlerContext } from "@/components/crud-toolbar/types";
 
@@ -12,7 +12,9 @@ export function FormDetailTabs({
   apiPath,
   meta,
   row,
+  rowVersion,
   onChange,
+  lookupHandlers,
   keyFields,
   designMode,
   onFieldClick,
@@ -40,7 +42,9 @@ export function FormDetailTabs({
   formKey?: string;
   buttonHandlers?: Record<string, (ctx: ButtonHandlerContext) => void | Promise<void>>;
   row: Row;
-  onChange: (field: string, value: unknown) => void;
+  rowVersion: number;
+  onChange: (field: string, value: unknown, options?: FieldChangeOptions) => void;
+  lookupHandlers?: LookupHandlers;
   keyFields?: string[];
 }) {
   const t = useT();
@@ -58,7 +62,9 @@ export function FormDetailTabs({
           tableName={meta.headerTable}
           layout={meta.layout}
           row={row}
+          rowVersion={rowVersion}
           onChange={onChange}
+          lookupHandlers={lookupHandlers}
           keyFields={keyFields}
           designMode={designMode}
           onFieldClick={onFieldClick}
