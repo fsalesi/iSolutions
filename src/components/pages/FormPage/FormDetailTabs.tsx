@@ -6,6 +6,8 @@
 import { useState } from "react";
 import { TabBar } from "@/components/ui";
 import { useT } from "@/context/TranslationContext";
+import { useSession } from "@/context/SessionContext";
+import { Icon } from "@/components/icons/Icon";
 import type { LayoutEntry, Row, FormMeta } from "./types";
 import { HeaderTabContent } from "./HeaderTabContent";
 import { AddTabButton } from "./AddTabButton";
@@ -28,6 +30,7 @@ export function FormDetailTabs({ apiPath, meta, headerTabs, row, isNew, onChange
   row: Row; isNew: boolean; onChange: (field: keyof Row, value: any) => void;
 }) {
   const t = useT();
+  const { user } = useSession();
   const [activeTab, setActiveTab] = useState(headerTabs[0]?.layout_key || "general");
 
   const tabs = headerTabs.map(tab => ({
@@ -35,8 +38,32 @@ export function FormDetailTabs({ apiPath, meta, headerTabs, row, isNew, onChange
     label: t(`form.${formKey}.${tab.layout_key}`, tab.properties?.label || tab.layout_key),
   }));
 
+  const showDesignIcon = !!user?.isAdmin && !!onDesignToggle;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }}>
+      {showDesignIcon && (
+        <button
+          onClick={onDesignToggle}
+          title={designMode ? "Exit design mode" : "Design layout"}
+          style={{
+            position: "absolute", top: 6, right: 8, zIndex: 10,
+            background: designMode ? "var(--accent)" : "var(--bg-secondary)",
+            color: designMode ? "var(--accent-text)" : "var(--text-secondary)",
+            border: `1px solid ${designMode ? "transparent" : "var(--border)"}`,
+            borderRadius: 6, padding: "5px 9px", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 5,
+            fontSize: 12, fontWeight: 500,
+            opacity: designMode ? 1 : 0.85,
+          }}
+          onMouseEnter={e => { if (!designMode) e.currentTarget.style.color = "var(--text-primary)"; }}
+          onMouseLeave={e => { if (!designMode) e.currentTarget.style.color = "var(--text-muted)"; }}
+        >
+          <Icon name={designMode ? "check" : "settings"} size={15} />
+          {designMode && <span>Done</span>}
+        </button>
+      )}
+
       {(tabs.length > 1 || designMode) && (
         <TabBar
           tabs={tabs}

@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { buildFilterWhere, parseOidFilter } from "@/lib/filter-sql";
+import bcrypt from "bcryptjs";
 
 /* ── Types ── */
 
@@ -179,6 +180,22 @@ async function loadMeta(formKey: string, tableName: string): Promise<TableMeta> 
 export class CrudRoute {
   public readonly formKey: string;
 
+  /**
+   * Fields that are never returned in GET responses and never written via POST/PUT.
+   * Declare in the generated product route subclass. Inherited by customer routes automatically.
+   * Example: protected restrictedFields = ["password_hash", "api_token"];
+   */
+  protected restrictedFields: string[] = [];
+
+  /**
+   * Password fields: excluded from GET responses, and on POST/PUT hashed via bcrypt
+   * before writing if non-empty. If the value is empty/absent the field is skipped
+   * entirely (never blanks out an existing hash).
+   * Declare in the generated product route subclass.
+   * Example: protected passwordFields = ["password_hash"];
+   */
+  protected passwordFields: string[] = [];
+
   constructor(formKey: string) {
     this.formKey = formKey;
   }
@@ -281,7 +298,8 @@ export class CrudRoute {
       }
 
       const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-      const selectCols = meta.allColumns.map(c => `"${c}"`).join(", ");
+      const restricted = new Set([...this.restrictedFields, ...this.passwordFields]);
+      const selectCols = meta.allColumns.filter(c => !restricted.has(c)).map(c => `"${c}"`).join(", ");
 
       const countR = await db.query(`SELECT COUNT(*)::int AS total FROM "${tableName}" ${where}`, params);
       const total = countR.rows[0].total;
@@ -341,6 +359,16 @@ export class CrudRoute {
       fields.push("domain"); values.push(body.domain || "");
 
       for (const col of meta.writableColumns) {
+        if (this.restrictedFields.includes(col)) continue;
+        if (this.passwordFields.includes(col)) {
+          // Only write if a non-empty value was provided — never blank out an existing hash
+          const raw = body[col];
+          if (raw && typeof raw === "string" && raw.trim()) {
+            fields.push(col);
+            values.push(await bcrypt.hash(raw.trim(), 12));
+          }
+          continue;
+        }
         if (col in body) {
           fields.push(col);
           values.push(coerceValue(meta.colTypes[col] || "text", body[col]));
@@ -407,6 +435,16 @@ export class CrudRoute {
       const values: any[] = [];
 
       for (const col of meta.writableColumns) {
+        if (this.restrictedFields.includes(col)) continue;
+        if (this.passwordFields.includes(col)) {
+          // Only write if a non-empty value was provided — never blank out an existing hash
+          const raw = body[col];
+          if (raw && typeof raw === "string" && raw.trim()) {
+            fields.push(col);
+            values.push(await bcrypt.hash(raw.trim(), 12));
+          }
+          continue;
+        }
         if (col in body) {
           fields.push(col);
           values.push(coerceValue(meta.colTypes[col] || "text", body[col]));

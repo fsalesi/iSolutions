@@ -49,12 +49,7 @@ export function CrudToolbar({
     { key: "copy", icon: "copy", label: t("crud.copy", "Copy"), onClick: onCopy },
   ];
 
-  const designAction: CrudAction[] = user?.isAdmin && onDesignToggle ? [
-    { key: "design-mode", icon: designMode ? "check" : "settings", label: designMode ? "Done" : "Design",
-      onClick: onDesignToggle, variant: designMode ? "primary" : "default" as const, separator: !designMode },
-  ] : [];
-
-  const allActions = [...baseActions, ...extraActions, ...designAction];
+  const allActions = [...baseActions, ...extraActions];
 
   return (
     <div

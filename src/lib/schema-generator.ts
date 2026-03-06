@@ -99,6 +99,8 @@ function mapDataType(f: FormField): string {
     case "timestamptz": return "timestamptz";
     case "uuid":      return "uuid";
     case "jsonb":     return "jsonb";
+    case "password":  return "text";   // semantic type — stores bcrypt hash as plain text
+    case "image":     return "bytea";  // semantic type — binary stored, served via URL
     default:          return "citext";
   }
 }

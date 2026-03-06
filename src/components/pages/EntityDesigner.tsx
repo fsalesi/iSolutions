@@ -38,6 +38,8 @@ const DATA_TYPES = [
   { value: "timestamptz", label: "Datetime" },
   { value: "uuid", label: "UUID" },
   { value: "jsonb", label: "JSONB" },
+  { value: "password", label: "Password" },
+  { value: "image", label: "Image" },
 ];
 
 const STANDARD_FIELDS = ["oid", "domain", "created_at", "created_by", "updated_at", "updated_by", "custom_fields"];
@@ -838,7 +840,12 @@ function FieldsTab({ row }: { row: Row }) {
             <Field label="Data Type" required>
               <Select
                 value={draft.data_type || "text"}
-                onChange={v => setDraft(d => ({ ...d, data_type: v }))}
+                onChange={v => setDraft(d => ({
+                  ...d,
+                  data_type: v,
+                  // password: never copyable, image: not copyable either
+                  is_copyable: (v === "password" || v === "image") ? false : d.is_copyable,
+                }))}
                 options={DATA_TYPES}
               />
             </Field>

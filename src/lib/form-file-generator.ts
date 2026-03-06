@@ -23,7 +23,30 @@ function toPascal(key: string): string {
 
 /* ── Templates ── */
 
-function productRouteTemplate(formKey: string, className: string): string {
+function productRouteTemplate(
+  formKey: string,
+  className: string,
+  restrictedFields: string[] = [],
+  passwordFields: string[] = [],
+  imageFields: string[] = [],
+): string {
+  const restrictedLine = restrictedFields.length > 0
+    ? `  protected restrictedFields = ${JSON.stringify(restrictedFields)};
+`
+    : "";
+  const passwordLine = passwordFields.length > 0
+    ? `  protected passwordFields = ${JSON.stringify(passwordFields)};
+`
+    : "";
+  const transformRowBlock = imageFields.length > 0
+    ? `
+  async transformRow(row: Record<string, any>, meta: TableMeta): Promise<Record<string, any>> {
+    const out = { ...row };
+${imageFields.map(f => `    if (out["${f}"] != null) out["${f}"] = \`/api/forms/${formKey}/image?field=${f}&oid=\${out.oid}\`;`).join("\n")}
+    return out;
+  }
+`
+    : "";
   return `/**
  * ${className} — Product API route (ISS layer).
  * Extends CrudRoute base class. ISS developers add business logic here.
@@ -41,9 +64,9 @@ import { CrudRoute, exportRouteHandlers } from "@/lib/CrudRoute";
 import type { TableMeta } from "@/lib/CrudRoute";
 
 export class ${className}Route extends CrudRoute {
-  constructor() {
+${restrictedLine}${passwordLine}  constructor() {
     super("${formKey}");
-  }
+  }${transformRowBlock}
 
   // ISS: Add hooks here. Examples:
   //
@@ -154,7 +177,13 @@ export interface GenerateFilesResult {
  * @param formName - Human-readable name (for comments only), e.g. "Purchase Requisition"
  * @returns Lists of created and skipped file paths
  */
-export function generateFormFiles(formKey: string, _formName: string): GenerateFilesResult {
+export interface SpecialFields {
+  restrictedFields: string[];
+  passwordFields: string[];
+  imageFields: string[];
+}
+
+export function generateFormFiles(formKey: string, _formName: string, special: SpecialFields = { restrictedFields: [], passwordFields: [], imageFields: [] }): GenerateFilesResult {
   const className = toPascal(formKey);
   const projectRoot = process.cwd();
   const created: string[] = [];
@@ -163,7 +192,7 @@ export function generateFormFiles(formKey: string, _formName: string): GenerateF
   const files: { path: string; content: string }[] = [
     {
       path: join("src", "app", "api", "forms", formKey, "route.ts"),
-      content: productRouteTemplate(formKey, className),
+      content: productRouteTemplate(formKey, className, special.restrictedFields, special.passwordFields, special.imageFields),
     },
     {
       path: join("src", "components", "forms", formKey, "Page.tsx"),

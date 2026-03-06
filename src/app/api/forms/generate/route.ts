@@ -58,8 +58,25 @@ export async function POST(req: NextRequest) {
       const layoutResult = await generateDefaultLayout(form_key);
       layoutInserted = layoutResult.inserted;
 
+      // Query special fields (password, image, restricted) at generation time — baked into generated files
+      const specialRes = await db.query(
+        `SELECT field_name, data_type FROM form_fields WHERE form_key = $1 AND to_be_deleted = false`,
+        [form_key]
+      );
+      const restrictedFields: string[] = [];
+      const passwordFields: string[] = [];
+      const imageFields: string[] = [];
+      for (const row of specialRes.rows) {
+        if (row.data_type === "password") {
+          passwordFields.push(row.field_name);
+        } else if (row.data_type === "image") {
+          imageFields.push(row.field_name);
+        }
+        // future: if (row.is_restricted && row.data_type !== "password") restrictedFields.push(row.field_name);
+      }
+
       // Generate per-form files (product + customer route & page)
-      const fileResult = generateFormFiles(form_key, form.form_name);
+      const fileResult = generateFormFiles(form_key, form.form_name, { restrictedFields, passwordFields, imageFields });
       filesCreated = fileResult.created;
       filesSkipped = fileResult.skipped;
 

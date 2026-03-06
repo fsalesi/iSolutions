@@ -13,6 +13,8 @@ import { CrudPanel, type CrudPanelBodyProps } from "@/components/panels/CrudPane
 import { type CrudPanelRef } from "@/components/panels/CrudPanelContext";
 import { useLink } from "@/hooks/useLink";
 import { humanize } from "@/components/pages/FormPage/utils";
+import { useSession } from "@/context/SessionContext";
+import { Icon } from "@/components/icons/Icon";
 import type { LayoutEntry, FormField, Row } from "@/components/pages/FormPage/types";
 import { HeaderTabContent } from "@/components/pages/FormPage/HeaderTabContent";
 import { useDesignLayout } from "@/components/pages/FormPage/useDesignLayout";
@@ -40,6 +42,7 @@ export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, 
   const panelRef = useRef<CrudPanelRef>(null);
   const link = useLink(gridRef, panelRef);
 
+  const { user } = useSession();
   const [designMode, setDesignMode] = useState(false);
   const [activeTabKey, setActiveTabKey] = useState<string>("");
   const [fields, setFields] = useState<FormField[]>([]);
@@ -158,7 +161,29 @@ export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, 
   const layoutRenderBody = (props: CrudPanelBodyProps) => {
     if (!fetched) return null;
     return (
-      <div>
+      <div style={{ position: "relative" }}>
+        {user?.isAdmin && (
+          <button
+            onClick={handleDesignToggle}
+            title={designMode ? "Exit design mode" : "Design layout"}
+            style={{
+              position: "absolute", top: 6, right: 8, zIndex: 10,
+              background: designMode ? "var(--accent)" : "var(--bg-secondary)",
+              color: designMode ? "var(--accent-text)" : "var(--text-secondary)",
+              border: `1px solid ${designMode ? "transparent" : "var(--border)"}`,
+              borderRadius: 6, padding: "5px 9px", cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 5,
+              fontSize: 12, fontWeight: 500,
+              opacity: designMode ? 1 : 0.85,
+            }}
+            onMouseEnter={e => { if (!designMode) e.currentTarget.style.color = "var(--text-primary)"; }}
+            onMouseLeave={e => { if (!designMode) e.currentTarget.style.color = "var(--text-muted)"; }}
+          >
+            <Icon name={designMode ? "check" : "settings"} size={15} />
+            {designMode && <span>Done</span>}
+          </button>
+        )}
+
         {/* Tab bar — always shown in design mode, shown when >1 tab otherwise */}
         {(tabList.length > 1 || designMode) && (
           <div className="flex overflow-x-auto px-2"
