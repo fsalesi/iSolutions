@@ -14,6 +14,7 @@ import {
   type CrudPanelRef,
 } from "./CrudPanelContext";
 import { CrudToolbar, type CrudAction } from "@/components/crud-toolbar/CrudToolbar";
+import { useToolbarActions, type DesignAction } from "@/components/crud-toolbar/useToolbarActions";
 import { Icon } from "@/components/icons/Icon";
 import { AuditPanel } from "@/components/audit-panel/AuditPanel";
 import { NotesPanel } from "@/components/notes-panel/NotesPanel";
@@ -63,6 +64,12 @@ export interface CrudPanelProps {
   /** Design-mode toggle (rendered by CrudToolbar for admins) */
   designMode?: boolean;
   onDesignToggle?: () => void;
+  /** Form key — used to load/save toolbar action overrides */
+  formKey?: string;
+  /** Called when a toolbar button is clicked in design mode */
+  onButtonDesignClick?: (action: DesignAction) => void;
+  /** Called when "Add Button" is clicked in design mode */
+  onAddButton?: () => void;
   /** Extra data merged into save payload (e.g. parent FK) */
   savePayloadExtras?: Record<string, any>;
   /** Custom empty state */
@@ -94,6 +101,9 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
     extraActions: extraActionsProp,
     designMode,
     onDesignToggle,
+    formKey,
+    onButtonDesignClick,
+    onAddButton,
     savePayloadExtras,
     renderEmpty,
     className,
@@ -358,6 +368,16 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
     return actions;
   }, [extraActionsProp, isNewProp, form.oid, noteCount, t]);
 
+  // ── Toolbar actions with DB overrides ──
+  const baseActionsForHook: CrudAction[] = [
+    { key: "save",   icon: "save",  label: t("crud.save",   "Save"),   variant: "primary", disabled: !isDirty || saving, onClick: handleSave },
+    { key: "new",    icon: "plus",  label: t("crud.new",    "New"),    onClick: onNew },
+    { key: "delete", icon: "trash", label: t("crud.delete", "Delete"), variant: "danger",  disabled: isNewProp || !form.oid, onClick: () => setConfirmDelete(true) },
+    { key: "copy",   icon: "copy",  label: t("crud.copy",   "Copy"),   onClick: handleCopy },
+  ];
+  const { visibleActions, allDesignActions, dbActions, setDbActions, reload: reloadToolbar } =
+    useToolbarActions(formKey, tableName, baseActionsForHook, allExtraActions);
+
   // ── Has record? ──
   const hasRecord = !!(row || isNewProp);
   const showFooter = hasRecord && !isNewProp && !!form.oid;
@@ -381,6 +401,9 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
               extraActions={allExtraActions}
               designMode={designMode}
               onDesignToggle={onDesignToggle}
+              resolvedActions={designMode ? allDesignActions : (formKey ? visibleActions : undefined)}
+              onButtonDesignClick={designMode ? onButtonDesignClick : undefined}
+              onAddButton={designMode ? onAddButton : undefined}
             />
 
             {error && (

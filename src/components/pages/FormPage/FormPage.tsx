@@ -12,6 +12,8 @@ import { ColumnDef } from "@/components/data-grid/DataGrid";
 import type { FormMeta, Row } from "./types";
 import { FieldPropertiesPanel } from "./panels/FieldPropertiesPanel";
 import { SectionPropertiesPanel } from "./panels/SectionPropertiesPanel";
+import { ToolbarActionPropertiesPanel } from "@/components/crud-toolbar/ToolbarActionPropertiesPanel";
+import { useState as useStateFA } from "react";
 import { TabPropertiesPanel } from "./panels/TabPropertiesPanel";
 import { AddFieldPanel } from "./panels/AddFieldPanel";
 import { FormDetailTabs } from "./FormDetailTabs";
@@ -196,6 +198,9 @@ export function FormPage({ formKey, apiPath, activeNav, onNavigate, selectRecord
     );
   }, [meta, apiPath, headerTabs, design, formKey, handleDesignToggle]);
 
+  const [selectedToolbarAction, setSelectedToolbarAction] = useStateFA<import("@/components/crud-toolbar/useToolbarActions").DesignAction | null>(null);
+  const [toolbarAddMode, setToolbarAddMode] = useStateFA(false);
+
   if (error) return <div style={{ padding: 24, color: "var(--danger-text)" }}>Error: {error}</div>;
   if (!meta) return <div style={{ padding: 24, color: "var(--text-muted)" }}>Loading form...</div>;
 
@@ -219,6 +224,9 @@ export function FormPage({ formKey, apiPath, activeNav, onNavigate, selectRecord
         renderBody={renderBody}
         designMode={design.designMode}
         onDesignToggle={design.toggleDesignMode}
+        formKey={formKey}
+        onButtonDesignClick={design.designMode ? setSelectedToolbarAction : undefined}
+        onAddButton={design.designMode ? () => setToolbarAddMode(true) : undefined}
         activeNav={activeNav}
         onNavigate={onNavigate}
         gridId={`${formKey}:${meta.headerTable}`}
@@ -263,6 +271,17 @@ export function FormPage({ formKey, apiPath, activeNav, onNavigate, selectRecord
         onSaved={design.handleSectionSaved}
         onDeleted={design.handleSectionDeleted}
         tabs={headerTabList}
+      />
+
+      <ToolbarActionPropertiesPanel
+        action={selectedToolbarAction}
+        open={!!selectedToolbarAction || toolbarAddMode}
+        formKey={formKey}
+        tableName={meta.headerTable}
+        addMode={toolbarAddMode}
+        onClose={() => { setSelectedToolbarAction(null); setToolbarAddMode(false); }}
+        onSaved={() => { setSelectedToolbarAction(null); setToolbarAddMode(false); }}
+        onDeleted={() => { setSelectedToolbarAction(null); }}
       />
     </>
   );

@@ -7,6 +7,7 @@ import { DataGrid, type ColumnDef } from "@/components/data-grid/DataGrid";
 import type { ExportConfig } from "@/components/data-grid/datagrid/ExportPanel";
 import { CrudPanel, type CrudPanelBodyProps } from "@/components/panels/CrudPanel";
 import type { CrudAction } from "@/components/crud-toolbar/CrudToolbar";
+import type { DesignAction } from "@/components/crud-toolbar/useToolbarActions";
 import { useCrudLink } from "@/hooks/useCrudLink";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
@@ -28,6 +29,10 @@ export interface SplitCrudPageProps {
   requiredFields?: string[];
   /** Additional required fields stacked on top of the base required list */
   extraRequiredFields?: string[];
+  /** Form key passed to CrudPanel for toolbar action overrides */
+  formKey?: string;
+  onButtonDesignClick?: (action: DesignAction) => void;
+  onAddButton?: () => void;
   /** Override the gridId used for column/export prefs. Defaults to table name. */
   gridId?: string;
   /** Columns used for search in export. Defaults to first 3. */
@@ -51,7 +56,10 @@ export function SplitCrudPage({
   requiredFields: requiredFieldsProp,
   extraRequiredFields,
   gridId: gridIdProp,
+  formKey,
   searchColumns,
+  onButtonDesignClick,
+  onAddButton,
 }: SplitCrudPageProps) {
   const api = apiPath || `/api/${table}`;
   const effectiveGridId = gridIdProp || table;
@@ -68,7 +76,7 @@ export function SplitCrudPage({
           <CrudPanel ref={crud.crudRef} row={crud.link.selectedRow} isNew={crud.link.isNew}
             apiPath={api} tableName={table} defaultValues={defaultValues} renderBody={renderBody}
             requiredFields={baseRequiredFields} extraRequiredFields={extraRequiredFields}
-            extraActions={extraActions} designMode={designMode} onDesignToggle={onDesignToggle}
+            extraActions={extraActions} designMode={designMode} onDesignToggle={onDesignToggle} formKey={formKey} onButtonDesignClick={onButtonDesignClick} onAddButton={onAddButton}
             onSaved={crud.link.onSaved} onDeleted={crud.onDeletedMobile} onNew={crud.link.onNew} />
         ) : (
           <DataGrid ref={crud.gridRef} table={table} apiPath={api} columns={columns}
@@ -87,7 +95,7 @@ export function SplitCrudPage({
             <CrudPanel ref={crud.crudRef} row={crud.link.selectedRow} isNew={crud.link.isNew}
               apiPath={api} tableName={table} defaultValues={defaultValues} renderBody={renderBody}
               requiredFields={baseRequiredFields} extraRequiredFields={extraRequiredFields}
-              extraActions={extraActions} designMode={designMode} onDesignToggle={onDesignToggle}
+              extraActions={extraActions} designMode={designMode} onDesignToggle={onDesignToggle} formKey={formKey} onButtonDesignClick={onButtonDesignClick} onAddButton={onAddButton}
               onSaved={crud.link.onSaved} onDeleted={crud.link.onDeleted} onNew={crud.link.onNew} />
           }
         />

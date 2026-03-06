@@ -15,6 +15,8 @@ import { useLink } from "@/hooks/useLink";
 import { humanize } from "@/components/pages/FormPage/utils";
 import { useSession } from "@/context/SessionContext";
 import { Icon } from "@/components/icons/Icon";
+import { ToolbarActionPropertiesPanel } from "@/components/crud-toolbar/ToolbarActionPropertiesPanel";
+import type { DesignAction } from "@/components/crud-toolbar/useToolbarActions";
 import type { LayoutEntry, FormField, Row } from "@/components/pages/FormPage/types";
 import { HeaderTabContent } from "@/components/pages/FormPage/HeaderTabContent";
 import { useDesignLayout } from "@/components/pages/FormPage/useDesignLayout";
@@ -44,6 +46,8 @@ export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, 
 
   const { user } = useSession();
   const [designMode, setDesignMode] = useState(false);
+  const [selectedToolbarAction, setSelectedToolbarAction] = useState<DesignAction | null>(null);
+  const [toolbarAddMode, setToolbarAddMode] = useState(false);
   const [activeTabKey, setActiveTabKey] = useState<string>("");
   const [fields, setFields] = useState<FormField[]>([]);
   const [fetched, setFetched] = useState(false);
@@ -276,6 +280,9 @@ export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, 
             savePayloadExtras={saveExtras}
             designMode={designMode}
             onDesignToggle={handleDesignToggle}
+            formKey={formKey}
+            onButtonDesignClick={designMode ? setSelectedToolbarAction : undefined}
+            onAddButton={designMode ? () => setToolbarAddMode(true) : undefined}
             style={{ height: "100%" }}
           />
         )}
@@ -311,6 +318,17 @@ export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, 
           tabCount={layoutTabs.length}
         />
       )}
+
+      <ToolbarActionPropertiesPanel
+        action={selectedToolbarAction}
+        open={!!selectedToolbarAction || toolbarAddMode}
+        formKey={formKey || ""}
+        tableName={table}
+        addMode={toolbarAddMode}
+        onClose={() => { setSelectedToolbarAction(null); setToolbarAddMode(false); }}
+        onSaved={() => { setSelectedToolbarAction(null); setToolbarAddMode(false); }}
+        onDeleted={() => { setSelectedToolbarAction(null); }}
+      />
 
       <AddFieldPanel
         open={designMode}
