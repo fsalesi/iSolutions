@@ -5,8 +5,8 @@
 import type { ReactNode, InputHTMLAttributes, SelectHTMLAttributes, CSSProperties } from "react";
 
 // ── Section ────────────────────────────────────────────────────────
-export function Section({ title, children, style, titleStyle, onClick, hideTitle }: {
-  title: string; children: ReactNode;
+export function Section({ title, icon, children, style, titleStyle, onClick, hideTitle }: {
+  title: string; icon?: ReactNode; children: ReactNode;
   style?: CSSProperties; titleStyle?: CSSProperties;
   onClick?: () => void;
   hideTitle?: boolean;
@@ -16,9 +16,10 @@ export function Section({ title, children, style, titleStyle, onClick, hideTitle
       {!hideTitle && (
         <h3
           className="text-xs font-semibold uppercase tracking-wider mb-3"
-          style={{ color: "var(--section-title)", ...titleStyle }}
+          style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--section-title)", ...titleStyle }}
           onClick={onClick}
         >
+          {icon}
           {title}
         </h3>
       )}

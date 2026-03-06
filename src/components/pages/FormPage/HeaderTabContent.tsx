@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/icons/Icon";
 import { useState } from "react";
 import React from "react";
 import { Section, Field } from "@/components/ui";
@@ -330,6 +331,7 @@ export function HeaderTabContent({
           <Section
             key={sec.layout_key}
             title={t(`form.${formKey}.${sec.layout_key}`, sec.properties?.label || sec.layout_key)}
+            icon={sec.properties?.icon ? <Icon name={sec.properties.icon} size={13} /> : undefined}
             hideTitle={!designMode && sec.properties?.show_label === false}
             style={designMode ? {
               border: "2px dashed var(--accent)",
