@@ -29,6 +29,7 @@ function productRouteTemplate(
   restrictedFields: string[] = [],
   passwordFields: string[] = [],
   imageFields: string[] = [],
+  keyFields: string[] = [],
 ): string {
   const restrictedLine = restrictedFields.length > 0
     ? `  protected restrictedFields = ${JSON.stringify(restrictedFields)};
@@ -36,6 +37,10 @@ function productRouteTemplate(
     : "";
   const passwordLine = passwordFields.length > 0
     ? `  protected passwordFields = ${JSON.stringify(passwordFields)};
+`
+    : "";
+  const keyLine = keyFields.length > 0
+    ? `  protected keyFields = ${JSON.stringify(keyFields)};
 `
     : "";
   const transformRowBlock = imageFields.length > 0
@@ -65,7 +70,7 @@ import { CrudRoute, exportRouteHandlers } from "@/lib/CrudRoute";
 import type { TableMeta } from "@/lib/CrudRoute";
 
 export class ${className}Route extends CrudRoute {
-${restrictedLine}${passwordLine}  constructor() {
+${restrictedLine}${passwordLine}${keyLine}  constructor() {
     super("${formKey}");
   }${transformRowBlock}
 
@@ -215,9 +220,10 @@ export interface SpecialFields {
   restrictedFields: string[];
   passwordFields: string[];
   imageFields: string[];
+  keyFields: string[];
 }
 
-export function generateFormFiles(formKey: string, _formName: string, special: SpecialFields = { restrictedFields: [], passwordFields: [], imageFields: [] }): GenerateFilesResult {
+export function generateFormFiles(formKey: string, _formName: string, special: SpecialFields = { restrictedFields: [], passwordFields: [], imageFields: [], keyFields: [] }): GenerateFilesResult {
   const className = toPascal(formKey);
   const projectRoot = process.cwd();
   const created: string[] = [];
@@ -226,7 +232,7 @@ export function generateFormFiles(formKey: string, _formName: string, special: S
   const files: { path: string; content: string }[] = [
     {
       path: join("src", "app", "api", "forms", formKey, "route.ts"),
-      content: productRouteTemplate(formKey, className, special.restrictedFields, special.passwordFields, special.imageFields),
+      content: productRouteTemplate(formKey, className, special.restrictedFields, special.passwordFields, special.imageFields, special.keyFields),
     },
     {
       path: join("src", "components", "forms", formKey, "Page.tsx"),

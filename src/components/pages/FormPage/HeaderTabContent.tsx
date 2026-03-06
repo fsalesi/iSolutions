@@ -1,3 +1,4 @@
+/* IMPORTANT: RUNTIME FORMS RULE - DO NOT use form_fields anywhere in runtime forms code. Use table_schema/information_schema (+ form_tables for structure) instead. */
 "use client";
 import { Icon } from "@/components/icons/Icon";
 import { useState } from "react";
@@ -62,6 +63,7 @@ function assignPositions(entries: LayoutEntry[], cols: number): LayoutEntry[] {
 
 export function HeaderTabContent({
   apiPath, tableName, tabKey, layout, row, onChange,
+  keyFields,
   designMode, onFieldClick, onSectionClick, onSectionAdded,
   onFieldMoved, onElementDropped, formKey, buttonHandlers,
 }: {
@@ -79,6 +81,7 @@ export function HeaderTabContent({
   buttonHandlers?: Record<string, (ctx: ButtonHandlerContext) => void | Promise<void>>;
   row: Row;
   onChange: (field: string, value: unknown) => void;
+  keyFields?: string[];
 }) {
   const t = useT();
   const [draggedOid, setDraggedOid] = useState<string | null>(null);
@@ -90,7 +93,7 @@ export function HeaderTabContent({
 
   return (
     <div>
-      {sections.map(sec => {
+      {sections.map((sec, secIdx) => {
         const cols = sec.properties?.columns || 2;
 
         const entries = layout
@@ -248,6 +251,9 @@ export function HeaderTabContent({
 
               // Regular field
               const fl = entry;
+              const isKeyField = !!keyFields?.includes(fl.layout_key);
+              const isEditMode = !!row.oid;
+              const forceReadOnly = isKeyField && isEditMode;
               cells.push(
                 <div
                   key={cellKey}
@@ -284,8 +290,13 @@ export function HeaderTabContent({
                   }}
                 >
                   <Field
-                    label={t(`form.${formKey}.${fl.layout_key}`, fl.properties?.label || humanize(fl.layout_key))}
-                    required={fl.properties?.mandatory}
+                    label={designMode && (fl.properties?.readonly || isKeyField) ? (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <span>{t(`form.${formKey}.${fl.layout_key}`, fl.properties?.label || humanize(fl.layout_key))}</span>
+                        <Icon name="lock" size={12} />
+                      </span>
+                    ) : t(`form.${formKey}.${fl.layout_key}`, fl.properties?.label || humanize(fl.layout_key))}
+                    required={fl.properties?.mandatory || isKeyField}
                     hideLabel={!designMode && fl.properties?.show_label === false}
                   >
                     <FieldRenderer
@@ -293,8 +304,11 @@ export function HeaderTabContent({
                       value={row[fl.layout_key]}
                       onChange={v => onChange(fl.layout_key as keyof Row, v)}
                       fieldKey={fl.layout_key}
-                      readOnly={fl.properties?.readonly || designMode}
+                      readOnly={fl.properties?.readonly || designMode || forceReadOnly}
                       properties={fl.properties}
+                      recordOid={row.oid}
+                      tableName={fl.table_name || tableName}
+                      row={row}
                     />
                   </Field>
                 </div>
@@ -334,10 +348,15 @@ export function HeaderTabContent({
             title={t(`form.${formKey}.${sec.layout_key}`, sec.properties?.label || sec.layout_key)}
             icon={sec.properties?.icon ? <Icon name={sec.properties.icon} size={13} /> : undefined}
             hideTitle={!designMode && sec.properties?.show_label === false}
-            style={designMode ? {
-              border: "2px dashed var(--accent)",
-              borderRadius: 8, padding: 12, position: "relative" as const,
-            } : undefined}
+            style={designMode
+              ? {
+                  marginTop: secIdx > 0 ? 16 : 0,
+                  border: "2px dashed var(--accent)",
+                  borderRadius: 8,
+                  padding: 12,
+                  position: "relative" as const,
+                }
+              : { marginTop: secIdx > 0 ? 16 : 0 }}
             titleStyle={designMode ? { cursor: "pointer", color: "var(--accent)" } : undefined}
             onClick={designMode && onSectionClick ? () => onSectionClick(sec) : undefined}
           >

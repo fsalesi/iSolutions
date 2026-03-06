@@ -29,7 +29,7 @@ export function Section({ title, icon, children, style, titleStyle, onClick, hid
 }
 
 // ── Field ──────────────────────────────────────────────────────────
-export function Field({ label, required, requiredMsg, fieldName, hideLabel, children }: { label: string; required?: boolean; requiredMsg?: string; fieldName?: string; hideLabel?: boolean; children: ReactNode }) {
+export function Field({ label, required, requiredMsg, fieldName, hideLabel, children }: { label: ReactNode; required?: boolean; requiredMsg?: string; fieldName?: string; hideLabel?: boolean; children: ReactNode }) {
   return (
     <div {...(required ? { "data-required": true, ...(requiredMsg ? { "data-required-msg": requiredMsg } : {}), ...(fieldName ? { "data-field-name": fieldName } : {}) } : {})}>
       {!hideLabel && (

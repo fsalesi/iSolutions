@@ -111,7 +111,7 @@ export async function generateDefaultLayout(formKey: string): Promise<{ inserted
           properties: {
             renderer: defaultRenderer(f.data_type),
             col_span: defaultColSpan(f.data_type, f.max_length),
-            mandatory: !f.is_nullable,
+            mandatory: !f.is_nullable && f.data_type !== "boolean",
           },
         });
       }
@@ -166,7 +166,7 @@ export async function generateDefaultLayout(formKey: string): Promise<{ inserted
           properties: {
             renderer: defaultRenderer(f.data_type),
             col_span: defaultColSpan(f.data_type, f.max_length),
-            mandatory: !f.is_nullable,
+            mandatory: !f.is_nullable && f.data_type !== "boolean",
           },
         });
       }

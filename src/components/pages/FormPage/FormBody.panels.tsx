@@ -1,3 +1,4 @@
+/* IMPORTANT: RUNTIME FORMS RULE - DO NOT use form_fields anywhere in runtime forms code. Use table_schema/information_schema (+ form_tables for structure) instead. */
 "use client";
 
 import type { FormField, TableInfo } from "./types";
@@ -41,6 +42,7 @@ export function FormBody({ design, tableName, formKey, fields, tables }: FormBod
         onSaved={design.handleFieldSaved}
         sections={sections}
         sectionColumns={sectionColumns}
+        layoutEntries={design.layout}
       />
 
       <SectionPropertiesPanel

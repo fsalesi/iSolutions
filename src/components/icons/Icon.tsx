@@ -1,31 +1,81 @@
 /**
  * Icon — lightweight inline SVG icon system.
- * Uses Heroicons-style paths. Zero dependencies.
- * Usage: <Icon name="save" size={16} />
+ * Supports legacy inline path icons plus lucide-react icons by name.
+ * Usage: <Icon name="save" size={16} /> or <Icon name="CircleCheck" size={16} />
  */
+import { createElement } from "react";
+import * as LucideIcons from "lucide-react";
+
+const LUCIDE_ALIASES: Record<string, string> = {
+  chevUp: "ChevronUp",
+  chevDown: "ChevronDown",
+  chevLeft: "ChevronLeft",
+  chevRight: "ChevronRight",
+  chevFirst: "ChevronsLeft",
+  chevLast: "ChevronsRight",
+  logOut: "LogOut",
+  arrowLeft: "ArrowLeft",
+  messageSquare: "MessageSquare",
+  sortAsc: "ArrowUpNarrowWide",
+  sortDesc: "ArrowDownWideNarrow",
+};
+
+function toPascalCase(name: string): string {
+  const withSpaces = name
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .trim();
+  if (!withSpaces) return "";
+  return withSpaces
+    .split(/\s+/)
+    .map(part => part[0]?.toUpperCase() + part.slice(1).toLowerCase())
+    .join("");
+}
+
+function resolveLucideIcon(name: string): LucideIcons.LucideIcon | null {
+  const candidates = [
+    LUCIDE_ALIASES[name],
+    name,
+    toPascalCase(name),
+  ].filter(Boolean) as string[];
+
+  for (const candidate of candidates) {
+    const maybe = (LucideIcons as unknown as Record<string, unknown>)[candidate];
+    if (maybe && (typeof maybe === "function" || typeof maybe === "object")) return maybe as LucideIcons.LucideIcon;
+  }
+
+  return null;
+}
+
 export function Icon({ name, size = 18, className = "", style }: { name: string; size?: number; className?: string; style?: React.CSSProperties }) {
   const d = ICON_PATHS[name];
-  if (!d) return null;
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      style={style}
-      aria-hidden="true"
-    >
-      {d.split(/(?=M)/).filter(Boolean).map((seg, i) => (
-        <path key={i} d={seg.trim()} />
-      ))}
-    </svg>
-  );
+  if (d) {
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+        style={style}
+        aria-hidden="true"
+      >
+        {d.split(/(?=M)/).filter(Boolean).map((seg, i) => (
+          <path key={i} d={seg.trim()} />
+        ))}
+      </svg>
+    );
+  }
+
+  const LucideIcon = resolveLucideIcon(name);
+  if (!LucideIcon) return null;
+
+  return createElement(LucideIcon, { size, className, style, "aria-hidden": "true" });
 }
 
 const ICON_PATHS: Record<string, string> = {

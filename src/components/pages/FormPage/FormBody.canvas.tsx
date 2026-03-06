@@ -1,3 +1,4 @@
+/* IMPORTANT: RUNTIME FORMS RULE - DO NOT use form_fields anywhere in runtime forms code. Use table_schema/information_schema (+ form_tables for structure) instead. */
 "use client";
 
 import { useState } from "react";
@@ -14,6 +15,7 @@ export interface FormBodyCanvasProps {
   layout: LayoutEntry[];
   row: Row;
   onChange: (field: string, value: unknown) => void;
+  keyFields?: string[];
   designMode?: boolean;
   onFieldClick?: (entry: LayoutEntry) => void;
   onSectionClick?: (entry: LayoutEntry) => void;
@@ -35,6 +37,7 @@ export function FormBodyCanvas({
   layout,
   row,
   onChange,
+  keyFields,
   designMode,
   onFieldClick,
   onSectionClick,
@@ -90,19 +93,31 @@ export function FormBodyCanvas({
             const label = getTabLabel?.(tab) || tab.properties?.label || humanize(tab.layout_key);
             const icon = tab.properties?.icon || "";
             return (
-              <button
-                key={tab.layout_key}
-                onClick={() => setActiveTabKey(tab.layout_key)}
-                className="flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors"
-                style={{
-                  borderBottom: `2px solid ${effectiveTabKey === tab.layout_key ? "var(--accent)" : "transparent"}`,
-                  color: effectiveTabKey === tab.layout_key ? "var(--accent)" : "var(--text-secondary)",
-                }}
-                onDoubleClick={designMode && onTabClick ? () => onTabClick(tab) : undefined}
-              >
-                {icon && <Icon name={icon} size={14} />}
-                {label}
-              </button>
+              <div key={tab.layout_key} className="flex items-center">
+                <button
+                  onClick={() => setActiveTabKey(tab.layout_key)}
+                  className="flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors"
+                  style={{
+                    borderBottom: `2px solid ${effectiveTabKey === tab.layout_key ? "var(--accent)" : "transparent"}`,
+                    color: effectiveTabKey === tab.layout_key ? "var(--accent)" : "var(--text-secondary)",
+                  }}
+                  onDoubleClick={designMode && onTabClick ? () => onTabClick(tab) : undefined}
+                >
+                  {icon && <Icon name={icon} size={14} />}
+                  {label}
+                </button>
+                {designMode && onTabClick && (
+                  <button
+                    type="button"
+                    onClick={() => onTabClick(tab)}
+                    title="Edit tab"
+                    className="px-1 py-1 text-xs"
+                    style={{ color: "var(--text-muted)", marginRight: 6 }}
+                  >
+                    <Icon name="edit" size={12} />
+                  </button>
+                )}
+              </div>
             );
           })}
           {designMode && onTabAdded && (
@@ -119,6 +134,7 @@ export function FormBodyCanvas({
           layout={layout}
           row={row}
           onChange={onChange}
+          keyFields={keyFields}
           designMode={designMode}
           onFieldClick={onFieldClick}
           onSectionClick={onSectionClick}

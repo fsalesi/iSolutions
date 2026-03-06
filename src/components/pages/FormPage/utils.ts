@@ -1,3 +1,4 @@
+/* IMPORTANT: RUNTIME FORMS RULE - DO NOT use form_fields anywhere in runtime forms code. Use table_schema/information_schema (+ form_tables for structure) instead. */
 /** Convert snake_case to Title Case */
 export function humanize(key: string): string {
   return key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
@@ -12,6 +13,8 @@ export const RENDERER_OPTIONS = [
   { value: "checkbox", label: "Checkbox" },
   { value: "select", label: "Select" },
   { value: "lookup", label: "Lookup" },
+  { value: "image", label: "Image" },
+  { value: "password", label: "Password" },
   { value: "readonly", label: "Read-only" },
 ];
 

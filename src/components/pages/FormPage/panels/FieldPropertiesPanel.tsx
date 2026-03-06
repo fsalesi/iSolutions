@@ -13,12 +13,13 @@ const PANEL_TABS = [
   { key: "translations", label: "Translations" },
 ];
 
-export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, sectionColumns }: {
+export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, sectionColumns, layoutEntries }: {
   entry: LayoutEntry | null; open: boolean;
   onClose: () => void;
   onSaved: (updated: LayoutEntry) => void;
   sections?: { key: string; label: string }[];
   sectionColumns?: number;
+  layoutEntries?: LayoutEntry[];
 }) {
   const [activeTab, setActiveTab] = useState("properties");
   const [props, setProps] = useState<Record<string, any>>({});
@@ -27,6 +28,7 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [lookupPanelOpen, setLookupPanelOpen] = useState(false);
+  const [backendKeyFields, setBackendKeyFields] = useState<string[]>([]);
 
   useEffect(() => {
     if (entry) {
@@ -37,20 +39,118 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, 
     }
   }, [entry?.oid]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!entry?.form_key) {
+      setBackendKeyFields([]);
+      return;
+    }
+
+    const tableParam = entry.table_name ? `?table=${encodeURIComponent(entry.table_name)}&limit=0` : "?limit=0";
+    fetch(`/api/forms/${encodeURIComponent(entry.form_key)}${tableParam}`)
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return;
+        setBackendKeyFields(Array.isArray(data.keyFields) ? data.keyFields : []);
+      })
+      .catch(() => {
+        if (!cancelled) setBackendKeyFields([]);
+      });
+
+    return () => { cancelled = true; };
+  }, [entry?.form_key, entry?.table_name]);
+
   const setProp = (key: string, value: any) => setProps(p => ({ ...p, [key]: value }));
+
+  const isBackendKeyField = !!entry && backendKeyFields.includes(entry.layout_key);
+  const disallowedKeyRenderers = new Set(["password", "image", "lookup"]);
+  const rendererOptions = isBackendKeyField
+    ? RENDERER_OPTIONS.filter((o) => !disallowedKeyRenderers.has(String(o.value)))
+    : RENDERER_OPTIONS;
+  const effectiveRenderer = isBackendKeyField && disallowedKeyRenderers.has(String(props.renderer ?? "text"))
+    ? "text"
+    : (props.renderer ?? "text");
+
+  const findSafeSlot = (targetSection: string, desiredRow: number, desiredCol: number, desiredSpan: number) => {
+    const cols = Number(
+      layoutEntries?.find(l => l.layout_type === "section" && l.layout_key === targetSection)?.properties?.columns || 2,
+    );
+    const span = Math.max(1, Math.min(Number(desiredSpan) || 1, cols));
+    const startCol = Math.max(1, Math.min(Number(desiredCol) || 1, cols - span + 1));
+
+    const collides = (row: number, col: number) => {
+      const targetCells = new Set<string>();
+      for (let c = col; c < col + span; c++) targetCells.add(`${row}:${c}`);
+
+      return (layoutEntries || []).some(l => {
+        if (!entry || l.oid === entry.oid) return false;
+        if (l.parent_key !== targetSection) return false;
+        if (!(l.layout_type === "field" || l.layout_type === "child_grid")) return false;
+        if (l.properties?.hidden) return false;
+
+        const lr = Number(l.properties?.row || 0);
+        const lc = Number(l.properties?.col || 0);
+        if (!lr || !lc || lr !== row) return false;
+        const lSpan = Math.max(1, Math.min(Number(l.properties?.col_span) || 1, cols - lc + 1));
+        for (let c = lc; c < lc + lSpan; c++) {
+          if (targetCells.has(`${lr}:${c}`)) return true;
+        }
+        return false;
+      });
+    };
+
+    const row = Math.max(1, Number(desiredRow) || 1);
+    if (!collides(row, startCol)) return { row, col: startCol, span };
+
+    for (let r = 1; r <= 250; r++) {
+      for (let c = 1; c <= cols - span + 1; c++) {
+        if (!collides(r, c)) return { row: r, col: c, span };
+      }
+    }
+
+    return { row, col: startCol, span };
+  };
 
   const handleSave = async () => {
     if (!entry) return;
     setSaving(true); setError("");
+
+    const movedSection = parentKey !== entry.parent_key;
+    let effectiveProps = { ...props };
+    let effectiveSort = sortOrder;
+
+    if (isBackendKeyField) {
+      // Key fields are backend-controlled: always mandatory + read-only in UI metadata.
+      effectiveProps = { ...effectiveProps, mandatory: true, readonly: true };
+      if (disallowedKeyRenderers.has(String(effectiveProps.renderer ?? "text"))) {
+        effectiveProps = { ...effectiveProps, renderer: "text" };
+      }
+    }
+
+    if (movedSection && layoutEntries && layoutEntries.length > 0) {
+      const desiredRow = Number(props.row ?? entry.properties?.row ?? 1) || 1;
+      const desiredCol = Number(props.col ?? entry.properties?.col ?? 1) || 1;
+      const desiredSpan = Number(props.col_span ?? entry.properties?.col_span ?? 1) || 1;
+      const slot = findSafeSlot(parentKey, desiredRow, desiredCol, desiredSpan);
+
+      effectiveProps = {
+        ...effectiveProps,
+        row: slot.row,
+        col: slot.col,
+        col_span: slot.span,
+      };
+      effectiveSort = slot.row * 100 + slot.col;
+    }
+
     try {
       const res = await fetch("/api/form_layout?table=form_layout", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ oid: entry.oid, _table: "form_layout", properties: props, parent_key: parentKey, sort_order: sortOrder }),
+        body: JSON.stringify({ oid: entry.oid, _table: "form_layout", properties: effectiveProps, parent_key: parentKey, sort_order: effectiveSort }),
       });
       if (!res.ok) { const d = await res.json(); setError(d.error || "Save failed"); return; }
       const saved = await res.json();
-      onSaved({ ...entry, properties: saved.properties || props, parent_key: parentKey, sort_order: sortOrder });
+      onSaved({ ...entry, properties: saved.properties || effectiveProps, parent_key: parentKey, sort_order: effectiveSort });
       onClose();
     } catch (e: any) { setError(e.message); }
     finally { setSaving(false); }
@@ -82,14 +182,23 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, 
 
         {activeTab === "properties" && (
           <>
+            {isBackendKeyField && (
+              <div className="px-3 py-2 rounded-lg text-xs font-medium" style={{ background: "var(--warning-bg)", color: "var(--warning-text)", border: "1px solid var(--warning-border)" }}>
+                Backend-controlled key field: Mandatory and Read-only are enforced, and renderer cannot be Password, Image, or Lookup.
+              </div>
+            )}
             <Field label="Label">
               <Input value={props.label ?? ""} onChange={v => setProp("label", v)} />
             </Field>
             <Field label="Renderer">
-              <Select value={props.renderer ?? "text"} onChange={v => setProp("renderer", v)} options={RENDERER_OPTIONS} />
+              <Select
+                value={effectiveRenderer}
+                onChange={v => setProp("renderer", v)}
+                options={rendererOptions}
+              />
             </Field>
 
-            {props.renderer === "lookup" && (
+            {effectiveRenderer === "lookup" && (
               <Field label="Lookup">
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <Select
@@ -124,10 +233,20 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, 
                 }))} />
             </Field>
             <Field label="Mandatory">
-              <Select value={String(props.mandatory ?? "false")} onChange={v => setProp("mandatory", v === "true")} options={MANDATORY_OPTIONS} />
+              <Select
+                value={String(isBackendKeyField ? true : (props.mandatory ?? false))}
+                onChange={v => setProp("mandatory", v === "true")}
+                options={MANDATORY_OPTIONS}
+                disabled={isBackendKeyField}
+              />
             </Field>
             <Field label="Read-only">
-              <Select value={String(props.readonly ?? "false")} onChange={v => setProp("readonly", v === "true")} options={READONLY_OPTIONS} />
+              <Select
+                value={String(isBackendKeyField ? true : (props.readonly ?? false))}
+                onChange={v => setProp("readonly", v === "true")}
+                options={READONLY_OPTIONS}
+                disabled={isBackendKeyField}
+              />
             </Field>
             <Field label="Default Value">
               <Input value={props.default_value ?? ""} onChange={v => setProp("default_value", v)} />

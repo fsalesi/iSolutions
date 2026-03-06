@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import * as LucideIcons from "lucide-react";
 import { Icon } from "@/components/icons/Icon";
 import { Input } from "@/components/ui";
 
-export const ALL_ICONS = [
+const LEGACY_ICONS = [
   "activity", "arrowLeft", "ban", "bell", "briefcase", "camera", "chart",
   "check", "chevDown", "chevFirst", "chevLast", "chevLeft", "chevRight", "chevUp",
   "clock", "collapse", "columns", "copy", "download", "edit", "expand",
@@ -12,6 +13,14 @@ export const ALL_ICONS = [
   "settings", "shield", "sortAsc", "sortDesc", "sun", "tag", "trash",
   "undo", "unlock", "upload", "user", "users", "x",
 ];
+
+const LUCIDE_ICONS = Object.keys(LucideIcons).filter(name =>
+  /^[A-Z]/.test(name) && !name.endsWith("Icon"),
+);
+
+export const ALL_ICONS = Array.from(new Set([...LEGACY_ICONS, ...LUCIDE_ICONS])).sort((a, b) =>
+  a.localeCompare(b),
+);
 
 export function IconPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);

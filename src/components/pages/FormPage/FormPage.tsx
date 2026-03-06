@@ -1,3 +1,4 @@
+/* IMPORTANT: RUNTIME FORMS RULE - DO NOT use form_fields anywhere in runtime forms code. Use table_schema/information_schema (+ form_tables for structure) instead. */
 "use client";
 /**
  * FormPage — metadata-driven form renderer.
@@ -85,6 +86,7 @@ export function FormPage({ formKey, apiPath, activeNav, onNavigate, selectRecord
         meta={{ ...meta, layout: design.layout }}
         row={props.row as Row}
         onChange={props.onChange}
+        keyFields={props.keyFields}
         {...designBindings}
         formKey={formKey}
         buttonHandlers={buttonHandlers}

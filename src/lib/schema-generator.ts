@@ -18,6 +18,7 @@ interface FormTable {
   is_header: boolean;
   parent_table: string;
   has_attachments: boolean;
+  has_domain: boolean;
 }
 
 interface FormField {
@@ -157,7 +158,7 @@ export async function generateSchema(formKey: string, hasApprovals: boolean): Pr
 
   // 1. Load metadata
   const tablesRes = await db.query(
-    `SELECT table_name, is_header, parent_table, has_attachments
+    `SELECT table_name, is_header, parent_table, has_attachments, has_domain
      FROM form_tables WHERE form_key = $1 ORDER BY sort_order`,
     [formKey]
   );
@@ -189,8 +190,9 @@ export async function generateSchema(formKey: string, hasApprovals: boolean): Pr
       // ── CREATE TABLE ──
       const cols: string[] = [];
 
-      // Standard fields
+      // Standard fields (omit domain if has_domain is false)
       for (const [name, def] of STANDARD_FIELDS) {
+        if (name === "domain" && !table.has_domain) continue;
         cols.push(`  ${name} ${def}`);
       }
 
@@ -225,13 +227,15 @@ export async function generateSchema(formKey: string, hasApprovals: boolean): Pr
         description: `Create table "${table.table_name}"`,
       });
 
-      // Domain index (every table)
-      ops.push({
-        type: "create_index",
-        table: table.table_name,
-        sql: `CREATE INDEX idx_${table.table_name}_domain ON ${table.table_name} (domain)`,
-        description: `Index on domain`,
-      });
+      // Domain index (only when has_domain is true)
+      if (table.has_domain) {
+        ops.push({
+          type: "create_index",
+          table: table.table_name,
+          sql: `CREATE INDEX idx_${table.table_name}_domain ON ${table.table_name} (domain)`,
+          description: `Index on domain`,
+        });
+      }
 
       // FK indexes + constraints
       for (const fk of fkFields) {

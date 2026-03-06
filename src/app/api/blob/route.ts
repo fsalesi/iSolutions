@@ -66,6 +66,9 @@ export async function GET(req: NextRequest) {
     const row = rows[0];
     if (!row || !row[field]) return new NextResponse(null, { status: 404 });
 
+    const blob = row[field] as Buffer;
+    if (blob.length === 0) return new NextResponse(null, { status: 404 });
+
     return new NextResponse(row[field], {
       headers: {
         "Content-Type": row[`${field}_type`] || "application/octet-stream",
@@ -101,6 +104,8 @@ export async function POST(req: NextRequest) {
 
     if (ALLOWED_MIME && !ALLOWED_MIME.includes(file.type))
       return NextResponse.json({ error: `File type not allowed: ${file.type}` }, { status: 400 });
+    if (file.size <= 0)
+      return NextResponse.json({ error: "Empty file" }, { status: 400 });
 
     if (file.size > MAX_BYTES)
       return NextResponse.json({ error: `File exceeds ${MAX_BYTES / 1024 / 1024} MB limit` }, { status: 400 });

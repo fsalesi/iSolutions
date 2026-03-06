@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { AppShell } from "@/components/shell";
 import { SplitPanel } from "@/components/panels";
 import { DataGrid, type ColumnDef } from "@/components/data-grid/DataGrid";
@@ -27,6 +26,8 @@ export interface SplitCrudPageProps {
   selectSeq?: number;
   /** Override required fields entirely (e.g. FormPage derives them from metadata) */
   requiredFields?: string[];
+  /** Override key fields entirely (e.g. backend metadata). */
+  keyFields?: string[];
   /** Additional required fields stacked on top of the base required list */
   extraRequiredFields?: string[];
   /** Form key passed to CrudPanel for toolbar action overrides */
@@ -54,6 +55,7 @@ export function SplitCrudPage({
   selectRecordOid,
   selectSeq,
   requiredFields: requiredFieldsProp,
+  keyFields: keyFieldsProp,
   extraRequiredFields,
   gridId: gridIdProp,
   formKey,
@@ -65,8 +67,9 @@ export function SplitCrudPage({
   const exportCfg: ExportConfig = { table, searchFields: searchColumns || [], filename: `${table}-export` };
   const isMobile = useIsMobile();
   const crud = useCrudLink({ apiPath: api, table, onNavigate, selectRecordOid, selectSeq });
-  // Use explicit prop if provided (FormPage), otherwise use API-fetched required fields
+  // Use explicit prop if provided (FormPage), otherwise use API-fetched metadata.
   const baseRequiredFields = requiredFieldsProp ?? crud.requiredFields;
+  const baseKeyFields = keyFieldsProp ?? crud.keyFields;
 
   return (
     <AppShell title={title} showBack={isMobile && crud.showDetail} onBack={crud.handleBack} activeNav={activeNav} onNavigate={crud.guardedNavigate}>
@@ -74,7 +77,7 @@ export function SplitCrudPage({
         crud.showDetail ? (
           <CrudPanel ref={crud.crudRef} row={crud.link.selectedRow} isNew={crud.link.isNew}
             apiPath={api} tableName={table} defaultValues={defaultValues} renderBody={renderBody}
-            requiredFields={baseRequiredFields} extraRequiredFields={extraRequiredFields}
+            requiredFields={baseRequiredFields} keyFields={baseKeyFields} extraRequiredFields={extraRequiredFields}
             extraActions={extraActions} designMode={designMode} onDesignToggle={onDesignToggle} formKey={formKey} buttonHandlers={buttonHandlers}
             onSaved={crud.link.onSaved} onDeleted={crud.onDeletedMobile} onNew={crud.link.onNew} />
         ) : (
@@ -93,7 +96,7 @@ export function SplitCrudPage({
           right={
             <CrudPanel ref={crud.crudRef} row={crud.link.selectedRow} isNew={crud.link.isNew}
               apiPath={api} tableName={table} defaultValues={defaultValues} renderBody={renderBody}
-              requiredFields={baseRequiredFields} extraRequiredFields={extraRequiredFields}
+              requiredFields={baseRequiredFields} keyFields={baseKeyFields} extraRequiredFields={extraRequiredFields}
               extraActions={extraActions} designMode={designMode} onDesignToggle={onDesignToggle} formKey={formKey} buttonHandlers={buttonHandlers}
               onSaved={crud.link.onSaved} onDeleted={crud.link.onDeleted} onNew={crud.link.onNew} />
           }

@@ -9,9 +9,11 @@ export const VendorAPI = (overrides: Partial<LookupConfig> & { domain: string })
   const { domain, ...rest } = overrides;
 
   return {
-    fetchFn: async ({ search }) => {
+    fetchFn: async ({ search, domain: runtimeDomain }) => {
       if (!search || search.length < 2) return { rows: [], total: 0 };
-      const qs = new URLSearchParams({ action: "list", search, domain });
+      const effectiveDomain = runtimeDomain || domain;
+      if (!effectiveDomain) return { rows: [], total: 0 };
+      const qs = new URLSearchParams({ action: "list", search, domain: effectiveDomain });
       const res = await fetch(`/api/qad/vendors?${qs}`);
       if (!res.ok) {
         console.error("VendorLookup fetch failed:", res.status);

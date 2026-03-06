@@ -1,3 +1,4 @@
+/* IMPORTANT: RUNTIME FORMS RULE - DO NOT use form_fields anywhere in runtime forms code. Use table_schema/information_schema (+ form_tables for structure) instead. */
 "use client";
 
 import { useEffect, useState } from "react";
@@ -56,30 +57,15 @@ export function useFormLayoutFields({ formKey, tableNames }: UseFormLayoutFields
           )}&limit=500`
         );
 
-        const targetTables = tablesKey.split(",");
-        const fieldOperator = targetTables.length === 1 ? "eq" : "in_list";
-        const fieldValue = targetTables.length === 1 ? targetTables[0] : tablesKey;
-
-        const fieldsRes = await fetch(
-          `/api/form_fields?filters=${encodeURIComponent(
-            JSON.stringify({
-              type: "group",
-              logic: "and",
-              children: [
-                { type: "condition", field: "form_key", operator: "eq", value: formKey },
-                { type: "condition", field: "table_name", operator: fieldOperator, value: fieldValue },
-              ],
-            })
-          )}&limit=500`
-        );
+        const schemaRes = await fetch(`/api/table_schema?tables=${encodeURIComponent(tablesKey)}`);
 
         const layoutData = await layoutRes.json();
-        const fieldsData = await fieldsRes.json();
+        const schemaData = await schemaRes.json();
 
         if (cancelled) return;
 
         setLayout(layoutData.rows || []);
-        setFields((fieldsData.rows || []).map((f: RawField) => ({
+        setFields((schemaData.rows || []).map((f: RawField) => ({
           field_name: f.field_name,
           data_type: f.data_type,
           table_name: f.table_name,

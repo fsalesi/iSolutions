@@ -1,10 +1,18 @@
+/* IMPORTANT: RUNTIME FORMS RULE - DO NOT use form_fields anywhere in runtime forms code. Use table_schema/information_schema (+ form_tables for structure) instead. */
 "use client";
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { LayoutEntry } from "./types";
 
 const DATA_TYPE_RENDERER: Record<string, string> = {
-  text: "text", integer: "number", numeric: "number",
-  boolean: "checkbox", date: "date", timestamptz: "datetime", citext: "text",
+  text: "text",
+  integer: "number",
+  numeric: "number",
+  boolean: "checkbox",
+  date: "date",
+  timestamptz: "datetime",
+  citext: "text",
+  password: "password",
+  image: "image",
 };
 
 /**
@@ -41,21 +49,38 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
 
       const oldRow = dragged.properties?.row as number | undefined;
       const oldCol = dragged.properties?.col as number | undefined;
-
-      // Find an occupant whose start cell is exactly the target
-      const occupant = prev.find(l =>
-        l.oid !== dragOid &&
-        l.parent_key === targetSection &&
-        (l.layout_type === "field" || l.layout_type === "child_grid") &&
-        !l.properties?.hidden &&
-        (l.properties?.row as number) === targetRow &&
-        (l.properties?.col as number) === targetCol,
+      const targetSectionCols = Number(
+        prev.find(l => l.layout_type === "section" && l.layout_key === targetSection)?.properties?.columns || 2
       );
+      const draggedSpan = Math.min(Number(dragged.properties?.col_span) || 1, targetSectionCols);
+      const clampedTargetCol = Math.max(1, Math.min(targetCol, targetSectionCols - draggedSpan + 1));
+      const targetCells = new Set<string>();
+      for (let c = clampedTargetCol; c < clampedTargetCol + draggedSpan; c++) targetCells.add(`${targetRow}:${c}`);
 
-      type Update = { oid: string; row: number; col: number };
-      const updates: Update[] = [{ oid: dragOid, row: targetRow, col: targetCol }];
-      if (occupant && oldRow != null && oldCol != null) {
-        updates.push({ oid: occupant.oid, row: oldRow, col: oldCol });
+      const conflicts = prev.filter(l => {
+        if (l.oid === dragOid) return false;
+        if (l.parent_key !== targetSection) return false;
+        if (!(l.layout_type === "field" || l.layout_type === "child_grid")) return false;
+        if (l.properties?.hidden) return false;
+
+        const row = l.properties?.row as number | undefined;
+        const col = l.properties?.col as number | undefined;
+        if (row == null || col == null || row !== targetRow) return false;
+        const span = Math.min(Number(l.properties?.col_span) || 1, targetSectionCols - col + 1);
+        for (let c = col; c < col + span; c++) {
+          if (targetCells.has(`${row}:${c}`)) return true;
+        }
+        return false;
+      });
+
+      // Reject ambiguous overlap drops instead of corrupting layout (disappearing fields).
+      if (conflicts.length > 1) return prev;
+
+      type Update = { oid: string; row: number; col: number; parentKey: string };
+      const sourceSection = String(dragged.parent_key || targetSection);
+      const updates: Update[] = [{ oid: dragOid, row: targetRow, col: clampedTargetCol, parentKey: targetSection }];
+      if (conflicts.length === 1 && oldRow != null && oldCol != null) {
+        updates.push({ oid: conflicts[0].oid, row: oldRow, col: oldCol, parentKey: sourceSection });
       }
 
       const updateMap = new Map(updates.map(u => [u.oid, u]));
@@ -63,7 +88,7 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
         const upd = updateMap.get(l.oid);
         if (!upd) return l;
         const newProps = { ...l.properties, row: upd.row, col: upd.col };
-        return { ...l, sort_order: upd.row * 100 + upd.col, properties: newProps };
+        return { ...l, parent_key: upd.parentKey, sort_order: upd.row * 100 + upd.col, properties: newProps };
       });
 
       updates.forEach(u => {
@@ -71,7 +96,7 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
         if (!entry) return;
         fetch(`${apiBase}&oid=${u.oid}`, {
           method: "PUT", headers: hdrs,
-          body: JSON.stringify({ oid: u.oid, _table: "form_layout", sort_order: entry.sort_order, properties: entry.properties }),
+          body: JSON.stringify({ oid: u.oid, _table: "form_layout", parent_key: entry.parent_key, sort_order: entry.sort_order, properties: entry.properties }),
         }).catch(() => {});
       });
 
@@ -94,16 +119,15 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
 
     try {
       if (data.type === "field") {
-        const hidden = layout.find(l =>
-          l.layout_type === "field" && l.table_name === tn &&
-          l.layout_key === data.field_name && l.properties?.hidden,
+        const existing = layout.find(l =>
+          l.layout_type === "field" && l.table_name === tn && l.layout_key === data.field_name,
         );
-        if (hidden) {
-          const { hidden: _, ...restProps } = hidden.properties || {};
-          const newProps = { ...restProps, ...baseProps };
-          const res = await fetch(`${apiBase}&oid=${hidden.oid}`, {
+        if (existing) {
+          const { hidden: _, ...restProps } = existing.properties || {};
+          const newProps = { ...restProps, ...baseProps, hidden: false };
+          const res = await fetch(`${apiBase}&oid=${existing.oid}`, {
             method: "PUT", headers: hdrs,
-            body: JSON.stringify({ ...hidden, parent_key: targetSection, sort_order: sortOrder, properties: newProps }),
+            body: JSON.stringify({ ...existing, parent_key: targetSection, sort_order: sortOrder, properties: newProps }),
           });
           if (res.ok) {
             const updated = await res.json();
@@ -120,7 +144,7 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
               sort_order: sortOrder,
               properties: {
                 label: data.field_name.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
-                renderer, colSpan: 1, ...baseProps,
+                renderer, col_span: 1, ...baseProps,
               },
             }),
           });
@@ -130,15 +154,15 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
           }
         }
       } else if (data.type === "child_grid") {
-        const hidden = layout.find(l =>
-          l.layout_type === "child_grid" && l.layout_key === data.table_name && l.properties?.hidden,
+        const existing = layout.find(l =>
+          l.layout_type === "child_grid" && l.layout_key === data.table_name,
         );
-        if (hidden) {
-          const { hidden: _, ...restProps } = hidden.properties || {};
-          const newProps = { ...restProps, ...baseProps };
-          const res = await fetch(`${apiBase}&oid=${hidden.oid}`, {
+        if (existing) {
+          const { hidden: _, ...restProps } = existing.properties || {};
+          const newProps = { ...restProps, ...baseProps, hidden: false };
+          const res = await fetch(`${apiBase}&oid=${existing.oid}`, {
             method: "PUT", headers: hdrs,
-            body: JSON.stringify({ ...hidden, parent_key: targetSection, sort_order: sortOrder, properties: newProps }),
+            body: JSON.stringify({ ...existing, parent_key: targetSection, sort_order: sortOrder, properties: newProps }),
           });
           if (res.ok) {
             const updated = await res.json();

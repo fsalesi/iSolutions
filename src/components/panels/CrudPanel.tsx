@@ -32,6 +32,7 @@ export interface CrudPanelBodyProps {
   colTypes: Record<string, string>;
   colScales: Record<string, number>;
   requiredFields: string[];
+  keyFields?: string[];
 }
 
 export interface CrudPanelProps {
@@ -59,6 +60,7 @@ export interface CrudPanelProps {
   colTypes?: Record<string, string>;
   colScales?: Record<string, number>;
   requiredFields?: string[];
+  keyFields?: string[];
   /** Additional required fields stacked on top of requiredFields */
   extraRequiredFields?: string[];
   /** Extra toolbar actions */
@@ -97,6 +99,7 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
     colTypes: colTypesProp,
     colScales: colScalesProp,
     requiredFields: requiredFieldsProp,
+    keyFields: keyFieldsProp,
     extraRequiredFields,
     extraActions: extraActionsProp,
     designMode,
@@ -146,6 +149,7 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
     () => [...(requiredFieldsProp || []), ...(extraRequiredFields || [])],
     [requiredFieldsProp, extraRequiredFields],
   );
+  const keyFields = useMemo(() => keyFieldsProp || [], [keyFieldsProp]);
 
   // ── Empty row builder (from schema + defaultValues) ──
   const buildEmptyRow = useCallback((): Record<string, any> => {
@@ -456,6 +460,7 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
                 colTypes,
                 colScales,
                 requiredFields,
+                keyFields,
               })}
             </div>
 

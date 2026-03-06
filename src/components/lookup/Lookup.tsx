@@ -5,20 +5,23 @@ import type { LookupConfig } from "./LookupTypes";
 import { ddColKey, ddColType } from "./LookupTypes";
 import { Flag } from "@/components/ui/Flag";
 import { LookupBrowseModal } from "./LookupBrowseModal";
+import { useSession } from "@/context/SessionContext";
 
 interface LookupProps {
   value: any;
   onChange: (value: any) => void;
   config: LookupConfig;
   label?: string;
+  domain?: string;
 }
 
 /** Default fetcher for local PG API routes */
-async function defaultFetch(apiPath: string, params: { search: string; limit: number; offset: number }, baseFilters?: Record<string, string | number | boolean>) {
+async function defaultFetch(apiPath: string, params: { search: string; limit: number; offset: number; domain?: string }, baseFilters?: Record<string, string | number | boolean>) {
   const qs = new URLSearchParams();
   if (params.search) qs.set("search", params.search);
   qs.set("limit", String(params.limit));
   qs.set("offset", String(params.offset));
+  if (params.domain) qs.set("domain", params.domain);
   if (baseFilters && Object.keys(baseFilters).length) {
     const tree = { type: "group" as const, logic: "and" as const, children: Object.entries(baseFilters).map(([field, value]) => ({ type: "condition" as const, field, operator: "eq", value: String(value) })) };
     qs.set("filters", JSON.stringify(tree));
@@ -29,7 +32,7 @@ async function defaultFetch(apiPath: string, params: { search: string; limit: nu
   return res.json() as Promise<{ rows: any[]; total: number }>;
 }
 
-export function Lookup({ value, onChange, config, label }: LookupProps) {
+export function Lookup({ value, onChange, config, label, domain: domainProp }: LookupProps) {
   const {
     apiPath,
     fetchFn,
@@ -52,6 +55,9 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
     renderValue,
     allOption,
   } = config;
+
+  const { domain: sessionDomain } = useSession();
+  const effectiveDomain = domainProp || sessionDomain;
 
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<any[]>([]);
@@ -121,11 +127,11 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
   // Fetch function — use custom or default
   const doFetch = useCallback(
     async (searchStr: string, limit: number, offset: number) => {
-      if (fetchFn) return fetchFn({ search: searchStr, limit, offset });
-      if (apiPath) return defaultFetch(apiPath, { search: searchStr, limit, offset }, baseFilters);
+      if (fetchFn) return fetchFn({ search: searchStr, limit, offset, domain: effectiveDomain });
+      if (apiPath) return defaultFetch(apiPath, { search: searchStr, limit, offset, domain: effectiveDomain }, baseFilters);
       return { rows: [], total: 0 };
     },
-    [fetchFn, apiPath]
+    [fetchFn, apiPath, baseFilters, effectiveDomain]
   );
 
   // Resolve display text for current value(s)

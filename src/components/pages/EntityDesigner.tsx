@@ -11,8 +11,8 @@ import { useFieldHelper } from "@/components/ui/useFieldHelper";
 import { Icon } from "@/components/icons/Icon";
 
 type Row = { oid: string; [key: string]: any };
-type FormTable = { oid: string; form_key: string; table_name: string; is_header: boolean; parent_table: string; tab_label: string; has_attachments: boolean; sort_order: number; to_be_deleted: boolean; is_generated: boolean };
-type FormField = { oid: string; form_key: string; table_name: string; field_name: string; data_type: string; max_length: number | null; precision: number | null; scale: number | null; is_nullable: boolean; default_value: string; is_indexed: boolean; is_unique: boolean; is_copyable: boolean; case_sensitive: boolean; sort_order: number; created_at: string; updated_at: string; to_be_deleted: boolean; is_generated: boolean; is_dirty: boolean };
+type FormTable = { oid: string; form_key: string; table_name: string; is_header: boolean; parent_table: string; tab_label: string; has_attachments: boolean; has_domain: boolean; sort_order: number; to_be_deleted: boolean; is_generated: boolean };
+type FormField = { oid: string; form_key: string; table_name: string; field_name: string; data_type: string; max_length: number | null; precision: number | null; scale: number | null; is_nullable: boolean; default_value: string; is_indexed: boolean; is_unique: boolean; is_key: boolean; is_copyable: boolean; case_sensitive: boolean; sort_order: number; created_at: string; updated_at: string; to_be_deleted: boolean; is_generated: boolean; is_dirty: boolean };
 type TableStatus = "new" | "pending_delete" | "clean";
 type FieldStatus = "new" | "modified" | "pending_delete" | "clean";
 
@@ -370,6 +370,7 @@ function TablesTab({ row }: { row: Row }) {
       parent_table: draft.is_header ? "" : (draft.parent_table || ""),
       tab_label: draft.tab_label || draft.table_name || "",
       has_attachments: draft.has_attachments ?? false,
+      has_domain: draft.has_domain ?? true,
       sort_order: draft.sort_order ?? 0,
     };
 
@@ -467,6 +468,7 @@ function TablesTab({ row }: { row: Row }) {
               <th className="text-left px-3 py-2 font-medium" style={{ color: "var(--text-muted)" }}>Parent</th>
               <th className="text-left px-3 py-2 font-medium" style={{ color: "var(--text-muted)" }}>Tab Label</th>
               <th className="text-left px-3 py-2 font-medium" style={{ color: "var(--text-muted)" }}>Attach</th>
+              <th className="text-left px-3 py-2 font-medium" style={{ color: "var(--text-muted)" }}>Domain</th>
               <th className="text-left px-3 py-2 font-medium" style={{ color: "var(--text-muted)" }}>Order</th>
               <th className="px-3 py-2 w-20"></th>
             </tr>
@@ -500,6 +502,7 @@ function TablesTab({ row }: { row: Row }) {
                 <td className="px-3 py-2 font-mono text-xs" style={{ color: "var(--text-muted)" }}>{tbl.parent_table || "—"}</td>
                 <td className="px-3 py-2" style={{ color: "var(--text-primary)" }}>{tbl.tab_label}</td>
                 <td className="px-3 py-2">{tbl.has_attachments ? <Badge variant="success">Yes</Badge> : "—"}</td>
+                <td className="px-3 py-2">{tbl.has_domain !== false ? <Badge variant="success">Yes</Badge> : <Badge variant="warning">No</Badge>}</td>
                 <td className="px-3 py-2" style={{ color: "var(--text-muted)" }}>{tbl.sort_order}</td>
                 <td className="px-3 py-2 text-right">
                   <div className="flex items-center justify-end gap-1">
@@ -561,12 +564,15 @@ function TablesTab({ row }: { row: Row }) {
             <Field label="Sort Order">
               <NumberInput
                 value={draft.sort_order ?? 0}
-                onChange={v => setDraft(d => ({ ...d, sort_order: v }))}
+                onChange={v => setDraft(d => ({ ...d, sort_order: Number(v || 0) }))}
                 scale={0}
               />
             </Field>
             <Field label="Attachments">
-              <Toggle value={draft.has_attachments ?? false} onChange={v => setDraft(d => ({ ...d, has_attachments: v }))} />
+              <Toggle value={draft.has_attachments ?? false} onChange={v => setDraft(d => ({ ...d, has_attachments: v === true }))} />
+            </Field>
+            <Field label="Domain Field">
+              <Toggle value={draft.has_domain ?? true} onChange={v => setDraft(d => ({ ...d, has_domain: v === true }))} />
             </Field>
           </div>
           {error && <div className="text-sm" style={{ color: "var(--danger-text)" }}>{error}</div>}
@@ -684,8 +690,9 @@ function FieldsTab({ row }: { row: Row }) {
       scale: draft.data_type === "numeric" ? (draft.scale || null) : null,
       is_nullable: draft.is_nullable ?? true,
       default_value: draft.default_value || "",
-      is_indexed: draft.is_indexed ?? false,
-      is_unique: draft.is_unique ?? false,
+      is_indexed: draft.is_key ? true : (draft.is_indexed ?? false),
+      is_unique: draft.is_key ? true : (draft.is_unique ?? false),
+      is_key: draft.is_key ?? (draft.is_unique ?? false),
       is_copyable: draft.is_copyable ?? true,
       case_sensitive: draft.data_type === "text" ? (draft.case_sensitive ?? false) : false,
       sort_order: draft.sort_order ?? 0,
@@ -737,7 +744,7 @@ function FieldsTab({ row }: { row: Row }) {
     fetchFields();
   };
 
-  const startAdd = () => { setAdding(true); setEditing(null); setDraft({ data_type: "text", is_nullable: true, is_copyable: true, case_sensitive: false, sort_order: (fields.length + 1) * 10 }); setError(""); };
+  const startAdd = () => { setAdding(true); setEditing(null); setDraft({ data_type: "text", is_nullable: true, is_copyable: true, case_sensitive: false, is_key: false, sort_order: (fields.length + 1) * 10 }); setError(""); };
   const startEdit = (fld: FormField) => { setEditing(fld); setAdding(false); setDraft({ ...fld }); setError(""); };
   const cancel = () => { setAdding(false); setEditing(null); setDraft({}); setError(""); };
 
@@ -801,7 +808,7 @@ function FieldsTab({ row }: { row: Row }) {
                   <td className="px-3 py-2 font-mono text-xs" style={{ color: "var(--text-muted)" }}>{typeLabel}</td>
                   <td className="px-3 py-2">{fld.is_nullable ? "Yes" : "No"}</td>
                   <td className="px-3 py-2">
-                    {fld.is_unique ? <Badge variant="warning">Unique</Badge> : fld.is_indexed ? <Badge variant="success">Yes</Badge> : "—"}
+                    {fld.is_key ? <Badge variant="danger">Key</Badge> : fld.is_unique ? <Badge variant="warning">Unique</Badge> : fld.is_indexed ? <Badge variant="success">Yes</Badge> : "—"}
                   </td>
                   <td className="px-3 py-2 font-mono text-xs" style={{ color: "var(--text-muted)" }}>{fld.default_value || "—"}</td>
                   <td className="px-3 py-2" style={{ color: "var(--text-muted)" }}>{fld.sort_order}</td>
@@ -853,7 +860,7 @@ function FieldsTab({ row }: { row: Row }) {
               <Field label="Max Length">
                 <NumberInput
                   value={draft.max_length ?? 0}
-                  onChange={v => setDraft(d => ({ ...d, max_length: v || null }))}
+                  onChange={v => setDraft(d => ({ ...d, max_length: v ? Number(v) : null }))}
                   scale={0}
                   placeholder="0 = unlimited"
                 />
@@ -864,14 +871,14 @@ function FieldsTab({ row }: { row: Row }) {
                 <Field label="Precision">
                   <NumberInput
                     value={draft.precision ?? 10}
-                    onChange={v => setDraft(d => ({ ...d, precision: v }))}
+                    onChange={v => setDraft(d => ({ ...d, precision: v ? Number(v) : null }))}
                     scale={0}
                   />
                 </Field>
                 <Field label="Scale">
                   <NumberInput
                     value={draft.scale ?? 2}
-                    onChange={v => setDraft(d => ({ ...d, scale: v }))}
+                    onChange={v => setDraft(d => ({ ...d, scale: v ? Number(v) : null }))}
                     scale={0}
                   />
                 </Field>
@@ -887,24 +894,27 @@ function FieldsTab({ row }: { row: Row }) {
             <Field label="Sort Order">
               <NumberInput
                 value={draft.sort_order ?? 0}
-                onChange={v => setDraft(d => ({ ...d, sort_order: v }))}
+                onChange={v => setDraft(d => ({ ...d, sort_order: Number(v || 0) }))}
                 scale={0}
               />
             </Field>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4">
             <Field label="Nullable">
-              <Toggle value={draft.is_nullable ?? true} onChange={v => setDraft(d => ({ ...d, is_nullable: v }))} />
+              <Toggle value={draft.is_nullable ?? true} onChange={v => setDraft(d => ({ ...d, is_nullable: v === true }))} />
             </Field>
             <Field label="Indexed">
-              <Toggle value={draft.is_indexed ?? false} onChange={v => setDraft(d => ({ ...d, is_indexed: v }))} />
+              <Toggle value={draft.is_indexed ?? false} onChange={v => setDraft(d => ({ ...d, is_indexed: v === true }))} />
             </Field>
             <Field label="Unique">
-              <Toggle value={draft.is_unique ?? false} onChange={v => setDraft(d => ({ ...d, is_unique: v, is_indexed: v ? true : d.is_indexed }))} />
+              <Toggle value={draft.is_unique ?? false} onChange={v => setDraft(d => ({ ...d, is_unique: v === true, is_indexed: v === true ? true : d.is_indexed, is_key: v === true ? true : d.is_key }))} />
+            </Field>
+            <Field label="Key Field">
+              <Toggle value={draft.is_key ?? false} onChange={v => setDraft(d => ({ ...d, is_key: v === true, is_unique: v === true ? true : d.is_unique, is_indexed: v === true ? true : d.is_indexed }))} />
             </Field>
             {draft.data_type === "text" && (
               <Field label="Case Sensitive">
-                <Toggle value={draft.case_sensitive ?? false} onChange={v => setDraft(d => ({ ...d, case_sensitive: v }))} />
+                <Toggle value={draft.case_sensitive ?? false} onChange={v => setDraft(d => ({ ...d, case_sensitive: v === true }))} />
               </Field>
             )}
           </div>

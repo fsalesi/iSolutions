@@ -293,13 +293,15 @@ export function DataGrid<T extends { oid: string }>({
           sort: sort.field, dir: sort.dir,
           filters: effectiveFilters || undefined,
         });
+        const safeRows = Array.isArray(result?.rows) ? result.rows : [];
+        const safeTotal = typeof result?.total === "number" ? result.total : safeRows.length;
 
         if (preload) {
-          prefetchCache.current = { key, rows: result.rows, total: result.total };
+          prefetchCache.current = { key, rows: safeRows, total: safeTotal };
         } else {
-          setRows(prev => replace ? result.rows : [...prev, ...result.rows]);
-          setTotal(result.total);
-          nextOffset.current = offset + result.rows.length;
+          setRows(prev => replace ? safeRows : [...prev, ...safeRows]);
+          setTotal(safeTotal);
+          nextOffset.current = offset + safeRows.length;
           setLoading(false);
           setLoadingMore(false);
         }

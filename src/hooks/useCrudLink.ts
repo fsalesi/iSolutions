@@ -37,6 +37,7 @@ export function useCrudLink({ apiPath, table, onNavigate, selectRecordOid, selec
 
   // ── Layout state (persisted per table) ──
   const [requiredFields, setRequiredFields] = useState<string[]>([]);
+  const [keyFields, setKeyFields] = useState<string[]>([]);
   const [showDetail, setShowDetail] = useState(() => getExpanded(table));
 
   // Persist when it changes
@@ -46,7 +47,10 @@ export function useCrudLink({ apiPath, table, onNavigate, selectRecordOid, selec
   useEffect(() => {
     fetch(`${apiPath}${apiPath.includes("?") ? "&" : "?"}limit=0`)
       .then(r => r.json())
-      .then(data => { if (Array.isArray(data.requiredFields)) setRequiredFields(data.requiredFields); })
+      .then(data => {
+        if (Array.isArray(data.requiredFields)) setRequiredFields(data.requiredFields);
+        if (Array.isArray(data.keyFields)) setKeyFields(data.keyFields);
+      })
       .catch(() => {});
   }, [apiPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -94,5 +98,6 @@ export function useCrudLink({ apiPath, table, onNavigate, selectRecordOid, selec
     handleBack,
     onDeletedMobile,
     requiredFields,
+    keyFields,
   };
 }

@@ -1,3 +1,4 @@
+/* IMPORTANT: RUNTIME FORMS RULE - DO NOT use form_fields anywhere in runtime forms code. Use table_schema/information_schema (+ form_tables for structure) instead. */
 "use client";
 /**
  * FormDetailTabs — thin wrapper around FormBodyCanvas for header-table forms.
@@ -12,6 +13,7 @@ export function FormDetailTabs({
   meta,
   row,
   onChange,
+  keyFields,
   designMode,
   onFieldClick,
   onSectionClick,
@@ -39,6 +41,7 @@ export function FormDetailTabs({
   buttonHandlers?: Record<string, (ctx: ButtonHandlerContext) => void | Promise<void>>;
   row: Row;
   onChange: (field: string, value: unknown) => void;
+  keyFields?: string[];
 }) {
   const t = useT();
 
@@ -56,6 +59,7 @@ export function FormDetailTabs({
           layout={meta.layout}
           row={row}
           onChange={onChange}
+          keyFields={keyFields}
           designMode={designMode}
           onFieldClick={onFieldClick}
           onSectionClick={onSectionClick}

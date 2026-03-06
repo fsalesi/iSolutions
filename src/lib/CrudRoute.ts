@@ -1,3 +1,4 @@
+/* IMPORTANT: RUNTIME FORMS RULE - DO NOT use form_fields anywhere in runtime forms code. Use table_schema/information_schema (+ form_tables for structure) instead. */
 /**
  * CrudRoute — Base class for metadata-driven CRUD route handlers.
  *
@@ -28,11 +29,13 @@ export interface TableMeta {
   tableName: string;
   isHeader: boolean;
   parentTable: string;
+  hasDomain: boolean;
   hasApprovals: boolean;
   customFields: FieldMeta[];
   allColumns: string[];
   writableColumns: string[];
   requiredFields: string[];
+  keyFields: string[];
   searchColumns: string[];
   colTypes: Record<string, ColType>;
   colScales: Record<string, number>;
@@ -49,6 +52,7 @@ export interface FieldMeta {
   isIndexed: boolean;
   isUnique: boolean;
   caseSensitive: boolean;
+  hasDefault: boolean;
 }
 
 /* ── Constants ── */
@@ -75,6 +79,7 @@ function mapColType(dataType: string): ColType {
     case "boolean": return "boolean";
     case "date": return "date";
     case "timestamptz": return "datetime";
+    case "image": return "image";
     default: return "text";
   }
 }
@@ -93,9 +98,15 @@ function coerceValue(colType: ColType, val: any): any {
   return val ?? "";
 }
 
+function normalizeComparable(val: any): string {
+  if (val === null || val === undefined) return "";
+  if (typeof val === "string") return val.trim();
+  return String(val);
+}
+
 class AuthError extends Error { constructor() { super("Authentication required"); } }
 
-/* ── Load metadata from form_fields + form_tables ── */
+/* ── Load metadata from form_tables + live table schema ── */
 
 async function loadMeta(formKey: string, tableName: string): Promise<TableMeta> {
   const cacheKey = `${formKey}::${tableName}`;
@@ -103,7 +114,7 @@ async function loadMeta(formKey: string, tableName: string): Promise<TableMeta> 
   if (cached && Date.now() - cached.loadedAt < CACHE_TTL) return cached.meta;
 
   const tRes = await db.query(
-    `SELECT t.is_header, t.parent_table, f.has_approvals
+    `SELECT t.is_header, t.parent_table, t.has_domain, f.has_approvals
      FROM form_tables t
      JOIN forms f ON f.form_key = t.form_key
      WHERE t.form_key = $1 AND t.table_name = $2`,
@@ -112,29 +123,74 @@ async function loadMeta(formKey: string, tableName: string): Promise<TableMeta> 
   if (!tRes.rows.length) throw new Error(`Table "${tableName}" not found in form "${formKey}"`);
   const tRow = tRes.rows[0];
 
-  const fRes = await db.query(
-    `SELECT field_name, data_type, max_length, precision, scale, is_nullable, is_indexed, is_unique, case_sensitive
-     FROM form_fields
-     WHERE form_key = $1 AND table_name = $2
-     ORDER BY sort_order, field_name`,
-    [formKey, tableName]
+  const sRes = await db.query(
+    `SELECT
+       c.column_name AS field_name,
+       CASE
+         WHEN c.udt_name IN ('int2', 'int4', 'int8') THEN 'integer'
+         WHEN c.udt_name IN ('numeric', 'decimal', 'float4', 'float8') THEN 'numeric'
+         WHEN c.udt_name = 'bool' THEN 'boolean'
+         WHEN c.udt_name = 'date' THEN 'date'
+         WHEN c.udt_name IN ('timestamp', 'timestamptz') THEN 'timestamptz'
+         WHEN c.udt_name = 'bytea' THEN 'image'
+         ELSE 'text'
+       END AS data_type,
+       c.character_maximum_length AS max_length,
+       c.numeric_precision AS precision,
+       c.numeric_scale AS scale,
+       (c.is_nullable = 'YES') AS is_nullable,
+       COALESCE(ix.is_indexed, false) AS is_indexed,
+       COALESCE(ix.is_unique, false) AS is_unique,
+       (c.udt_name <> 'citext') AS case_sensitive,
+       (c.column_default IS NOT NULL) AS has_default
+     FROM information_schema.columns c
+     LEFT JOIN (
+       SELECT
+         a.attname AS column_name,
+         true AS is_indexed,
+         bool_or(i.indisunique) AS is_unique
+       FROM pg_class t
+       JOIN pg_namespace n ON n.oid = t.relnamespace
+       JOIN pg_index i ON i.indrelid = t.oid
+       JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(i.indkey)
+       WHERE n.nspname = 'public' AND t.relname = $1
+       GROUP BY a.attname
+     ) ix ON ix.column_name = c.column_name
+     WHERE c.table_schema = 'public' AND c.table_name = $1
+     ORDER BY c.ordinal_position`,
+    [tableName]
   );
 
-  const customFields: FieldMeta[] = fRes.rows.map((r: any) => ({
-    fieldName: r.field_name, dataType: r.data_type, maxLength: r.max_length,
-    precision: r.precision, scale: r.scale, isNullable: r.is_nullable,
-    isIndexed: r.is_indexed, isUnique: r.is_unique, caseSensitive: r.case_sensitive,
-  }));
-
-  const customColNames = customFields.map(f => f.fieldName);
-  const systemCols = [...STANDARD_COLS];
+  // Only include system columns that actually exist on this table
+  const actualCols = new Set(sRes.rows.map((r: any) => r.field_name));
+  const baseCols = (tRow.has_domain
+    ? ["oid", "domain", "created_at", "created_by", "updated_at", "updated_by", "custom_fields"]
+    : ["oid", "created_at", "created_by", "updated_at", "updated_by"]).filter((c) => actualCols.has(c));
+  const systemCols = [...baseCols];
   if (tRow.is_header) {
-    systemCols.push(...HEADER_ONLY_COLS);
-    if (tRow.has_approvals) systemCols.push(...APPROVAL_COLS);
+    if (actualCols.has("copied_from")) systemCols.push("copied_from");
+    if (tRow.has_approvals) systemCols.push(...APPROVAL_COLS.filter((c) => actualCols.has(c)));
   }
+  const excluded = new Set(systemCols);
 
+  const customFields: FieldMeta[] = sRes.rows
+    .filter((r: any) => !excluded.has(r.field_name))
+    .map((r: any) => ({
+      fieldName: r.field_name,
+      dataType: r.data_type,
+      maxLength: r.max_length,
+      precision: r.precision,
+      scale: r.scale,
+      isNullable: r.is_nullable,
+      isIndexed: r.is_indexed,
+      isUnique: r.is_unique,
+      caseSensitive: r.case_sensitive,
+      hasDefault: r.has_default,
+    }));
+
+  const customColNames = customFields.map((f) => f.fieldName);
   const allColumns = [...systemCols, ...customColNames];
-  const writableColumns = customColNames.filter(c => c !== `oid_${tRow.parent_table}`);
+  const writableColumns = customColNames.filter((c) => c !== `oid_${tRow.parent_table}`);
   if (tRow.is_header && tRow.has_approvals) {
     writableColumns.push("status", "submitted_by", "submitted_at", "approved_at", "approved_by", "is_change_order");
   }
@@ -148,31 +204,46 @@ async function loadMeta(formKey: string, tableName: string): Promise<TableMeta> 
   if (tRow.is_header) {
     colTypes.copied_from = "text";
     if (tRow.has_approvals) {
-      colTypes.status = "text"; colTypes.submitted_by = "text";
-      colTypes.submitted_at = "datetime"; colTypes.approved_at = "datetime";
-      colTypes.approved_by = "text"; colTypes.is_change_order = "boolean";
+      colTypes.status = "text";
+      colTypes.submitted_by = "text";
+      colTypes.submitted_at = "datetime";
+      colTypes.approved_at = "datetime";
+      colTypes.approved_by = "text";
+      colTypes.is_change_order = "boolean";
     }
   }
+
   for (const f of customFields) {
     colTypes[f.fieldName] = mapColType(f.dataType);
     const s = colScale(f);
     if (s !== undefined) colScales[f.fieldName] = s;
   }
 
-  const requiredFields = customFields.filter(f => !f.isNullable).map(f => f.fieldName);
-  const searchColumns = customFields.filter(f => f.dataType === "text").slice(0, 4).map(f => f.fieldName);
-  const defaultSort = customFields.find(f => f.isIndexed)?.fieldName || customFields[0]?.fieldName || "created_at";
+  const requiredFields = customFields.filter((f) => !f.isNullable && !f.hasDefault && f.dataType !== "boolean").map((f) => f.fieldName);
+  const searchColumns = customFields.filter((f) => f.dataType === "text").slice(0, 4).map((f) => f.fieldName);
+  const defaultSort = customFields.find((f) => f.isIndexed)?.fieldName || customFields[0]?.fieldName || "created_at";
 
   const meta: TableMeta = {
-    formKey, tableName, isHeader: tRow.is_header, parentTable: tRow.parent_table || "",
-    hasApprovals: tRow.has_approvals, customFields, allColumns, writableColumns,
-    requiredFields, searchColumns, colTypes, colScales, defaultSort,
+    formKey,
+    tableName,
+    isHeader: tRow.is_header,
+    parentTable: tRow.parent_table || "",
+    hasDomain: tRow.has_domain ?? true,
+    hasApprovals: tRow.has_approvals,
+    customFields,
+    allColumns,
+    writableColumns,
+    requiredFields,
+    keyFields: [],
+    searchColumns,
+    colTypes,
+    colScales,
+    defaultSort,
   };
 
   metaCache.set(cacheKey, { meta, loadedAt: Date.now() });
   return meta;
 }
-
 /* ════════════════════════════════════════════════════════════════════
    CrudRoute — the base class
    ════════════════════════════════════════════════════════════════════ */
@@ -195,6 +266,12 @@ export class CrudRoute {
    * Example: protected passwordFields = ["password_hash"];
    */
   protected passwordFields: string[] = [];
+
+  /**
+   * Business key fields: required on create and immutable after first save.
+   * Declare in generated product route subclass. Example: ["user_id"].
+   */
+  protected keyFields: string[] = [];
 
   constructor(formKey: string) {
     this.formKey = formKey;
@@ -276,7 +353,7 @@ export class CrudRoute {
       let pi = 1;
 
       const domain = url.searchParams.get("domain") || "";
-      if (domain) { conditions.push(`"domain" = $${pi}`); params.push(domain); pi++; }
+      if (meta.hasDomain && domain) { conditions.push(`"domain" = $${pi}`); params.push(domain); pi++; }
 
       const parentOid = url.searchParams.get("parentOid") || "";
       if (!meta.isHeader && meta.parentTable && parentOid) {
@@ -307,7 +384,7 @@ export class CrudRoute {
       const selectCols = meta.allColumns
         .filter(c => !restricted.has(c))
         .map(c => imageFields.has(c)
-          ? `(CASE WHEN "${c}" IS NOT NULL THEN true ELSE NULL END) AS "${c}"`
+          ? `(CASE WHEN "${c}" IS NOT NULL AND octet_length("${c}") > 0 THEN true ELSE NULL END) AS "${c}"`
           : `"${c}"`)
         .join(", ");
 
@@ -326,9 +403,12 @@ export class CrudRoute {
       rows = await Promise.all(rows.map((r: Record<string, any>) => this.transformRow(r, meta)));
       rows = await this.transformList(rows, meta);
 
+      const keyFields = this.keyFields.filter((f) => meta.allColumns.includes(f));
+
       return NextResponse.json({
         rows, total, offset, limit,
         requiredFields: meta.requiredFields,
+        keyFields,
         searchColumns: meta.searchColumns,
       });
     } catch (err: any) {
@@ -349,8 +429,17 @@ export class CrudRoute {
 
       const meta = await this.loadMeta(tableName);
 
-      // Validate required fields
-      for (const f of meta.requiredFields) {
+      const keyFields = this.keyFields.filter((f) => meta.allColumns.includes(f));
+      const requiredOnCreate = Array.from(new Set([...meta.requiredFields, ...keyFields]));
+
+      // Validate required fields (boolean false is valid)
+      for (const f of requiredOnCreate) {
+        if (meta.colTypes[f] === "boolean") {
+          if (!(f in body) || body[f] === null || body[f] === undefined) {
+            return NextResponse.json({ error: `${f} is required` }, { status: 400 });
+          }
+          continue;
+        }
         if (!body[f]?.toString().trim()) {
           return NextResponse.json({ error: `${f} is required` }, { status: 400 });
         }
@@ -366,10 +455,12 @@ export class CrudRoute {
       const fields: string[] = [];
       const values: any[] = [];
 
-      fields.push("domain"); values.push(body.domain || "");
+      if (meta.hasDomain) { fields.push("domain"); values.push(body.domain || ""); }
 
       for (const col of meta.writableColumns) {
         if (this.restrictedFields.includes(col)) continue;
+        if (keyFields.includes(col)) continue;
+        if ((meta.colTypes[col] || "text") === "image") continue; // bytea is managed only via /api/blob
         if (this.passwordFields.includes(col)) {
           // Only write if a non-empty value was provided — never blank out an existing hash
           const raw = body[col];
@@ -428,10 +519,37 @@ export class CrudRoute {
       if (!tableName) return NextResponse.json({ error: "Missing _table" }, { status: 400 });
 
       const meta = await this.loadMeta(tableName);
+      const keyFields = this.keyFields.filter((f) => meta.allColumns.includes(f));
 
       for (const f of meta.requiredFields) {
-        if (f in body && !body[f]?.toString().trim()) {
+        if (!(f in body)) continue;
+        if (meta.colTypes[f] === "boolean") {
+          if (body[f] === null || body[f] === undefined) {
+            return NextResponse.json({ error: `${f} is required` }, { status: 400 });
+          }
+          continue;
+        }
+        if (!body[f]?.toString().trim()) {
           return NextResponse.json({ error: `${f} is required` }, { status: 400 });
+        }
+      }
+
+      if (keyFields.length) {
+        const keySelect = keyFields.map((f) => `"${f}"`).join(", ");
+        const existingR = await db.query(
+          `SELECT ${keySelect} FROM "${tableName}" WHERE oid = $1::uuid LIMIT 1`,
+          [oid]
+        );
+        if (!existingR.rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
+        const existing = existingR.rows[0] as Record<string, any>;
+
+        for (const f of keyFields) {
+          if (!(f in body)) continue;
+          const incoming = normalizeComparable(body[f]);
+          const stored = normalizeComparable(existing[f]);
+          if (incoming !== stored) {
+            return NextResponse.json({ error: `${f} cannot be changed after create` }, { status: 400 });
+          }
         }
       }
 
@@ -446,6 +564,8 @@ export class CrudRoute {
 
       for (const col of meta.writableColumns) {
         if (this.restrictedFields.includes(col)) continue;
+        if (keyFields.includes(col)) continue;
+        if ((meta.colTypes[col] || "text") === "image") continue; // bytea is managed only via /api/blob
         if (this.passwordFields.includes(col)) {
           // Only write if a non-empty value was provided — never blank out an existing hash
           const raw = body[col];
@@ -487,6 +607,7 @@ export class CrudRoute {
       return NextResponse.json({ error: e.message }, { status: 500 });
     }
   }
+
 
   /* ── DELETE ── */
 
