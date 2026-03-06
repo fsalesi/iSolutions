@@ -37,15 +37,26 @@ export function FieldRenderer({ renderer, value, onChange, fieldKey, readOnly, p
         </span>;
       }
       const overrides: Record<string, any> = {};
+      // ── Core field overrides ───────────────────────────────────────────
+      if (properties?.lookup_api_path) overrides.apiPath = properties.lookup_api_path;
+      if (properties?.lookup_value_field) overrides.valueField = properties.lookup_value_field;
+      if (properties?.lookup_display_field) overrides.displayField = properties.lookup_display_field;
+      if (properties?.lookup_display_template) overrides.displayTemplate = properties.lookup_display_template;
       if (properties?.lookup_placeholder) overrides.placeholder = properties.lookup_placeholder;
+      if (properties?.lookup_browse_title) overrides.browseTitle = properties.lookup_browse_title;
+      // ── Boolean overrides ──────────────────────────────────────────────
       if (properties?.lookup_multiple !== undefined) overrides.multiple = properties.lookup_multiple;
       if (properties?.lookup_browsable !== undefined) overrides.browsable = properties.lookup_browsable;
       if (properties?.lookup_preload !== undefined) overrides.preload = properties.lookup_preload;
+      if (properties?.lookup_read_only !== undefined) overrides.readOnly = properties.lookup_read_only;
+      // ── Numeric overrides ──────────────────────────────────────────────
       if (properties?.lookup_min_chars !== undefined) overrides.minChars = properties.lookup_min_chars;
       if (properties?.lookup_dropdown_limit !== undefined) overrides.dropdownLimit = properties.lookup_dropdown_limit;
+      // ── Column list overrides ──────────────────────────────────────────
       if (properties?.lookup_search_columns) overrides.searchColumns = String(properties.lookup_search_columns).split(",").map((s: string) => s.trim()).filter(Boolean);
       if (properties?.lookup_dropdown_columns) overrides.dropdownColumns = String(properties.lookup_dropdown_columns).split(",").map((s: string) => s.trim()).filter(Boolean);
       if (properties?.lookup_grid_columns) overrides.gridColumns = String(properties.lookup_grid_columns).split(",").map((s: string) => ({ key: s.trim(), label: s.trim() }));
+      // ── Form-level readonly wins over field-level ──────────────────────
       if (readOnly) overrides.readOnly = true;
       const config = presetFn(overrides);
       return <Lookup config={config} value={value ?? ""} onChange={onChange} />;
