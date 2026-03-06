@@ -30,10 +30,16 @@ export function FieldRenderer({ renderer, value, onChange, fieldKey, readOnly, p
       return <span style={{ color: "var(--text-muted)", fontSize: "var(--font-sm)" }}>{value || "—"}</span>;
     case "lookup": {
       const presetName = properties?.lookup_preset as string | undefined;
-      const presetFn = presetName ? (LookupPresets as any)[presetName] : undefined;
-      if (!presetFn) {
+      const isCustom = presetName === "__custom__";
+      const presetFn = (!isCustom && presetName) ? (LookupPresets as any)[presetName] : undefined;
+      if (!presetName) {
         return <span style={{ color: "var(--text-muted)", fontSize: "var(--font-sm)", fontStyle: "italic" }}>
-          {presetName ? `Unknown preset: ${presetName}` : "No preset selected"}
+          No preset selected
+        </span>;
+      }
+      if (!isCustom && !presetFn) {
+        return <span style={{ color: "var(--text-muted)", fontSize: "var(--font-sm)", fontStyle: "italic" }}>
+          Unknown preset: {presetName}
         </span>;
       }
       const overrides: Record<string, any> = {};
@@ -58,7 +64,13 @@ export function FieldRenderer({ renderer, value, onChange, fieldKey, readOnly, p
       if (properties?.lookup_grid_columns) overrides.gridColumns = String(properties.lookup_grid_columns).split(",").map((s: string) => ({ key: s.trim(), label: s.trim() }));
       // ── Form-level readonly wins over field-level ──────────────────────
       if (readOnly) overrides.readOnly = true;
-      const config = presetFn(overrides);
+      // For custom preset, overrides IS the config (no base preset to call)
+      const config = isCustom ? (overrides as any) : presetFn(overrides);
+      if (!config.apiPath || !config.valueField) {
+        return <span style={{ color: "var(--text-muted)", fontSize: "var(--font-sm)", fontStyle: "italic" }}>
+          Custom lookup: set API Path and Value Field
+        </span>;
+      }
       return <Lookup config={config} value={value ?? ""} onChange={onChange} />;
     }
     case "text":

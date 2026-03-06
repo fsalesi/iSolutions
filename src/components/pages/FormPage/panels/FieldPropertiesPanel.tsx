@@ -97,6 +97,7 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, 
                     onChange={v => setProp("lookup_preset", v)}
                     options={[
                       { value: "", label: "— Select preset —" },
+                      { value: "__custom__", label: "Custom (no preset)" },
                       ...Object.keys(LookupPresets)
                         .filter(k => k.endsWith("Lookup"))
                         .map(k => ({ value: k, label: k })),

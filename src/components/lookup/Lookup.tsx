@@ -80,6 +80,7 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
 
   // Display text for the current value (resolved from fetched record)
   const [displayText, setDisplayText] = useState("");
+  const [displayRecord, setDisplayRecord] = useState<any>(null);
   // Cache of fetched records keyed by valueField
   const cache = useRef<Map<string, any>>(new Map());
 
@@ -136,6 +137,7 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
       const cached = cache.current.get(v);
       if (cached) {
         setDisplayText(formatDisplay(cached));
+        setDisplayRecord(cached);
         return;
       }
       // Fetch the record to get display text
@@ -144,12 +146,14 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
         if (match) {
           cache.current.set(v, match);
           setDisplayText(formatDisplay(match));
+          setDisplayRecord(match);
         } else {
           setDisplayText(v); // fallback to raw value
+          setDisplayRecord(null);
         }
       });
     }
-  }, [value, multiple, selectedValues.length]);
+  }, [value, multiple, selectedValues.length, displayField, displayTemplate]);
 
   // Preload on mount
   useEffect(() => {
@@ -242,6 +246,7 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
     } else {
       onChange(val);
       setDisplayText(formatDisplay(record));
+      setDisplayRecord(record);
       setSearch("");
       setOpen(false);
     }
@@ -455,21 +460,42 @@ export function Lookup({ value, onChange, config, label }: LookupProps) {
               {renderValue && value
                 ? renderValue(cache.current.get(String(value)) || { [valueField]: value })
                 : (() => {
-                    const rec = value ? cache.current.get(String(value)) : null;
-                    const hasTypedCol = rec && ddCols.some(c => ddColType(c));
-                    if (rec && hasTypedCol) {
-                      return (
-                        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          {ddCols.map(c => {
-                            const k = ddColKey(c);
-                            const ct = ddColType(c);
-                            if (ct === "flag") return <Flag key={k} svg={rec[k]} size={16} />;
-                            if (ct === "image") return <img key={k} src={rec[k]} alt="" style={{ width: 18, height: 18, borderRadius: "50%", objectFit: "cover" }} />;
-                            return <span key={k}>{String(rec[k] ?? "")}</span>;
-                          })}
-                        </span>
-                      );
+                    if (!displayRecord) return displayText || placeholder || "";
+
+                    // If displayTemplate is set, parse it into mixed text+typed-field elements
+                    if (displayTemplate) {
+                      const parts: React.ReactNode[] = [];
+                      let last = 0;
+                      const tokenRe = /\{(\w+)\}/g;
+                      let m: RegExpExecArray | null;
+                      while ((m = tokenRe.exec(displayTemplate)) !== null) {
+                        if (m.index > last) parts.push(displayTemplate.slice(last, m.index));
+                        const fieldName = m[1];
+                        const typedCol = ddCols.find(dc => ddColKey(dc) === fieldName && ddColType(dc));
+                        if (typedCol) {
+                          const ct = ddColType(typedCol);
+                          const val = displayRecord[fieldName];
+                          if (ct === "flag") parts.push(<Flag key={m.index} svg={val} size={16} />);
+                          else if (ct === "image") parts.push(<img key={m.index} src={val} alt="" style={{ width: 18, height: 18, borderRadius: "50%", objectFit: "cover" }} />);
+                          else parts.push(String(displayRecord[fieldName] ?? ""));
+                        } else {
+                          parts.push(String(displayRecord[fieldName] ?? ""));
+                        }
+                        last = m.index + m[0].length;
+                      }
+                      if (last < displayTemplate.length) parts.push(displayTemplate.slice(last));
+                      return <span style={{ display: "flex", alignItems: "center", gap: 4 }}>{parts}</span>;
                     }
+
+                    // No template — check if displayField itself is a typed column
+                    const typedCol = ddCols.find(dc => ddColKey(dc) === displayField && ddColType(dc));
+                    if (typedCol) {
+                      const ct = ddColType(typedCol);
+                      const val = displayRecord[displayField];
+                      if (ct === "flag") return <Flag svg={val} size={16} />;
+                      if (ct === "image") return <img src={val} alt="" style={{ width: 18, height: 18, borderRadius: "50%", objectFit: "cover" }} />;
+                    }
+
                     return displayText || placeholder || "";
                   })()}
             </span>

@@ -87,10 +87,13 @@ export function LookupPropertiesPanel({ open, onClose, presetName, properties, o
   const [apiFields, setApiFields] = useState<string[]>([]);
   const [fieldsLoading, setFieldsLoading] = useState(false);
 
+  const isCustom = presetName === "__custom__";
+
   useEffect(() => {
-    if (presetName) setDefaults(getDefaultConfig(presetName));
+    // Custom preset has no base defaults — user configures everything
+    if (presetName && !isCustom) setDefaults(getDefaultConfig(presetName));
     else setDefaults({});
-  }, [presetName]);
+  }, [presetName, isCustom]);
 
   // Fetch available fields from the API path
   useEffect(() => {
@@ -147,7 +150,7 @@ export function LookupPropertiesPanel({ open, onClose, presetName, properties, o
     <SlidePanel
       open={open}
       onClose={onClose}
-      title={`Lookup: ${presetName || "No preset"}`}
+      title={isCustom ? "Lookup: Custom" : `Lookup: ${presetName || "No preset"}`}
       footer={
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-medium"
@@ -161,6 +164,15 @@ export function LookupPropertiesPanel({ open, onClose, presetName, properties, o
         {!presetName && (
           <div style={{ color: "var(--text-secondary)", fontSize: "var(--font-sm)", fontStyle: "italic" }}>
             Select a preset first.
+          </div>
+        )}
+        {isCustom && (
+          <div style={{
+            padding: "10px 12px", borderRadius: 6, marginBottom: 8,
+            background: "var(--bg-muted)", border: "1px solid var(--border)",
+            fontSize: 12, color: "var(--text-secondary)",
+          }}>
+            Configure all lookup properties manually. At minimum, set <strong>API Path</strong>, <strong>Value Field</strong>, and <strong>Display Field</strong>.
           </div>
         )}
 
