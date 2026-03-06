@@ -9,6 +9,7 @@ import { humanize } from "./utils";
 import { useT } from "@/context/TranslationContext";
 import { AddSectionButton } from "./AddSectionButton";
 import { InlineCrud } from "@/components/inline-crud/InlineCrud";
+import type { ButtonHandlerContext } from "@/components/crud-toolbar/types";
 import type { ColumnDef } from "@/components/data-grid/DataGrid";
 
 // ── Position helpers ─────────────────────────────────────────────────────────
@@ -62,7 +63,7 @@ function assignPositions(entries: LayoutEntry[], cols: number): LayoutEntry[] {
 export function HeaderTabContent({
   apiPath, tableName, tabKey, layout, row, onChange, isNew,
   designMode, onFieldClick, onSectionClick, onSectionAdded,
-  onFieldMoved, onElementDropped, onDesignToggle, formKey,
+  onFieldMoved, onElementDropped, onDesignToggle, formKey, buttonHandlers,
 }: {
   apiPath: string;
   tableName: string;
@@ -76,6 +77,7 @@ export function HeaderTabContent({
   onElementDropped?: (data: any, targetSection: string, targetRow: number, targetCol: number) => void;
   onDesignToggle?: () => void;
   formKey?: string;
+  buttonHandlers?: Record<string, (ctx: ButtonHandlerContext) => void | Promise<void>>;
   row: Row;
   onChange: (field: keyof Row, value: any) => void;
   isNew: boolean;
@@ -235,6 +237,7 @@ export function HeaderTabContent({
                           saveExtras={{ domain: row.domain, [`oid_${tableName}`]: row.oid }}
                           label={entry.properties?.show_label === false ? undefined : (entry.properties?.label || childTable)}
                           formKey={formKey}
+                          buttonHandlers={buttonHandlers}
                           inquiryOnly={entry.properties?.inquiry_only === true}
                           allowAdd={entry.properties?.allow_add !== false}
                         />

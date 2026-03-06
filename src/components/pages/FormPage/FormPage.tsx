@@ -16,14 +16,16 @@ import { TabPropertiesPanel } from "./panels/TabPropertiesPanel";
 import { AddFieldPanel } from "./panels/AddFieldPanel";
 import { FormDetailTabs } from "./FormDetailTabs";
 import { useDesignLayout } from "./useDesignLayout";
+import type { ButtonHandlerContext } from "@/components/crud-toolbar/types";
 
-export function FormPage({ formKey, apiPath, activeNav, onNavigate, selectRecordOid, selectSeq }: {
+export function FormPage({ formKey, apiPath, activeNav, onNavigate, selectRecordOid, selectSeq, buttonHandlers }: {
   formKey: string;
   apiPath: string;
   activeNav: string;
   onNavigate: (k: string, oid?: string) => void;
   selectRecordOid?: string;
   selectSeq?: number;
+  buttonHandlers?: Record<string, (ctx: ButtonHandlerContext) => void | Promise<void>>;
 }) {
   const [meta, setMeta] = useState<FormMeta | null>(null);
   const [error, setError] = useState("");
@@ -191,10 +193,11 @@ export function FormPage({ formKey, apiPath, activeNav, onNavigate, selectRecord
         onElementDropped={design.designMode ? design.handleElementDropped : undefined}
         onDesignToggle={handleDesignToggle}
         formKey={formKey}
+        buttonHandlers={buttonHandlers}
         onLayoutUpdated={design.setLayout}
       />
     );
-  }, [meta, apiPath, headerTabs, design, formKey, handleDesignToggle]);
+  }, [meta, apiPath, headerTabs, design, formKey, handleDesignToggle, buttonHandlers]);
 
   if (error) return <div style={{ padding: 24, color: "var(--danger-text)" }}>Error: {error}</div>;
   if (!meta) return <div style={{ padding: 24, color: "var(--text-muted)" }}>Loading form...</div>;
@@ -220,6 +223,7 @@ export function FormPage({ formKey, apiPath, activeNav, onNavigate, selectRecord
         designMode={design.designMode}
         onDesignToggle={design.toggleDesignMode}
         formKey={formKey}
+        buttonHandlers={buttonHandlers}
         activeNav={activeNav}
         onNavigate={onNavigate}
         gridId={`${formKey}:${meta.headerTable}`}

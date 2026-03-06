@@ -15,6 +15,7 @@ import {
 } from "./CrudPanelContext";
 import { CrudToolbar, type CrudAction } from "@/components/crud-toolbar/CrudToolbar";
 import { useToolbarActions, type DesignAction } from "@/components/crud-toolbar/useToolbarActions";
+import type { ButtonHandlerContext } from "@/components/crud-toolbar/types";
 import { ToolbarActionPropertiesPanel } from "@/components/crud-toolbar/ToolbarActionPropertiesPanel";
 import { Icon } from "@/components/icons/Icon";
 import { AuditPanel } from "@/components/audit-panel/AuditPanel";
@@ -67,6 +68,8 @@ export interface CrudPanelProps {
   onDesignToggle?: () => void;
   /** Form key — used to load/save toolbar action overrides */
   formKey?: string;
+  /** Button handler registry from the page file */
+  buttonHandlers?: Record<string, (ctx: ButtonHandlerContext) => void | Promise<void>>;
   /** Extra data merged into save payload (e.g. parent FK) */
   savePayloadExtras?: Record<string, any>;
   /** Custom empty state */
@@ -99,6 +102,7 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
     designMode,
     onDesignToggle,
     formKey,
+    buttonHandlers,
     savePayloadExtras,
     renderEmpty,
     className,
@@ -370,8 +374,25 @@ export const CrudPanel = forwardRef<CrudPanelRef, CrudPanelProps>(function CrudP
     { key: "delete", icon: "trash", label: t("crud.delete", "Delete"), variant: "danger",  disabled: isNewProp || !form.oid, onClick: () => setConfirmDelete(true) },
     { key: "copy",   icon: "copy",  label: t("crud.copy",   "Copy"),   onClick: handleCopy },
   ];
-  const { visibleActions, allDesignActions, dbActions, setDbActions, reload: reloadToolbar } =
+  const { visibleActions: rawVisible, allDesignActions, dbActions, setDbActions, reload: reloadToolbar } =
     useToolbarActions(formKey, tableName, baseActionsForHook, allExtraActions);
+
+  // Patch onClick for custom actions that have a handler key in the registry
+  const visibleActions = useMemo(() => rawVisible.map(action => {
+    if (action.onClick || !action.handler || !buttonHandlers?.[action.handler]) return action;
+    const fn = buttonHandlers[action.handler];
+    return {
+      ...action,
+      onClick: () => fn({
+        oid: form.oid || "",
+        row: form,
+        formKey: formKey || "",
+        reload: () => reloadToolbar(),
+        notify: () => {},
+        fetch: (url, opts) => fetch(url, opts),
+      }),
+    };
+  }), [rawVisible, buttonHandlers, form.oid, formKey, reloadToolbar]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Toolbar designer state (owned here so reloadToolbar is accessible) ──
   const [selectedToolbarAction, setSelectedToolbarAction] = useState<DesignAction | null>(null);

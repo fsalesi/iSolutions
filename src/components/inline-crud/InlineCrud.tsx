@@ -10,6 +10,7 @@ import { SlidePanel } from "@/components/ui/SlidePanel";
 import { DataGrid, type DataPublisher, type ColumnDef } from "@/components/data-grid/DataGrid";
 import type { ExportConfig } from "@/components/data-grid/datagrid/ExportPanel";
 import { CrudPanel, type CrudPanelBodyProps } from "@/components/panels/CrudPanel";
+import type { ButtonHandlerContext } from "@/components/crud-toolbar/types";
 import { type CrudPanelRef } from "@/components/panels/CrudPanelContext";
 import { useLink } from "@/hooks/useLink";
 import { humanize } from "@/components/pages/FormPage/utils";
@@ -33,11 +34,12 @@ export interface InlineCrudProps {
   renderBody?: (props: CrudPanelBodyProps) => React.ReactNode;
   label?: string;
   formKey?: string;
+  buttonHandlers?: Record<string, (ctx: ButtonHandlerContext) => void | Promise<void>>;
   inquiryOnly?: boolean;
   allowAdd?: boolean;
 }
 
-export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, renderBody, label, formKey, inquiryOnly = false, allowAdd = true }: InlineCrudProps) {
+export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, renderBody, label, formKey, buttonHandlers, inquiryOnly = false, allowAdd = true }: InlineCrudProps) {
   const gridRef = useRef<DataPublisher>(null);
   const panelRef = useRef<CrudPanelRef>(null);
   const link = useLink(gridRef, panelRef);
@@ -232,6 +234,7 @@ export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, 
             onFieldMoved={design.handleFieldMoved}
             onElementDropped={designMode ? design.handleElementDropped : undefined}
             formKey={formKey}
+            buttonHandlers={buttonHandlers}
           />
         </div>
       </div>
@@ -279,6 +282,7 @@ export function InlineCrud({ apiPath, table, columns, parentFilter, saveExtras, 
             designMode={designMode}
             onDesignToggle={handleDesignToggle}
             formKey={formKey}
+            buttonHandlers={buttonHandlers}
             style={{ height: "100%" }}
           />
         )}

@@ -154,11 +154,44 @@ export default class Customer${className}Route extends ${className}Route {
 function customerPageTemplate(formKey: string, className: string): string {
   return `/**
  * Customer ${className} page override.
- * Re-exports the ISS product page by default.
- * Customer developers can replace this with a fully custom component.
+ * Provides its own default export so it can pass customer buttonHandlers to FormPage.
  * This file is NEVER overwritten by re-generate.
  */
-export { default } from "@/components/forms/${formKey}/Page";
+import { FormPage } from "@/components/pages/FormPage";
+import { buttonHandlers as productHandlers } from "@/components/forms/${formKey}/Page";
+import type { ButtonHandlerContext } from "@/components/crud-toolbar/types";
+
+interface Props {
+  activeNav: string;
+  onNavigate: (key: string, oid?: string) => void;
+  selectRecordOid?: string;
+  selectSeq?: number;
+}
+
+export const buttonHandlers: Record<string, (ctx: ButtonHandlerContext) => void | Promise<void>> = {
+  ...productHandlers,
+
+  // Customer: Override or add handlers here. Example:
+  //
+  // myAction: async (ctx) => {
+  //   alert("Customer version of myAction");
+  // },
+
+};
+
+export default function Customer${className}Page({ activeNav, onNavigate, selectRecordOid, selectSeq }: Props) {
+  return (
+    <FormPage
+      formKey="${formKey}"
+      apiPath="/api/forms/${formKey}"
+      buttonHandlers={buttonHandlers}
+      activeNav={activeNav}
+      onNavigate={onNavigate}
+      selectRecordOid={selectRecordOid}
+      selectSeq={selectSeq}
+    />
+  );
+}
 `;
 }
 

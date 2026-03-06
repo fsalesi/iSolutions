@@ -19,6 +19,7 @@ export type DbToolbarAction = {
   is_hidden: boolean;
   sort_order: number;
   is_standard: boolean;
+  handler: string;
 };
 
 /** A toolbar action augmented with design-mode metadata */
@@ -27,6 +28,7 @@ export type DesignAction = CrudAction & {
   _isCustom: boolean;
   _oid?: string;
   _isHidden: boolean;
+  handler?: string;
 };
 
 const STANDARD_KEYS = new Set(["save", "new", "delete", "copy"]);
@@ -70,6 +72,7 @@ export function useToolbarActions(
         _isCustom: !isStandard && !STANDARD_KEYS.has(action.key),
         _oid: db?.oid,
         _isHidden: db?.is_hidden ?? false,
+        handler: db?.handler || "",
       };
     });
 
@@ -88,6 +91,7 @@ export function useToolbarActions(
           _isCustom: true,
           _oid: db.oid,
           _isHidden: db.is_hidden,
+          handler: db.handler || "",
         });
       }
     }

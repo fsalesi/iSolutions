@@ -45,19 +45,31 @@ export function ToolbarActionPropertiesPanel({
   const [separator, setSeparator] = useState<boolean | null>(false);
   const [isHidden,  setIsHidden]  = useState<boolean | null>(false);
   const [sortOrder, setSortOrder] = useState("10");
+  const [handler,   setHandler]   = useState("");
   const [actionKey, setActionKey] = useState("");
   const [activeTab, setActiveTab] = useState("properties");
+  const [availableHandlers, setAvailableHandlers] = useState<string[]>([]);
   const [saving,    setSaving]    = useState(false);
   const [deleting,  setDeleting]  = useState(false);
   const [error,     setError]     = useState("");
 
+  // Fetch available handlers from the page file
+  useEffect(() => {
+    if (!open || !formKey) return;
+    fetch(`/api/form_toolbar_actions/handlers?form_key=${formKey}`)
+      .then(r => r.json())
+      .then(d => setAvailableHandlers(d.handlers || []))
+      .catch(() => setAvailableHandlers([]));
+  }, [open, formKey]);
+
   useEffect(() => {
     if (!open) return;
     if (addMode) {
-      setLabel(""); setIcon(""); setVariant("default");
+      setLabel(""); setHandler(""); setIcon(""); setVariant("default");
       setSeparator(false); setIsHidden(false); setSortOrder("100"); setActionKey("");
     } else if (action) {
       setLabel(action.label || "");
+      setHandler(action.handler || "");
       setIcon(action.icon || "");
       setVariant(action.variant || "default");
       setSeparator(action.separator ?? false);
@@ -81,7 +93,7 @@ export function ToolbarActionPropertiesPanel({
         res = await fetch("/api/form_toolbar_actions", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ oid, label, icon, variant, separator: !!separator, is_hidden: !!isHidden, sort_order: Number(sortOrder) || 10 }),
+          body: JSON.stringify({ oid, label, handler, icon, variant, separator: !!separator, is_hidden: !!isHidden, sort_order: Number(sortOrder) || 10 }),
         });
       } else {
         res = await fetch("/api/form_toolbar_actions", {
@@ -89,7 +101,7 @@ export function ToolbarActionPropertiesPanel({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             form_key: formKey, table_name: tableName,
-            action_key: key, label, icon, variant,
+            action_key: key, label, handler, icon, variant,
             separator: !!separator, is_hidden: !!isHidden, sort_order: Number(sortOrder) || 10,
             is_standard: isStandard,
           }),
@@ -143,6 +155,21 @@ export function ToolbarActionPropertiesPanel({
 
         <Field label="Label">
           <Input value={label} onChange={setLabel} placeholder="Button label" />
+        </Field>
+
+        <Field label="Handler">
+          {availableHandlers.length > 0 ? (
+            <Select
+              value={handler}
+              onChange={setHandler}
+              options={[
+                { value: "", label: "— none —" },
+                ...availableHandlers.map(k => ({ value: k, label: k })),
+              ]}
+            />
+          ) : (
+            <Input value={handler} onChange={setHandler} placeholder="e.g. submitForApproval" style={{ fontFamily: "monospace" }} />
+          )}
         </Field>
 
         <Field label="Icon">

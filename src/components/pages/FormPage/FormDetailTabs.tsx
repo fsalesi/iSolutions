@@ -10,11 +10,12 @@ import { useSession } from "@/context/SessionContext";
 import { Icon } from "@/components/icons/Icon";
 import type { LayoutEntry, Row, FormMeta } from "./types";
 import { HeaderTabContent } from "./HeaderTabContent";
+import type { ButtonHandlerContext } from "@/components/crud-toolbar/types";
 import { AddTabButton } from "./AddTabButton";
 
 export function FormDetailTabs({ apiPath, meta, headerTabs, row, isNew, onChange,
   designMode, onFieldClick, onSectionClick, onSectionAdded, onTabClick, onTabAdded,
-  onFieldMoved, onElementDropped, onDesignToggle, onLayoutUpdated, formKey }: {
+  onFieldMoved, onElementDropped, onDesignToggle, onLayoutUpdated, formKey, buttonHandlers }: {
   apiPath: string; meta: FormMeta; designMode?: boolean;
   onFieldClick?: (entry: LayoutEntry) => void;
   onSectionClick?: (entry: LayoutEntry) => void;
@@ -26,6 +27,7 @@ export function FormDetailTabs({ apiPath, meta, headerTabs, row, isNew, onChange
   onDesignToggle?: () => void;
   onLayoutUpdated?: (layout: LayoutEntry[]) => void;
   formKey?: string;
+  buttonHandlers?: Record<string, (ctx: ButtonHandlerContext) => void | Promise<void>>;
   headerTabs: LayoutEntry[];
   row: Row; isNew: boolean; onChange: (field: keyof Row, value: any) => void;
 }) {
@@ -97,6 +99,7 @@ export function FormDetailTabs({ apiPath, meta, headerTabs, row, isNew, onChange
           onElementDropped={onElementDropped}
           onDesignToggle={onDesignToggle}
           formKey={formKey}
+          buttonHandlers={buttonHandlers}
         />
       </div>
     </div>

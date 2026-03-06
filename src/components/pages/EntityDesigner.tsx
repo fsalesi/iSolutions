@@ -324,8 +324,8 @@ function TablesTab({ row }: { row: Row }) {
     const filters = buildFilters("form_key", formKey);
     fetch(`/api/form_fields?filters=${encodeURIComponent(filters)}&limit=1000&sort=sort_order`)
       .then(r => r.json())
-      .then(data => { console.log("[TablesTab] allFields loaded:", data.rows?.length, data.rows?.map((f:any)=>({n:f.field_name,d:f.is_dirty,t:f.to_be_deleted}))); setAllFields(data.rows || []); })
-      .catch((e) => { console.log("[TablesTab] allFields error:", e); setAllFields([]); });
+      .then(data => { setAllFields(data.rows || []); })
+      .catch(() => { setAllFields([]); });
   }, [formKey]);
 
   // Compute per-table dirty field counts from local data (no schema-diff API needed)

@@ -6,6 +6,7 @@ import { SplitPanel } from "@/components/panels";
 import { DataGrid, type ColumnDef } from "@/components/data-grid/DataGrid";
 import type { ExportConfig } from "@/components/data-grid/datagrid/ExportPanel";
 import { CrudPanel, type CrudPanelBodyProps } from "@/components/panels/CrudPanel";
+import type { ButtonHandlerContext } from "@/components/crud-toolbar/types";
 import type { CrudAction } from "@/components/crud-toolbar/CrudToolbar";
 import { useCrudLink } from "@/hooks/useCrudLink";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -30,6 +31,8 @@ export interface SplitCrudPageProps {
   extraRequiredFields?: string[];
   /** Form key passed to CrudPanel for toolbar action overrides */
   formKey?: string;
+  /** Button handler registry from the page file */
+  buttonHandlers?: Record<string, (ctx: ButtonHandlerContext) => void | Promise<void>>;
   /** Override the gridId used for column/export prefs. Defaults to table name. */
   gridId?: string;
   /** Columns used for search in export. Defaults to first 3. */
@@ -54,6 +57,7 @@ export function SplitCrudPage({
   extraRequiredFields,
   gridId: gridIdProp,
   formKey,
+  buttonHandlers,
   searchColumns,
 }: SplitCrudPageProps) {
   const api = apiPath || `/api/${table}`;
@@ -71,7 +75,7 @@ export function SplitCrudPage({
           <CrudPanel ref={crud.crudRef} row={crud.link.selectedRow} isNew={crud.link.isNew}
             apiPath={api} tableName={table} defaultValues={defaultValues} renderBody={renderBody}
             requiredFields={baseRequiredFields} extraRequiredFields={extraRequiredFields}
-            extraActions={extraActions} designMode={designMode} onDesignToggle={onDesignToggle} formKey={formKey}
+            extraActions={extraActions} designMode={designMode} onDesignToggle={onDesignToggle} formKey={formKey} buttonHandlers={buttonHandlers}
             onSaved={crud.link.onSaved} onDeleted={crud.onDeletedMobile} onNew={crud.link.onNew} />
         ) : (
           <DataGrid ref={crud.gridRef} table={table} apiPath={api} columns={columns}
@@ -90,7 +94,7 @@ export function SplitCrudPage({
             <CrudPanel ref={crud.crudRef} row={crud.link.selectedRow} isNew={crud.link.isNew}
               apiPath={api} tableName={table} defaultValues={defaultValues} renderBody={renderBody}
               requiredFields={baseRequiredFields} extraRequiredFields={extraRequiredFields}
-              extraActions={extraActions} designMode={designMode} onDesignToggle={onDesignToggle} formKey={formKey}
+              extraActions={extraActions} designMode={designMode} onDesignToggle={onDesignToggle} formKey={formKey} buttonHandlers={buttonHandlers}
               onSaved={crud.link.onSaved} onDeleted={crud.link.onDeleted} onNew={crud.link.onNew} />
           }
         />
