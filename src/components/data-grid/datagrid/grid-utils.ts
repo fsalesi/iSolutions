@@ -12,7 +12,7 @@ export function humanize(key: string): string {
 export function colAlign(key: string, colTypes: Record<string, ColType>): "left" | "right" | "center" {
   const ct = colTypes[key];
   if (ct === "number") return "right";
-  if (ct === "boolean") return "center";
+  if (ct === "boolean" || ct === "image") return "center";
   return "left";
 }
 

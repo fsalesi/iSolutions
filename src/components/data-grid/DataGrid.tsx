@@ -699,7 +699,7 @@ export function DataGrid<T extends { oid: string }>({
                               textAlign: colAlign(col.key, colTypes),
                             }}
                           >
-                            {col.render ? col.render(row) : formatCellValue(row[col.key], col.key, colTypes, locale, colScales)}
+                            {renderGridValue(row, col, colTypes, locale, colScales)}
                           </td>
                         ))}
                         {isAdmin && gridId && gridSettings.show_search === false && <td />}
@@ -736,6 +736,31 @@ export function DataGrid<T extends { oid: string }>({
 }
 
 // ── Small helpers ──
+function renderGridValue<T extends { oid: string }>(
+  row: T,
+  col: ColumnDef<T>,
+  colTypes: Record<string, ColType>,
+  locale: string,
+  colScales: Record<string, number>,
+) {
+  if (col.render) return col.render(row);
+  if (colTypes[col.key] === "image") return <GridImageThumb src={row[col.key]} alt={col.label || col.key} />;
+  return formatCellValue(row[col.key], col.key, colTypes, locale, colScales);
+}
+
+function GridImageThumb({ src, alt }: { src: unknown; alt: string }) {
+  const safeSrc = typeof src === "string" ? src.trim() : "";
+  if (!safeSrc) return null;
+  return (
+    <img
+      src={safeSrc}
+      alt={alt}
+      loading="lazy"
+      style={{ width: 48, height: 48, borderRadius: 9999, objectFit: "cover", display: "inline-block", border: "1px solid var(--border-light)" }}
+    />
+  );
+}
+
 function EmptyState({ children }: { children: ReactNode }) {
   return <div className="p-8 text-center text-sm" style={{ color: "var(--text-muted)" }}>{children}</div>;
 }
@@ -798,13 +823,13 @@ function DefaultCard<T extends { oid: string }>({
       <div className="flex-1 min-w-0">
         {primary && (
           <div className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
-            {primary.render ? primary.render(row) : formatCellValue(row[primary.key], primary.key, colTypes, locale, colScales)}
+            {renderGridValue(row, primary, colTypes, locale, colScales)}
           </div>
         )}
         {secondary.length > 0 && (
           <div className="text-xs truncate" style={{ color: "var(--text-muted)" }}>
             {secondary.map((col, i) => (
-              <span key={col.key}>{i > 0 && " · "}{col.render ? col.render(row) : formatCellValue(row[col.key], col.key, colTypes, locale, colScales)}</span>
+              <span key={col.key}>{i > 0 && " · "}{renderGridValue(row, col, colTypes, locale, colScales)}</span>
             ))}
           </div>
         )}

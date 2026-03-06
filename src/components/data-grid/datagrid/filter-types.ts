@@ -1,7 +1,7 @@
 import type { ColumnDef } from "../datagrid/types";
 
 // ── Types ──
-export type ColType = "text" | "number" | "boolean" | "date" | "datetime";
+export type ColType = "text" | "number" | "boolean" | "date" | "datetime" | "image";
 
 export type FilterOperator =
   | "eq" | "neq" | "contains" | "not_contains" | "begins" | "ends"
