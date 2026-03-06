@@ -40,6 +40,7 @@ export interface TableMeta {
   colTypes: Record<string, ColType>;
   colScales: Record<string, number>;
   defaultSort: string;
+  customLayoutFields: Record<string, { transient: boolean; type: ColType }>;
 }
 
 export interface FieldMeta {
@@ -82,6 +83,16 @@ function mapColType(dataType: string): ColType {
     case "image": return "image";
     default: return "text";
   }
+}
+
+function mapRendererToColType(renderer: string): ColType {
+  const r = String(renderer || "text").toLowerCase();
+  if (["number", "numeric", "integer"].includes(r)) return "number";
+  if (["checkbox", "toggle", "switch", "boolean"].includes(r)) return "boolean";
+  if (r === "date") return "date";
+  if (["datetime", "timestamptz"].includes(r)) return "datetime";
+  if (r === "image") return "image";
+  return "text";
 }
 
 function colScale(f: FieldMeta): number | undefined {
@@ -223,6 +234,23 @@ async function loadMeta(formKey: string, tableName: string): Promise<TableMeta> 
   const searchColumns = customFields.filter((f) => f.dataType === "text").slice(0, 4).map((f) => f.fieldName);
   const defaultSort = customFields.find((f) => f.isIndexed)?.fieldName || customFields[0]?.fieldName || "created_at";
 
+  const layoutRes = await db.query(
+    `SELECT layout_key, properties
+       FROM form_layout
+      WHERE form_key = $1
+        AND table_name = $2
+        AND layout_type = 'field'`,
+    [formKey, tableName]
+  );
+  const customLayoutFields: Record<string, { transient: boolean; type: ColType }> = {};
+  for (const r of layoutRes.rows) {
+    const key = String(r.layout_key || "");
+    if (!key || allColumns.includes(key)) continue;
+    const props = (r.properties || {}) as Record<string, any>;
+    if (props.custom_field !== true) continue;
+    customLayoutFields[key] = { transient: props.transient === true, type: mapRendererToColType(String(props.renderer || "text")) };
+  }
+
   const meta: TableMeta = {
     formKey,
     tableName,
@@ -239,6 +267,7 @@ async function loadMeta(formKey: string, tableName: string): Promise<TableMeta> 
     colTypes,
     colScales,
     defaultSort,
+    customLayoutFields,
   };
 
   metaCache.set(cacheKey, { meta, loadedAt: Date.now() });
@@ -318,6 +347,61 @@ export class CrudRoute {
     return loadMeta(this.formKey, tableName);
   }
 
+  protected normalizeCustomFieldsValue(value: any): Record<string, any> {
+    if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, any>;
+    return {};
+  }
+
+  protected buildCustomFieldPatch(body: Record<string, any>, meta: TableMeta): Record<string, any> {
+    const patch: Record<string, any> = {};
+    for (const [key, cfg] of Object.entries(meta.customLayoutFields)) {
+      if (cfg.transient) continue;
+      if (key in body) patch[key] = body[key];
+    }
+    return patch;
+  }
+
+  protected hasCustomFieldPayload(body: Record<string, any>, meta: TableMeta): boolean {
+    if ("custom_fields" in body) return true;
+    for (const key of Object.keys(meta.customLayoutFields)) {
+      if (key in body) return true;
+    }
+    return false;
+  }
+
+  protected mergeCustomFieldsForSave(
+    body: Record<string, any>,
+    meta: TableMeta,
+    existingCustomFields?: any,
+  ): Record<string, any> | null {
+    if (!meta.allColumns.includes("custom_fields")) return null;
+    if (!this.hasCustomFieldPayload(body, meta)) return null;
+
+    const existing = this.normalizeCustomFieldsValue(existingCustomFields);
+    const direct = this.normalizeCustomFieldsValue(body.custom_fields);
+    const patch = this.buildCustomFieldPatch(body, meta);
+    return { ...existing, ...direct, ...patch };
+  }
+
+  protected hydrateCustomFieldsIntoRow(row: Record<string, any>, meta: TableMeta): Record<string, any> {
+    if (!meta.allColumns.includes("custom_fields")) return row;
+    const bag = this.normalizeCustomFieldsValue(row.custom_fields);
+    for (const [key, cfg] of Object.entries(meta.customLayoutFields)) {
+      if (cfg.transient) continue;
+      if (Object.prototype.hasOwnProperty.call(bag, key)) {
+        row[key] = bag[key];
+      }
+    }
+    return row;
+  }
+
+  protected stripInternalResponseFields(row: Record<string, any>): Record<string, any> {
+    delete row.custom_fields;
+    for (const f of this.restrictedFields) delete row[f];
+    for (const f of this.passwordFields) delete row[f];
+    return row;
+  }
+
   /* ── GET ── */
 
   async handleGET(req: NextRequest): Promise<NextResponse> {
@@ -370,7 +454,17 @@ export class CrudRoute {
       }
 
       if (filtersJson) {
-        const fr = buildFilterWhere(filtersJson, pi, meta.colTypes, allowedCols);
+        const filterColTypes: Record<string, ColType> = { ...meta.colTypes };
+        const filterAllowedCols = new Set(allowedCols);
+        const filterExpr: Record<string, string> = {};
+        for (const [key, cfg] of Object.entries(meta.customLayoutFields)) {
+          if (cfg.transient) continue;
+          filterAllowedCols.add(key);
+          filterColTypes[key] = cfg.type;
+          const safeKey = key.replace(/'/g, "''");
+          filterExpr[key] = `("custom_fields"->>'${safeKey}')`;
+        }
+        const fr = buildFilterWhere(filtersJson, pi, filterColTypes, filterAllowedCols, filterExpr);
         if (fr.sql) { conditions.push(fr.sql); params.push(...fr.params); pi = fr.nextIdx; }
       }
 
@@ -399,9 +493,10 @@ export class CrudRoute {
       );
 
       // Apply transformRow to each row, then transformList to the batch
-      let rows = dataR.rows;
+      let rows = dataR.rows.map((r: Record<string, any>) => this.hydrateCustomFieldsIntoRow(r, meta));
       rows = await Promise.all(rows.map((r: Record<string, any>) => this.transformRow(r, meta)));
       rows = await this.transformList(rows, meta);
+      rows = rows.map((r: Record<string, any>) => this.stripInternalResponseFields(r));
 
       const keyFields = this.keyFields.filter((f) => meta.allColumns.includes(f));
 
@@ -454,12 +549,12 @@ export class CrudRoute {
       // Build insert
       const fields: string[] = [];
       const values: any[] = [];
+      const customFieldsMerged = this.mergeCustomFieldsForSave(body, meta);
 
       if (meta.hasDomain) { fields.push("domain"); values.push(body.domain || ""); }
 
       for (const col of meta.writableColumns) {
         if (this.restrictedFields.includes(col)) continue;
-        if (keyFields.includes(col)) continue;
         if ((meta.colTypes[col] || "text") === "image") continue; // bytea is managed only via /api/blob
         if (this.passwordFields.includes(col)) {
           // Only write if a non-empty value was provided — never blank out an existing hash
@@ -474,6 +569,11 @@ export class CrudRoute {
           fields.push(col);
           values.push(coerceValue(meta.colTypes[col] || "text", body[col]));
         }
+      }
+
+      if (customFieldsMerged !== null) {
+        fields.push("custom_fields");
+        values.push(customFieldsMerged);
       }
 
       if (!meta.isHeader && meta.parentTable && body[`oid_${meta.parentTable}`]) {
@@ -492,10 +592,11 @@ export class CrudRoute {
         values
       );
 
-      const saved = res.rows[0];
+      const saved = this.hydrateCustomFieldsIntoRow(res.rows[0], meta);
 
       // Hook: afterSave
       await this.afterSave(saved, meta, userId, true);
+      this.stripInternalResponseFields(saved);
 
       return NextResponse.json(saved, { status: 201 });
     } catch (e: any) {
@@ -520,6 +621,21 @@ export class CrudRoute {
 
       const meta = await this.loadMeta(tableName);
       const keyFields = this.keyFields.filter((f) => meta.allColumns.includes(f));
+      const hasCustomPayload = this.hasCustomFieldPayload(body, meta);
+      let existing: Record<string, any> | null = null;
+      if (keyFields.length || hasCustomPayload) {
+        const cols = Array.from(new Set([
+          ...keyFields,
+          ...(hasCustomPayload && meta.allColumns.includes("custom_fields") ? ["custom_fields"] : []),
+        ]));
+        const selectCols = cols.length ? cols.map((f) => `"${f}"`).join(", ") : `"oid"`;
+        const existingR = await db.query(
+          `SELECT ${selectCols} FROM "${tableName}" WHERE oid = $1::uuid LIMIT 1`,
+          [oid]
+        );
+        if (!existingR.rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
+        existing = existingR.rows[0] as Record<string, any>;
+      }
 
       for (const f of meta.requiredFields) {
         if (!(f in body)) continue;
@@ -535,18 +651,11 @@ export class CrudRoute {
       }
 
       if (keyFields.length) {
-        const keySelect = keyFields.map((f) => `"${f}"`).join(", ");
-        const existingR = await db.query(
-          `SELECT ${keySelect} FROM "${tableName}" WHERE oid = $1::uuid LIMIT 1`,
-          [oid]
-        );
-        if (!existingR.rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
-        const existing = existingR.rows[0] as Record<string, any>;
-
+        const existingKeys = existing || {};
         for (const f of keyFields) {
           if (!(f in body)) continue;
           const incoming = normalizeComparable(body[f]);
-          const stored = normalizeComparable(existing[f]);
+          const stored = normalizeComparable(existingKeys[f]);
           if (incoming !== stored) {
             return NextResponse.json({ error: `${f} cannot be changed after create` }, { status: 400 });
           }
@@ -561,10 +670,12 @@ export class CrudRoute {
 
       const fields: string[] = [];
       const values: any[] = [];
+      const customFieldsMerged = this.mergeCustomFieldsForSave(body, meta, existing?.custom_fields);
 
       for (const col of meta.writableColumns) {
         if (this.restrictedFields.includes(col)) continue;
         if (keyFields.includes(col)) continue;
+        if (col === "custom_fields") continue;
         if ((meta.colTypes[col] || "text") === "image") continue; // bytea is managed only via /api/blob
         if (this.passwordFields.includes(col)) {
           // Only write if a non-empty value was provided — never blank out an existing hash
@@ -581,6 +692,11 @@ export class CrudRoute {
         }
       }
 
+      if (customFieldsMerged !== null) {
+        fields.push("custom_fields");
+        values.push(customFieldsMerged);
+      }
+
       fields.push("updated_by"); values.push(userId);
 
       const setClauses = fields.map((f, i) => `"${f}" = $${i + 1}`);
@@ -594,10 +710,11 @@ export class CrudRoute {
 
       if (!res.rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-      const saved = res.rows[0];
+      const saved = this.hydrateCustomFieldsIntoRow(res.rows[0], meta);
 
       // Hook: afterSave
       await this.afterSave(saved, meta, userId, false);
+      this.stripInternalResponseFields(saved);
 
       return NextResponse.json(saved);
     } catch (e: any) {

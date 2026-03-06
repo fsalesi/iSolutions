@@ -200,6 +200,11 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
     setLayout(prev => [...prev, created]);
   }, []);
 
+  const handleFieldDeleted = useCallback((oid: string) => {
+    setLayout(prev => prev.filter(l => l.oid !== oid));
+    setSelectedField(null);
+  }, []);
+
   // ── Section handlers ──────────────────────────────────────────────────────
   const handleSectionSaved = useCallback((updated: LayoutEntry) => {
     setLayout(prev => prev.map(l => l.oid === updated.oid ? updated : l));
@@ -240,6 +245,7 @@ export function useDesignLayout(initialLayout: LayoutEntry[], tableName: string)
     handleElementDropped,
     handleFieldSaved,
     handleFieldAdded,
+    handleFieldDeleted,
     handleSectionSaved,
     handleSectionDeleted,
     handleSectionAdded,

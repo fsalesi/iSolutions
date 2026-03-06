@@ -19,7 +19,8 @@ export function buildFilterWhere(
   json: string,
   startIdx: number,
   colTypes: Record<string, ColType>,
-  allowedColumns: Set<string>
+  allowedColumns: Set<string>,
+  fieldExpressions?: Record<string, string>
 ): { sql: string; params: any[]; nextIdx: number } {
   let tree: FilterNode;
   try { tree = JSON.parse(json); } catch { return { sql: "", params: [], nextIdx: startIdx }; }
@@ -27,11 +28,12 @@ export function buildFilterWhere(
     return { sql: "", params: [], nextIdx: startIdx };
 
   const colType = (f: string): ColType => colTypes[f] || "text";
+  const rawCol = (f: string): string => fieldExpressions?.[f] || `"${f}"`;
   const castCol = (f: string): string => {
-    if (!allowedColumns.has(f)) return `"${f}"`;
+    if (!allowedColumns.has(f)) return rawCol(f);
     const t = colType(f);
-    if (t === "number") return `"${f}"::numeric`;
-    return `"${f}"`;
+    if (t === "number") return `(${rawCol(f)})::numeric`;
+    return rawCol(f);
   };
 
   function buildCondition(cond: FilterCondition, idx: number): SQLResult {

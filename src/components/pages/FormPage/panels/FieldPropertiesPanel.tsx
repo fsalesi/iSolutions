@@ -13,10 +13,11 @@ const PANEL_TABS = [
   { key: "translations", label: "Translations" },
 ];
 
-export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, sectionColumns, layoutEntries }: {
+export function FieldPropertiesPanel({ entry, open, onClose, onSaved, onDeleted, sections, sectionColumns, layoutEntries }: {
   entry: LayoutEntry | null; open: boolean;
   onClose: () => void;
   onSaved: (updated: LayoutEntry) => void;
+  onDeleted: (oid: string) => void;
   sections?: { key: string; label: string }[];
   sectionColumns?: number;
   layoutEntries?: LayoutEntry[];
@@ -26,15 +27,18 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, 
   const [parentKey, setParentKey] = useState("");
   const [sortOrder, setSortOrder] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
   const [lookupPanelOpen, setLookupPanelOpen] = useState(false);
   const [backendKeyFields, setBackendKeyFields] = useState<string[]>([]);
+  const [supportsCustomFieldStorage, setSupportsCustomFieldStorage] = useState(true);
 
   useEffect(() => {
     if (entry) {
       setProps({ ...entry.properties });
       setParentKey(entry.parent_key);
       setSortOrder(entry.sort_order);
+      setConfirmDelete(false);
       setActiveTab("properties");
     }
   }, [entry?.oid]);
@@ -59,6 +63,26 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, 
 
     return () => { cancelled = true; };
   }, [entry?.form_key, entry?.table_name]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!entry?.table_name) {
+      setSupportsCustomFieldStorage(true);
+      return;
+    }
+    fetch(`/api/table_schema?tables=${encodeURIComponent(entry.table_name)}`)
+      .then(r => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        const rows = Array.isArray(data?.rows) ? data.rows : [];
+        const hasCustomFields = rows.some((r: any) => String(r?.table_name || "") === entry.table_name && String(r?.field_name || "") === "custom_fields");
+        setSupportsCustomFieldStorage(hasCustomFields);
+      })
+      .catch(() => {
+        if (!cancelled) setSupportsCustomFieldStorage(true);
+      });
+    return () => { cancelled = true; };
+  }, [entry?.table_name]);
 
   const setProp = (key: string, value: any) => setProps(p => ({ ...p, [key]: value }));
 
@@ -142,6 +166,12 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, 
       effectiveSort = slot.row * 100 + slot.col;
     }
 
+    if (effectiveProps.custom_field === true && effectiveProps.transient !== true && !supportsCustomFieldStorage) {
+      setError('Persist Value cannot be enabled because this table does not have a custom_fields column.');
+      setSaving(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/form_layout?table=form_layout", {
         method: "PUT",
@@ -154,6 +184,28 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, 
       onClose();
     } catch (e: any) { setError(e.message); }
     finally { setSaving(false); }
+  };
+
+
+  const handleDelete = async () => {
+    if (!entry) return;
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/form_layout?table=form_layout&oid=${entry.oid}`, { method: "DELETE" });
+      if (!res.ok) {
+        const d = await res.json();
+        setError(d.error || "Delete failed");
+        return;
+      }
+      onDeleted(entry.oid);
+      onClose();
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+      setConfirmDelete(false);
+    }
   };
 
   if (!entry) return null;
@@ -263,6 +315,31 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, 
             <Field label="Hidden">
               <Toggle value={!!props.hidden} onChange={v => setProp("hidden", v)} />
             </Field>
+            {props.custom_field === true && (
+              <>
+                <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginTop: 8 }}>
+                  <div className="text-xs font-medium mb-3" style={{ color: "var(--text-secondary)" }}>Custom Field</div>
+                </div>
+                <Field label="Storage Key">
+                  <Input value={entry.layout_key} readOnly />
+                </Field>
+                <Field label="Persist Value">
+                  <Toggle
+                    value={props.transient !== true}
+                    onChange={v => setProp("transient", !v)}
+                    disabled={!supportsCustomFieldStorage}
+                  />
+                </Field>
+                {!supportsCustomFieldStorage && (
+                  <div className="text-xs" style={{ color: "var(--warning-text)" }}>
+                    Persisted custom fields require a custom_fields JSONB column on this table.
+                  </div>
+                )}
+                <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  Storage key is immutable after create. Disable Persist Value to keep this field UI-only.
+                </div>
+              </>
+            )}
             {entry?.layout_type === "child_grid" && (
               <>
                 <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginTop: 8 }}>
@@ -276,6 +353,27 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, sections, 
                 </Field>
               </>
             )}
+            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginTop: 8 }}>
+              {!confirmDelete ? (
+                <button onClick={() => setConfirmDelete(true)} className="px-4 py-2 rounded-lg text-sm font-medium"
+                  style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.25)" }}>
+                  Delete Field
+                </button>
+              ) : (
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <span className="text-sm" style={{ color: "#ef4444" }}>
+                    {props.custom_field === true
+                      ? "Delete this custom field and remove its saved values from all records?"
+                      : "Delete this field from layout? You can add it back later from the palette."}
+                  </span>
+                  <button onClick={handleDelete} disabled={saving} className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                    style={{ background: "#ef4444", color: "#fff" }}>Yes, Delete</button>
+                  <button onClick={() => setConfirmDelete(false)} className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                    style={{ background: "var(--bg-muted)", color: "var(--text-primary)" }}>No</button>
+                </div>
+              )}
+            </div>
+
             {sections && sections.length > 0 && (
               <>
                 <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginTop: 8 }}>

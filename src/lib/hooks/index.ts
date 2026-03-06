@@ -13,9 +13,11 @@ export type { CrudHooks, HookContext } from "./types";
 
 // ── Product hooks (add new tables here) ──
 import usersHooks from "./users";
+import formLayoutHooks from "./form_layout";
 
 const productHooks: Record<string, CrudHooks> = {
   users: usersHooks,
+  form_layout: formLayoutHooks,
 };
 
 // ── Customer hooks (add customer overrides here) ──

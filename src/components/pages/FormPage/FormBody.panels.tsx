@@ -40,6 +40,7 @@ export function FormBody({ design, tableName, formKey, fields, tables }: FormBod
         open={!!design.selectedField}
         onClose={() => design.setSelectedField(null)}
         onSaved={design.handleFieldSaved}
+        onDeleted={design.handleFieldDeleted}
         sections={sections}
         sectionColumns={sectionColumns}
         layoutEntries={design.layout}

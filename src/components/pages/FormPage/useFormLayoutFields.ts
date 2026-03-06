@@ -57,21 +57,43 @@ export function useFormLayoutFields({ formKey, tableNames }: UseFormLayoutFields
           )}&limit=500`
         );
 
-        const schemaRes = await fetch(`/api/table_schema?tables=${encodeURIComponent(tablesKey)}`);
-
         const layoutData = await layoutRes.json();
-        const schemaData = await schemaRes.json();
+
+        const columnResults = await Promise.all(
+          normalizedTables.map(async (tn) => {
+            const res = await fetch(`/api/columns?table=${encodeURIComponent(tn)}&form_key=${encodeURIComponent(formKey)}`);
+            const cols = await res.json();
+            return { table: tn, cols: Array.isArray(cols) ? cols : [] };
+          })
+        );
 
         if (cancelled) return;
 
         setLayout(layoutData.rows || []);
-        setFields((schemaData.rows || []).map((f: RawField) => ({
-          field_name: f.field_name,
-          data_type: f.data_type,
-          table_name: f.table_name,
-          is_nullable: f.is_nullable,
-          scale: f.scale,
-        })));
+        setFields(
+          columnResults.flatMap(({ table, cols }) =>
+            cols.map((c: { key: string; type: string; nullable?: boolean; scale?: number }) => {
+              const rawType = String(c.type || "text");
+              let data_type = "text";
+              if (rawType === "number") {
+                data_type = c.scale === 0 ? "integer" : "numeric";
+              } else if (rawType === "boolean") {
+                data_type = "boolean";
+              } else if (rawType === "date") {
+                data_type = "date";
+              } else if (rawType === "datetime") {
+                data_type = "timestamptz";
+              }
+              return {
+                field_name: c.key,
+                data_type,
+                table_name: table,
+                is_nullable: c.nullable ?? true,
+                scale: c.scale,
+              } as RawField;
+            })
+          )
+        );
       } catch (e) {
         if (cancelled) return;
         const message = e instanceof Error ? e.message : "Failed to load form metadata";
