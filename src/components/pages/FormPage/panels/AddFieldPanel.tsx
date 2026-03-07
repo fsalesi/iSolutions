@@ -162,7 +162,7 @@ export function AddFieldPanel({ open, layout, fields, tableName, tables, formKey
   const unplaced = fields.filter((f) => f.table_name === tableName && !placedKeys.has(f.field_name));
 
   const placedGrids = new Set(
-    layout.filter((l) => l.layout_type === "child_grid" && !l.properties?.hidden).map((l) => l.layout_key)
+    layout.filter((l) => l.layout_type === "child_grid" && l.table_name === tableName && !l.properties?.hidden).map((l) => l.layout_key)
   );
   const childTables = (tables || []).filter((t) => t.parent_table === tableName && !placedGrids.has(t.table_name));
 
