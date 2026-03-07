@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import type { LookupConfig, LookupResolveReason } from "./LookupTypes";
 import { ddColKey, ddColType } from "./LookupTypes";
 import { Flag } from "@/components/ui/Flag";
+import { Checkbox, Input } from "@/components/ui";
 import { LookupBrowseModal } from "./LookupBrowseModal";
 import { useSession } from "@/context/SessionContext";
 
@@ -47,6 +48,9 @@ export function Lookup({ value, onChange, config, label, domain: domainProp, hyd
     preload = false,
     browsable = true,
     multiple = false,
+    checklist = false,
+    checklistHeight = 260,
+    checklistPageSize = 200,
     onSelect,
     onResolve,
     onClear,
@@ -68,6 +72,7 @@ export function Lookup({ value, onChange, config, label, domain: domainProp, hyd
   const [highlightIdx, setHighlightIdx] = useState(-1);
   const [loading, setLoading] = useState(false);
   const [browseOpen, setBrowseOpen] = useState(false);
+  const [checklistLoading, setChecklistLoading] = useState(false);
 
   // Fixed-position dropdown to avoid overflow clipping
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number; openAbove?: boolean } | null>(null);
@@ -100,6 +105,10 @@ export function Lookup({ value, onChange, config, label, domain: domainProp, hyd
   const dragIdx = useRef<number>(-1);
   const chipRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const lastHydratedValueRef = useRef<string | null>(null);
+  const checklistLoadKeyRef = useRef<string>("");
+  const prevChecklistHydrateNonceRef = useRef<string | undefined>(undefined);
+  const promotedSelectedSnapshotRef = useRef<Set<string>>(new Set());
+  const [promoteChecked, setPromoteChecked] = useState(false);
 
   const emitResolve = useCallback((record: any | null, reason: LookupResolveReason, resolvedValue: any) => {
     onResolve?.(record, { reason, value: resolvedValue });
@@ -146,6 +155,33 @@ export function Lookup({ value, onChange, config, label, domain: domainProp, hyd
     },
     [fetchFn, apiPath, baseFilters, effectiveDomain]
   );
+
+
+  useEffect(() => {
+    if (!checklist || !multiple) return;
+    if (prevChecklistHydrateNonceRef.current === undefined) {
+      prevChecklistHydrateNonceRef.current = hydrateNonce;
+      return;
+    }
+    if (prevChecklistHydrateNonceRef.current !== hydrateNonce) {
+      prevChecklistHydrateNonceRef.current = hydrateNonce;
+      promotedSelectedSnapshotRef.current = new Set(selectedValues.map((v) => String(v)));
+      setPromoteChecked(true);
+    }
+  }, [checklist, multiple, hydrateNonce, selectedValues]);
+
+  const checklistSourceKey = useMemo(() => {
+    const pageSize = Math.max(50, Number(checklistPageSize || 200));
+    return JSON.stringify({
+      apiPath: apiPath || "",
+      domain: effectiveDomain || "",
+      baseFilters: baseFilters || {},
+      valueField,
+      displayField,
+      pageSize,
+      hasFetchFn: !!fetchFn,
+    });
+  }, [apiPath, effectiveDomain, baseFilters, valueField, displayField, checklistPageSize, fetchFn]);
 
   // Resolve display text for current value(s)
   useEffect(() => {
@@ -198,6 +234,49 @@ export function Lookup({ value, onChange, config, label, domain: domainProp, hyd
     }
   }, [preload]);
 
+  // Checklist mode loads all pages and renders checkbox rows.
+  useEffect(() => {
+    if (!checklist || !multiple) return;
+    if (checklistLoadKeyRef.current === checklistSourceKey && results.length > 0) return;
+    checklistLoadKeyRef.current = checklistSourceKey;
+
+    let cancelled = false;
+
+    const loadAllChecklistRows = async () => {
+      setChecklistLoading(true);
+      try {
+        const rows: any[] = [];
+        const pageSize = Math.max(50, Number(checklistPageSize || 200));
+        for (let offset = 0; offset < 100000; offset += pageSize) {
+          const data = await doFetch("", pageSize, offset);
+          const batch = Array.isArray(data?.rows) ? data.rows : [];
+          for (const r of batch) {
+            rows.push(r);
+            const key = String(r[valueField] ?? "");
+            if (key) cache.current.set(key, r);
+          }
+          if (batch.length < pageSize) break;
+        }
+        if (!cancelled) {
+          setResults(rows);
+          setTotal(rows.length);
+        }
+      } catch {
+        if (!cancelled) {
+          setResults([]);
+          setTotal(0);
+        }
+      } finally {
+        if (!cancelled) setChecklistLoading(false);
+      }
+    };
+
+    void loadAllChecklistRows();
+    return () => {
+      cancelled = true;
+    };
+  }, [checklist, multiple, checklistSourceKey]);
+
   function formatDisplay(record: any): string {
     if (displayFormat) return displayFormat(record);
     if (displayTemplate) return displayTemplate.replace(/\{(\w+)\}/g, (_, k) => String(record[k] ?? ""));
@@ -249,6 +328,27 @@ export function Lookup({ value, onChange, config, label, domain: domainProp, hyd
     );
   }, [preload, search, results, config.searchColumns, valueField, displayField]);
 
+  const checklistResults = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const cols = config.searchColumns || [valueField, displayField];
+    const base = q
+      ? results.filter(r => cols.some(col => String(r[col] ?? "").toLowerCase().includes(q)))
+      : [...results];
+
+    const promotedSet = promotedSelectedSnapshotRef.current;
+    return [...base].sort((a, b) => {
+      if (promoteChecked) {
+        const aSel = promotedSet.has(String(a[valueField] ?? ""));
+        const bSel = promotedSet.has(String(b[valueField] ?? ""));
+        if (aSel !== bSel) return aSel ? -1 : 1;
+      }
+
+      const aLabel = String(a[displayField] ?? a[valueField] ?? "");
+      const bLabel = String(b[displayField] ?? b[valueField] ?? "");
+      return aLabel.localeCompare(bLabel);
+    });
+  }, [search, results, config.searchColumns, valueField, displayField, promoteChecked]);
+
   const displayResults = useMemo(() => {
     const base = preload ? filteredResults : results;
     if (!allOption) return base;
@@ -283,6 +383,21 @@ export function Lookup({ value, onChange, config, label, domain: domainProp, hyd
       setOpen(false);
     }
 
+    onSelect?.(record);
+    emitResolve(record, "select", val);
+  }
+
+
+  function toggleChecklistRecord(record: any, checked: boolean) {
+    const val = String(record?.[valueField] ?? "");
+    if (!val) return;
+
+    cache.current.set(val, record);
+    const next = new Set(selectedValues);
+    if (checked) next.add(val);
+    else next.delete(val);
+
+    onChange(Array.from(next).join(","));
     onSelect?.(record);
     emitResolve(record, "select", val);
   }
@@ -366,6 +481,74 @@ export function Lookup({ value, onChange, config, label, domain: domainProp, hyd
   const hasValue = multiple ? selectedValues.length > 0 : !!value;
   const showClear = hasValue && !readOnly;
   const showInput = !readOnly && (multiple || !value || open);
+
+
+  if (checklist && multiple) {
+    return (
+      <div
+        style={{
+          border: "1px solid var(--input-border)",
+          borderRadius: 8,
+          background: readOnly ? "var(--input-bg-ro)" : "var(--input-bg)",
+          padding: 8,
+        }}
+      >
+        <Input
+          value={search}
+          onChange={setSearch}
+          readOnly={readOnly}
+          placeholder={placeholder || "Filter..."}
+          style={{ marginBottom: 8 }}
+        />
+        <div
+          style={{
+            maxHeight: checklistHeight,
+            overflowY: "auto",
+            border: "1px solid var(--border)",
+            borderRadius: 6,
+            background: "var(--bg-surface)",
+            padding: 6,
+          }}
+        >
+          {(checklistLoading || loading) && (
+            <div style={{ color: "var(--text-muted)", fontSize: 12, padding: 6 }}>Loading...</div>
+          )}
+          {!checklistLoading && checklistResults.length === 0 && (
+            <div style={{ color: "var(--text-muted)", fontSize: 12, padding: 6 }}>No results found</div>
+          )}
+          {!checklistLoading && checklistResults.map((row, idx) => {
+            const val = String(row[valueField] ?? "");
+            const selected = selectedValues.includes(val);
+            const secondary = valueField !== displayField ? String(row[valueField] ?? "") : "";
+            const primary = String(row[displayField] ?? row[valueField] ?? "");
+            return (
+              <div
+                key={val + "-" + idx}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  padding: "6px 4px",
+                  borderBottom: idx < checklistResults.length - 1 ? "1px solid var(--border-light)" : "none",
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: "var(--text-primary)", fontSize: 13 }}>{primary}</div>
+                  {secondary && <div style={{ color: "var(--text-muted)", fontSize: 11 }}>{secondary}</div>}
+                </div>
+                <Checkbox
+                  checked={selected}
+                  onChange={(checked) => toggleChecklistRecord(row, checked)}
+                  label=""
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

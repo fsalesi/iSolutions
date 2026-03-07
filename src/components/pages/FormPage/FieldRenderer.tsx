@@ -195,6 +195,7 @@ function ImageField({
   );
 }
 
+
 export function FieldRenderer({
   renderer,
   value,
@@ -276,6 +277,9 @@ export function FieldRenderer({
       if (properties?.lookup_placeholder) overrides.placeholder = properties.lookup_placeholder;
       if (properties?.lookup_browse_title) overrides.browseTitle = properties.lookup_browse_title;
       if (properties?.lookup_multiple !== undefined) overrides.multiple = properties.lookup_multiple;
+      if (properties?.lookup_checklist !== undefined) overrides.checklist = properties.lookup_checklist;
+      if (properties?.lookup_checklist_height !== undefined) overrides.checklistHeight = properties.lookup_checklist_height;
+      if (properties?.lookup_checklist_page_size !== undefined) overrides.checklistPageSize = properties.lookup_checklist_page_size;
       if (properties?.lookup_browsable !== undefined) overrides.browsable = properties.lookup_browsable;
       if (properties?.lookup_preload !== undefined) overrides.preload = properties.lookup_preload;
       if (properties?.lookup_read_only !== undefined) overrides.readOnly = properties.lookup_read_only;

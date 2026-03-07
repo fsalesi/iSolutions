@@ -37,6 +37,13 @@ function defaultColSpan(dataType: string, maxLength: number | null): number {
   return 1;
 }
 
+function includeInLayout(fieldName: string): boolean {
+  if (fieldName.startsWith("oid_")) return false;
+  if (fieldName === "custom_fields") return false;
+  if (fieldName === "photo_type") return false;
+  return true;
+}
+
 export async function generateDefaultLayout(formKey: string): Promise<{ inserted: number }> {
   // Load tables + fields
   const tables = await db.query(
@@ -102,7 +109,7 @@ export async function generateDefaultLayout(formKey: string): Promise<{ inserted
     const headerFields = fieldsByTable.get(tn) || [];
     for (const f of headerFields) {
       // Skip FK fields (oid_*) — they're auto-managed
-      if (f.field_name.startsWith("oid_")) continue;
+      if (!includeInLayout(f.field_name)) continue;
       if (!has("field", tn, f.field_name)) {
         toInsert.push({
           domain: "*", form_key: formKey, table_name: tn,
@@ -118,7 +125,7 @@ export async function generateDefaultLayout(formKey: string): Promise<{ inserted
     }
 
     // Grid columns for header browse grid (first 5 text/number fields)
-    const browseFields = headerFields.filter((f: any) => !f.field_name.startsWith("oid_")).slice(0, 6);
+    const browseFields = headerFields.filter((f: any) => includeInLayout(f.field_name)).slice(0, 6);
     for (const f of browseFields) {
       if (!has("grid_column", tn, f.field_name)) {
         toInsert.push({
@@ -157,7 +164,7 @@ export async function generateDefaultLayout(formKey: string): Promise<{ inserted
 
     // Fields for child detail form
     for (const f of childFields) {
-      if (f.field_name.startsWith("oid_")) continue;
+      if (!includeInLayout(f.field_name)) continue;
       if (!has("field", tn, f.field_name)) {
         toInsert.push({
           domain: "*", form_key: formKey, table_name: tn,
@@ -173,7 +180,7 @@ export async function generateDefaultLayout(formKey: string): Promise<{ inserted
     }
 
     // Grid columns for child grid (all non-FK fields)
-    const gridFields = childFields.filter((f: any) => !f.field_name.startsWith("oid_"));
+    const gridFields = childFields.filter((f: any) => includeInLayout(f.field_name));
     for (const f of gridFields) {
       if (!has("grid_column", tn, f.field_name)) {
         toInsert.push({

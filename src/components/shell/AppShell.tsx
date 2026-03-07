@@ -23,7 +23,7 @@ interface AppShellProps {
 export function AppShell({ children, title, subtitle, showBack, onBack, activeNav: controlledNav, onNavigate }: AppShellProps) {
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [internalNav, setInternalNav] = useState("users");
+  const [internalNav, setInternalNav] = useState("form:users");
   const [profileOpen, setProfileOpen] = useState(false);
   const { user, domain, setDomain, setForm } = useSession();
 
@@ -40,39 +40,60 @@ export function AppShell({ children, title, subtitle, showBack, onBack, activeNa
   }, []);
   const t = useT();
 
-  const NAV_SECTIONS: NavSection[] = useMemo(() => [
-    { key: "admin", label: t("nav.administration", "Administration"), icon: "settings", items: [
-      { key: "users", label: t("nav.users", "Users"), icon: "users" },
-      { key: "groups", label: t("nav.groups", "Groups"), icon: "users" },
-      { key: "pasoe_brokers", label: t("nav.pasoe_brokers", "PASOE Brokers"), icon: "server" },
-      { key: "settings", label: t("nav.settings", "System Settings"), icon: "settings" },
-      { key: "jobs", label: t("nav.jobs", "Jobs"), icon: "clock" },
-      { key: "audit", label: t("nav.audit", "Audit Trail"), icon: "shield" },
-      { key: "email", label: t("nav.email", "Email Queue"), icon: "mail" },
-      { key: "security", label: t("nav.security", "Security"), icon: "lock" },
-    ]},
-    { key: "ipurchase", label: t("nav.ipurchase", "iPurchase"), icon: "briefcase", items: [
-      { key: "requisitions", label: t("nav.requisitions", "Requisitions"), icon: "briefcase" },
-      { key: "approvals", label: t("nav.approvals", "Approvals"), icon: "check" },
-      { key: "reports", label: t("nav.reports", "Reports"), icon: "chart" },
-    ]},
-    { key: "iapprove", label: t("nav.iapprove", "iApprove"), icon: "check", items: [
-      { key: "forms", label: t("nav.forms", "Workflow Forms"), icon: "briefcase" },
-      { key: "rules", label: t("nav.rules", "Approval Rules"), icon: "shield" },
-    ]},
-    { key: "platform", label: t("nav.platform", "Platform"), icon: "edit", items: [
-      { key: "entity_designer", label: t("nav.entity_designer", "Entity Designer"), icon: "edit" },
-    ]},
-    { key: "i18n", label: t("nav.i18n", "Internationalization"), icon: "globe", items: [
-      { key: "locales", label: t("nav.locales", "Locales"), icon: "globe" },
-      { key: "translations", label: t("nav.translations", "Translations"), icon: "messageSquare" },
-    ]},
-  ].map(sec => {
-    const extra = genForms
-      .filter(f => f.menu_category.toLowerCase() === sec.key)
-      .map(f => ({ key: `form:${f.form_key}`, label: f.form_name, icon: "fileText" }));
-    return extra.length ? { ...sec, items: [...sec.items, ...extra] } : sec;
-  }), [t, genForms]);
+  const NAV_SECTIONS: NavSection[] = useMemo(() => {
+    const baseSections: NavSection[] = [
+      { key: "admin", label: t("nav.administration", "Administration"), icon: "settings", items: [
+        { key: "settings", label: t("nav.settings", "System Settings"), icon: "settings" },
+      ]},
+      { key: "platform", label: t("nav.platform", "Platform"), icon: "edit", items: [
+        { key: "entity_designer", label: t("nav.entity_designer", "Entity Designer"), icon: "edit" },
+      ]},
+      { key: "i18n", label: t("nav.i18n", "Internationalization"), icon: "globe", items: [
+        { key: "locales", label: t("nav.locales", "Locales"), icon: "globe" },
+        { key: "translations", label: t("nav.translations", "Translations"), icon: "messageSquare" },
+      ]},
+    ];
+
+    const sectionIcon = (category: string) => {
+      if (category === "admin") return "settings";
+      if (category === "platform") return "edit";
+      if (category === "i18n") return "globe";
+      if (category === "ipurchase") return "briefcase";
+      if (category === "iapprove") return "check";
+      return "fileText";
+    };
+
+    const baseByKey = new Map(baseSections.map(s => [s.key, s]));
+    const generatedByCategory = new Map<string, { key: string; label: string; icon: string }[]>();
+
+    for (const f of genForms) {
+      const category = (f.menu_category || "admin").toLowerCase();
+      const list = generatedByCategory.get(category) || [];
+      list.push({ key: `form:${f.form_key}`, label: f.form_name, icon: "fileText" });
+      generatedByCategory.set(category, list);
+    }
+
+    for (const [category, items] of generatedByCategory.entries()) {
+      if (!baseByKey.has(category)) {
+        baseByKey.set(category, {
+          key: category,
+          label: category.charAt(0).toUpperCase() + category.slice(1),
+          icon: sectionIcon(category),
+          items: [],
+        });
+      }
+      const section = baseByKey.get(category)!;
+      const seen = new Set(section.items.map(i => i.key));
+      for (const item of items) {
+        if (!seen.has(item.key)) {
+          section.items.push(item);
+          seen.add(item.key);
+        }
+      }
+    }
+
+    return Array.from(baseByKey.values()).filter(s => s.items.length > 0);
+  }, [t, genForms]);
 
   const activeNav = controlledNav ?? internalNav;
   const handleNavigate = (key: string, recordOid?: string) => {

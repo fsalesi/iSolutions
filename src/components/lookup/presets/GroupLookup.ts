@@ -1,7 +1,7 @@
 import type { LookupConfig } from "../LookupTypes";
 
 export const GroupLookup = (overrides?: Partial<LookupConfig>): LookupConfig => ({
-  apiPath: "/api/groups",
+  apiPath: "/api/forms/groups?table=groups",
   valueField: "group_id",
   displayField: "group_id",
   displayTemplate: "{group_id} - {description}",

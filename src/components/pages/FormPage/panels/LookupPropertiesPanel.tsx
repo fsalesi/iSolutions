@@ -27,6 +27,9 @@ const PROP_DEFS: PropDef[] = [
   { key: "browseTitle",     label: "Browse Title",      type: "string",           storeKey: "lookup_browse_title" },
   { key: "gridColumns",     label: "Grid Columns",      type: "fieldMultiSelect", storeKey: "lookup_grid_columns" },
   { key: "multiple",        label: "Multiple",          type: "boolean",          storeKey: "lookup_multiple" },
+  { key: "checklist",       label: "Checklist Mode",    type: "boolean",          storeKey: "lookup_checklist" },
+  { key: "checklistHeight", label: "Checklist Height",  type: "number",           storeKey: "lookup_checklist_height" },
+  { key: "checklistPageSize", label: "Checklist Page Size", type: "number",        storeKey: "lookup_checklist_page_size" },
   { key: "preload",         label: "Preload",           type: "boolean",          storeKey: "lookup_preload" },
   { key: "dropdownLimit",   label: "Dropdown Limit",    type: "number",           storeKey: "lookup_dropdown_limit" },
   { key: "readOnly",        label: "Read-only",         type: "boolean",          storeKey: "lookup_read_only" },
@@ -38,6 +41,9 @@ const PROP_DEFS: PropDef[] = [
 
 const COMPONENT_DEFAULTS: Partial<LookupConfig> = {
   multiple: false,
+  checklist: false,
+  checklistHeight: 260,
+  checklistPageSize: 200,
   preload: false,
   browsable: true,
   readOnly: false,

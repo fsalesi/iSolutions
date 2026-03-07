@@ -15,5 +15,7 @@ interface FormPageProps {
 
 export const formPageRegistry: Record<string, ComponentType<FormPageProps>> = {
   "POReq": dynamic(() => import("@customer/forms/POReq/Page")),
+  "groups": dynamic(() => import("@customer/forms/groups/Page")),
+  "pasoe_brokers": dynamic(() => import("@customer/forms/pasoe_brokers/Page")),
   "users": dynamic(() => import("@customer/forms/users/Page")),
 };

@@ -3,7 +3,6 @@
 import { useState, useCallback } from "react";
 import { useSession } from "@/context/SessionContext";
 import LoginScreen from "@/components/LoginScreen";
-import PasoeBrokers from "@/components/pages/PasoeBrokers";
 import Locales from "@/components/pages/Locales";
 import Translations from "@/components/pages/Translations";
 import Settings from "@/components/pages/Settings";
@@ -16,6 +15,7 @@ function normalizeNavKey(raw: string | null): string {
   if (!key) return "form:users";
   if (key === "users") return "form:users";
   if (key === "groups") return "form:groups";
+  if (key === "pasoe_brokers") return "form:pasoe_brokers";
   return key;
 }
 
@@ -30,7 +30,7 @@ export default function RootPage() {
   const [selectOid, setSelectOid] = useState<string | undefined>();
   const [selectSeq, setSelectSeq] = useState(0);
 
-  const HARD_WIRED = new Set(["pasoe_brokers", "locales", "settings", "entity_designer", "translations", "profile"]);
+  const HARD_WIRED = new Set(["locales", "settings", "entity_designer", "translations", "profile"]);
   const handleNavigate = useCallback((key: string, recordOid?: string) => {
     const normalized = normalizeNavKey(key);
     const resolved = (!normalized.startsWith("form:") && !HARD_WIRED.has(normalized)) ? `form:${normalized}` : normalized;
@@ -45,10 +45,6 @@ export default function RootPage() {
 
   // Not logged in — show login screen
   if (!loggedIn) return <LoginScreen />;
-
-  if (activeNav === "pasoe_brokers") {
-    return <PasoeBrokers activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;
-  }
 
   if (activeNav === "locales") {
     return <Locales activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;

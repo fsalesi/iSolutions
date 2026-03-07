@@ -82,6 +82,15 @@ export interface LookupConfig {
   /** Multi-select mode (default: false) */
   multiple?: boolean;
 
+  /** Render multi-select as a checkbox checklist instead of chips/dropdown */
+  checklist?: boolean;
+
+  /** Checklist panel max height in px (default: 260) */
+  checklistHeight?: number;
+
+  /** Page size when loading checklist data from API (default: 200) */
+  checklistPageSize?: number;
+
   /** Callback when a record is selected — use for cascading other fields */
   onSelect?: (record: any) => void;
 
