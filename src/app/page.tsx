@@ -4,29 +4,36 @@ import { useState, useCallback } from "react";
 import { useSession } from "@/context/SessionContext";
 import LoginScreen from "@/components/LoginScreen";
 import PasoeBrokers from "@/components/pages/PasoeBrokers";
-import UsersPage from "@/components/pages/UsersPage";
 import Locales from "@/components/pages/Locales";
 import Translations from "@/components/pages/Translations";
 import Settings from "@/components/pages/Settings";
-import GroupsPage from "@/components/pages/GroupsPage";
 import EntityDesigner from "@/components/pages/EntityDesigner";
 import { FormPage } from "@/components/pages/FormPage";
 import { formPageRegistry } from "@/components/forms/registry";
+
+function normalizeNavKey(raw: string | null): string {
+  const key = String(raw || "").trim();
+  if (!key) return "form:users";
+  if (key === "users") return "form:users";
+  if (key === "groups") return "form:groups";
+  return key;
+}
 
 export default function RootPage() {
   const { loggedIn, ready } = useSession();
   const [activeNav, setActiveNav] = useState(() => {
     if (typeof window !== "undefined") {
-      return sessionStorage.getItem("activeNav") || "users";
+      return normalizeNavKey(sessionStorage.getItem("activeNav"));
     }
-    return "users";
+    return "form:users";
   });
   const [selectOid, setSelectOid] = useState<string | undefined>();
   const [selectSeq, setSelectSeq] = useState(0);
 
-  const HARD_WIRED = new Set(["pasoe_brokers","locales","settings","groups","entity_designer","translations","users","profile"]);
+  const HARD_WIRED = new Set(["pasoe_brokers", "locales", "settings", "entity_designer", "translations", "profile"]);
   const handleNavigate = useCallback((key: string, recordOid?: string) => {
-    const resolved = (!key.startsWith("form:") && !HARD_WIRED.has(key)) ? `form:${key}` : key;
+    const normalized = normalizeNavKey(key);
+    const resolved = (!normalized.startsWith("form:") && !HARD_WIRED.has(normalized)) ? `form:${normalized}` : normalized;
     setActiveNav(resolved);
     sessionStorage.setItem("activeNav", resolved);
     setSelectOid(recordOid);
@@ -51,10 +58,6 @@ export default function RootPage() {
     return <Settings activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;
   }
 
-  if (activeNav === "groups") {
-    return <GroupsPage activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;
-  }
-
   if (activeNav === "entity_designer") {
     return <EntityDesigner activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;
   }
@@ -65,7 +68,7 @@ export default function RootPage() {
 
   if (activeNav.startsWith("form:")) {
     const formKey = activeNav.slice(5);
-    // Three-tier resolution: registry has generated page → fallback to generic FormPage
+    // Three-tier resolution: registry has generated page -> fallback to generic FormPage
     const RegisteredPage = formPageRegistry[formKey];
     if (RegisteredPage) {
       return <RegisteredPage activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;
@@ -73,5 +76,5 @@ export default function RootPage() {
     return <FormPage formKey={formKey} apiPath={`/api/forms/${formKey}`} activeNav={activeNav} onNavigate={handleNavigate} />;
   }
 
-  return <UsersPage activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;
+  return <FormPage formKey="users" apiPath="/api/forms/users" activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;
 }

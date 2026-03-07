@@ -2,14 +2,12 @@
  * Generic CRUD route factory.
  * Generates GET/POST/PUT/DELETE handlers from a simple config.
  * Every route automatically gets: oid filter, search, advanced filters, sort, pagination.
- * Hooks: Product hooks (src/lib/hooks/) + customer hooks run on save/delete.
  * All user-facing messages go through i18n translation.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { buildFilterWhere, parseOidFilter } from "@/lib/filter-sql";
-import { getHooks, ValidationError } from "@/lib/hooks";
 import { translateMessage, getUserLocale } from "@/lib/translate";
 
 type ColType = "text" | "number" | "boolean" | "date" | "datetime";
@@ -82,16 +80,6 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
   class AuthError extends Error { constructor() { super("Authentication required"); } }
 
   // ── Translation helpers ──────────────────────────────
-  async function resolveValidationError(e: ValidationError, req: NextRequest): Promise<string> {
-    try {
-      const userId = getCurrentUser(req);
-      const locale = await getUserLocale(userId);
-      return await translateMessage(locale, e.translationKey, e.params);
-    } catch {
-      return e.translationKey;
-    }
-  }
-
   async function resolveFieldRequired(field: string, req: NextRequest): Promise<string> {
     try {
       const userId = getCurrentUser(req);
@@ -117,7 +105,6 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
   async function GET(req: NextRequest) {
     try {
       requireAuth(req);
-      const hooks = getHooks(cfg.table);
       const url = req.nextUrl;
       const offset = Math.max(0, parseInt(url.searchParams.get("offset") || "0"));
       const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get("limit") || "50")));
@@ -161,7 +148,6 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
       );
 
       let rows = dataR.rows;
-      if (hooks?.transformRows) rows = await hooks.transformRows(rows, db);
       return NextResponse.json({ rows, total, offset, limit, requiredFields: cfg.requiredFields || [], searchColumns: cfg.searchColumns || [] });
     } catch (err: any) {
       if (err instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
@@ -184,11 +170,6 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
         }
       }
 
-      const hooks = getHooks(cfg.table);
-      if (hooks?.beforeSave) {
-        await hooks.beforeSave(body, { db, isNew: true, oid: "", table: cfg.table });
-      }
-
       const fields = writable.filter(f => f in body);
       // Inject audit user columns
       fields.push("created_by", "updated_by");
@@ -204,18 +185,9 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
         values
       );
 
-      if (hooks?.afterSave) {
-        await hooks.afterSave(body, { db, isNew: true, oid: res.rows[0].oid, table: cfg.table });
-      }
-
-      const [postRow] = hooks?.transformRows ? await hooks.transformRows([res.rows[0]], db) : [res.rows[0]];
-      return NextResponse.json(postRow, { status: 201 });
+      return NextResponse.json(res.rows[0], { status: 201 });
     } catch (e: any) {
       if (e instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-      if (e instanceof ValidationError) {
-        const msg = await resolveValidationError(e, req);
-        return NextResponse.json({ error: msg }, { status: 422 });
-      }
       if (e.code === "23505" && cfg.uniqueErrorMsg) {
         return NextResponse.json({ error: cfg.uniqueErrorMsg({}) }, { status: 409 });
       }
@@ -243,11 +215,6 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
         }
       }
 
-      const hooks = getHooks(cfg.table);
-      if (hooks?.beforeSave) {
-        await hooks.beforeSave(body, { db, isNew: false, oid, table: cfg.table });
-      }
-
       const fields = writable.filter(f => f in body);
       // Inject audit user column
       fields.push("updated_by");
@@ -267,19 +234,9 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
         return NextResponse.json({ error: msg }, { status: 404 });
       }
 
-      if (hooks?.afterSave) {
-        await hooks.afterSave(body, { db, isNew: false, oid, table: cfg.table });
-      }
-
-      const [putRow] = hooks?.transformRows ? await hooks.transformRows([res.rows[0]], db) : [res.rows[0]];
-      return NextResponse.json(putRow);
+      return NextResponse.json(res.rows[0]);
     } catch (e: any) {
-      if (e instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-      if (e instanceof ValidationError) {
-        const msg = await resolveValidationError(e, req);
-        return NextResponse.json({ error: msg }, { status: 422 });
-      }
-      if (e.code === "23505" && cfg.uniqueErrorMsg) {
+      if (e instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });      if (e.code === "23505" && cfg.uniqueErrorMsg) {
         return NextResponse.json({ error: cfg.uniqueErrorMsg({}) }, { status: 409 });
       }
       console.error(`PUT /api/${cfg.table} error:`, e);
@@ -297,20 +254,10 @@ export function createCrudRoutes(cfg: CrudRouteConfig) {
         return NextResponse.json({ error: msg }, { status: 400 });
       }
 
-      const hooks = getHooks(cfg.table);
-      if (hooks?.beforeDelete) {
-        await hooks.beforeDelete(oid, { db, oid, table: cfg.table });
-      }
-
       await db.query(`DELETE FROM ${cfg.table} WHERE oid = $1::uuid`, [oid]);
       return NextResponse.json({ ok: true });
     } catch (e: any) {
-      if (e instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-      if (e instanceof ValidationError) {
-        const msg = await resolveValidationError(e, req);
-        return NextResponse.json({ error: msg }, { status: 422 });
-      }
-      console.error(`DELETE /api/${cfg.table} error:`, e);
+      if (e instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });      console.error(`DELETE /api/${cfg.table} error:`, e);
       return NextResponse.json({ error: e.message }, { status: 500 });
     }
   }
