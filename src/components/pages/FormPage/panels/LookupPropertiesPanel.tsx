@@ -10,7 +10,7 @@ import type { LookupConfig } from "@/components/lookup/LookupTypes";
 type PropType = "string" | "number" | "boolean" | "stringArray" | "fieldSelect" | "fieldMultiSelect" | "templateString";
 
 interface PropDef {
-  key: keyof LookupConfig;
+  key?: keyof LookupConfig;
   label: string;
   type: PropType;
   storeKey: string;
@@ -35,6 +35,8 @@ const PROP_DEFS: PropDef[] = [
   { key: "readOnly",        label: "Read-only",         type: "boolean",          storeKey: "lookup_read_only" },
   { key: "minChars",        label: "Min Chars",         type: "number",           storeKey: "lookup_min_chars" },
   { key: "dropdownColumns", label: "Dropdown Columns",  type: "fieldMultiSelect", storeKey: "lookup_dropdown_columns" },
+  { label: "All Option Value", type: "string", storeKey: "lookup_all_option_value" },
+  { label: "All Option Label", type: "string", storeKey: "lookup_all_option_label" },
 ];
 
 // -- Component defaults ----------------------------------------------------------
@@ -204,7 +206,9 @@ export function LookupPropertiesPanel({ open, onClose, presetName, properties, o
       delete updates[def.storeKey];
       onPropertiesChange(updates);
     } else {
-      const defaultVal = def.key in defaults ? defaults[def.key] : COMPONENT_DEFAULTS[def.key];
+      const defaultVal = def.key
+            ? (def.key in defaults ? defaults[def.key] : COMPONENT_DEFAULTS[def.key])
+            : undefined;
       let initVal: any;
       if (def.type === "boolean") initVal = defaultVal ?? false;
       else if (def.type === "number") initVal = defaultVal ?? 0;
@@ -294,7 +298,9 @@ export function LookupPropertiesPanel({ open, onClose, presetName, properties, o
 
         {presetName && PROP_DEFS.map(def => {
           const usingDefault = isDefault(def.storeKey);
-          const defaultVal = def.key in defaults ? defaults[def.key] : COMPONENT_DEFAULTS[def.key];
+          const defaultVal = def.key
+      ? (def.key in defaults ? defaults[def.key] : COMPONENT_DEFAULTS[def.key])
+      : undefined;
           const overrideVal = properties[def.storeKey];
 
           const isBrowseDependent = def.key === "browseTitle" || def.key === "gridColumns";
@@ -307,7 +313,7 @@ export function LookupPropertiesPanel({ open, onClose, presetName, properties, o
             : showNA ? "N/A" : formatDefault(defaultVal, def.type);
 
           return (
-            <div key={def.key} style={{
+            <div key={def.storeKey} style={{
               display: "grid",
               gridTemplateColumns: "1fr auto",
               gap: "4px 12px",

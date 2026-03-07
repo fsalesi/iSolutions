@@ -78,6 +78,18 @@ export function FormPage({ formKey, apiPath, activeNav, onNavigate, selectRecord
     return buildGridColumns(design.layout, meta.headerTable);
   }, [meta, design.layout]);
 
+  const defaultValues = useMemo<Record<string, any> | undefined>(() => {
+    if (!meta) return undefined;
+    const values: Record<string, any> = {};
+    for (const l of design.layout) {
+      if (l.layout_type !== "field" || l.table_name !== meta.headerTable) continue;
+      const dv = (l.properties || {}).default_value;
+      if (dv === undefined || dv === null || dv === "") continue;
+      values[l.layout_key] = dv;
+    }
+    return Object.keys(values).length ? values : undefined;
+  }, [meta, design.layout]);
+
   const designBindings = buildFormDesignBindings(design, handleDesignToggle);
 
   const renderBody = useCallback((props: CrudPanelBodyProps) => {
@@ -111,6 +123,7 @@ export function FormPage({ formKey, apiPath, activeNav, onNavigate, selectRecord
         apiPath={`${apiPath}?table=${meta.headerTable}`}
         columns={columns}
         requiredFields={requiredFields}
+        defaultValues={defaultValues}
         renderBody={renderBody}
         designMode={design.designMode}
         onDesignToggle={handleDesignToggle}

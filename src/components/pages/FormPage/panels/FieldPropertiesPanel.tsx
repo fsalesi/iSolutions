@@ -87,7 +87,7 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, onDeleted,
   const setProp = (key: string, value: any) => setProps(p => ({ ...p, [key]: value }));
 
   const isBackendKeyField = !!entry && backendKeyFields.includes(entry.layout_key);
-  const disallowedKeyRenderers = new Set(["password", "image", "lookup"]);
+  const disallowedKeyRenderers = new Set(["password", "image"]);
   const rendererOptions = isBackendKeyField
     ? RENDERER_OPTIONS.filter((o) => !disallowedKeyRenderers.has(String(o.value)))
     : RENDERER_OPTIONS;
@@ -144,8 +144,10 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, onDeleted,
     let effectiveSort = sortOrder;
 
     if (isBackendKeyField) {
-      // Key fields are backend-controlled: always mandatory + read-only in UI metadata.
-      effectiveProps = { ...effectiveProps, mandatory: true, readonly: true };
+      // Key fields are backend-controlled: always mandatory.
+      // Read-only-on-edit is enforced at runtime (forceReadOnly), so do not persist readonly=true.
+      effectiveProps = { ...effectiveProps, mandatory: true };
+      delete (effectiveProps as any).readonly;
       if (disallowedKeyRenderers.has(String(effectiveProps.renderer ?? "text"))) {
         effectiveProps = { ...effectiveProps, renderer: "text" };
       }
@@ -236,7 +238,7 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, onDeleted,
           <>
             {isBackendKeyField && (
               <div className="px-3 py-2 rounded-lg text-xs font-medium" style={{ background: "var(--warning-bg)", color: "var(--warning-text)", border: "1px solid var(--warning-border)" }}>
-                Backend-controlled key field: Mandatory and Read-only are enforced, and renderer cannot be Password, Image, or Lookup.
+                Backend-controlled key field: Mandatory is enforced, and renderer cannot be Password or Image. Key fields are read-only on existing records.
               </div>
             )}
             <Field label="Label">
@@ -289,15 +291,15 @@ export function FieldPropertiesPanel({ entry, open, onClose, onSaved, onDeleted,
                 value={String(isBackendKeyField ? true : (props.mandatory ?? false))}
                 onChange={v => setProp("mandatory", v === "true")}
                 options={MANDATORY_OPTIONS}
-                disabled={isBackendKeyField}
+                
               />
             </Field>
             <Field label="Read-only">
               <Select
-                value={String(isBackendKeyField ? true : (props.readonly ?? false))}
+                value={String(props.readonly ?? false)}
                 onChange={v => setProp("readonly", v === "true")}
                 options={READONLY_OPTIONS}
-                disabled={isBackendKeyField}
+                
               />
             </Field>
             <Field label="Default Value">

@@ -275,6 +275,12 @@ export function FieldRenderer({
       if (properties?.lookup_display_field) overrides.displayField = properties.lookup_display_field;
       if (properties?.lookup_display_template) overrides.displayTemplate = properties.lookup_display_template;
       if (properties?.lookup_placeholder) overrides.placeholder = properties.lookup_placeholder;
+      if (properties?.lookup_all_option_value) {
+        overrides.allOption = {
+          value: String(properties.lookup_all_option_value),
+          label: String(properties.lookup_all_option_label ?? properties.lookup_all_option_value),
+        };
+      }
       if (properties?.lookup_browse_title) overrides.browseTitle = properties.lookup_browse_title;
       if (properties?.lookup_multiple !== undefined) overrides.multiple = properties.lookup_multiple;
       if (properties?.lookup_checklist !== undefined) overrides.checklist = properties.lookup_checklist;
