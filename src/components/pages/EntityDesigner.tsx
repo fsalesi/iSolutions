@@ -160,7 +160,7 @@ function GeneralTab({ row, isNew, onChange, colTypes, colScales, requiredFields,
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
           {field("form_key", { readOnly: !isNew, autoFocus: isNew, placeholder: "e.g. suppliers" })}
           {field("form_name", { placeholder: "e.g. Supplier Maintenance" })}
-          {field("menu_category", { placeholder: "e.g. Procurement" })}
+          {field("menu_category", { type: "select", options: [{ value: "admin", label: "Admin" }, { value: "platform", label: "Platform" }, { value: "i18n", label: "i18n" }, { value: "ipurchase", label: "iPurchase" }, { value: "iapprove", label: "iApprove" }] })}
         </div>
       </Section>
       <Section title={t("forms.section_options", "Options")}>

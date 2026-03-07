@@ -43,14 +43,14 @@ export function AppShell({ children, title, subtitle, showBack, onBack, activeNa
   const NAV_SECTIONS: NavSection[] = useMemo(() => {
     const baseSections: NavSection[] = [
       { key: "admin", label: t("nav.administration", "Administration"), icon: "settings", items: [
-        { key: "settings", label: t("nav.settings", "System Settings"), icon: "settings" },
+        { key: "form:settings", label: t("nav.settings", "System Settings"), icon: "settings" },
       ]},
       { key: "platform", label: t("nav.platform", "Platform"), icon: "edit", items: [
         { key: "entity_designer", label: t("nav.entity_designer", "Entity Designer"), icon: "edit" },
       ]},
       { key: "i18n", label: t("nav.i18n", "Internationalization"), icon: "globe", items: [
-        { key: "locales", label: t("nav.locales", "Locales"), icon: "globe" },
-        { key: "translations", label: t("nav.translations", "Translations"), icon: "messageSquare" },
+        { key: "form:locales", label: t("nav.locales", "Locales"), icon: "globe" },
+        { key: "form:translations", label: t("nav.translations", "Translations"), icon: "messageSquare" },
       ]},
     ];
 
@@ -61,6 +61,15 @@ export function AppShell({ children, title, subtitle, showBack, onBack, activeNa
       if (category === "ipurchase") return "briefcase";
       if (category === "iapprove") return "check";
       return "fileText";
+    };
+
+    const sectionLabel = (category: string) => {
+      if (category === "admin") return t("nav.administration", "Administration");
+      if (category === "platform") return t("nav.platform", "Platform");
+      if (category === "i18n") return t("nav.i18n", "Internationalization");
+      if (category === "ipurchase") return "iPurchase";
+      if (category === "iapprove") return "iApprove";
+      return category.charAt(0).toUpperCase() + category.slice(1);
     };
 
     const baseByKey = new Map(baseSections.map(s => [s.key, s]));
@@ -77,7 +86,7 @@ export function AppShell({ children, title, subtitle, showBack, onBack, activeNa
       if (!baseByKey.has(category)) {
         baseByKey.set(category, {
           key: category,
-          label: category.charAt(0).toUpperCase() + category.slice(1),
+          label: sectionLabel(category),
           icon: sectionIcon(category),
           items: [],
         });
