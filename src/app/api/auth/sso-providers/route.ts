@@ -9,10 +9,9 @@ export async function GET() {
   }
 
   if (state.mode === "auto") {
-    // SSO_LOGIN=true, SSO_CHOICE blank — use generic settings, redirect immediately
-    const config = await getProviderConfig("generic");
+    const config = await getProviderConfig(state.provider);
     if (!config) return NextResponse.json({ providers: [], autoRedirect: false });
-    return NextResponse.json({ providers: [], autoRedirect: true, provider: "generic" });
+    return NextResponse.json({ providers: [], autoRedirect: true, provider: state.provider });
   }
 
   // mode === "choice" — show buttons for each configured provider

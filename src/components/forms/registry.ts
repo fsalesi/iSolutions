@@ -19,6 +19,7 @@ export const formPageRegistry: Record<string, ComponentType<FormPageProps>> = {
   "locales": dynamic(() => import("@customer/forms/locales/Page")),
   "pasoe_brokers": dynamic(() => import("@customer/forms/pasoe_brokers/Page")),
   "settings": dynamic(() => import("@customer/forms/settings/Page")),
+  "sso_config": dynamic(() => import("@customer/forms/sso_config/Page")),
   "translations": dynamic(() => import("@customer/forms/translations/Page")),
   "users": dynamic(() => import("@customer/forms/users/Page")),
 };

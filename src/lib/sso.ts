@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getSystemSetting } from "./settings";
+import { db } from "./db";
 
 export interface ProviderConfig {
   clientId: string;
@@ -15,68 +15,104 @@ export interface ProviderMeta {
   label: string;
 }
 
+interface SSOConfigRow {
+  provider_id: string;
+  label: string;
+  is_active: boolean;
+  show_on_login: boolean;
+  client_id: string;
+  client_secret: string;
+  authorization_url: string;
+  token_url: string;
+  logoff_url: string;
+  scope: string;
+}
+
 /**
  * Returns the public origin (scheme + host) for the request.
  * Respects X-Forwarded-Proto and X-Forwarded-Host set by Nginx Proxy Manager.
  */
 export function getOrigin(req: NextRequest): string {
   const proto = req.headers.get("x-forwarded-proto") ?? req.nextUrl.protocol.replace(":", "");
-  const host  = req.headers.get("x-forwarded-host")  ?? req.headers.get("host") ?? req.nextUrl.host;
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? req.nextUrl.host;
   return `${proto}://${host}`;
 }
 
 export type SSOState =
   | { mode: "off" }
-  | { mode: "choice"; providers: string[] }   // SSO_LOGIN=true, SSO_CHOICE set
-  | { mode: "auto" };                          // SSO_LOGIN=true, SSO_CHOICE blank -> use generic settings
+  | { mode: "choice"; providers: string[] }
+  | { mode: "auto"; provider: string };
 
-/** Reads SSO_LOGIN and SSO_CHOICE and returns the login mode */
-export async function getSSOState(): Promise<SSOState> {
-  const [login, choice] = await Promise.all([
-    getSystemSetting("SSO_LOGIN"),
-    getSystemSetting("SSO_CHOICE"),
-  ]);
-
-  if (login?.toLowerCase() !== "true") return { mode: "off" };
-
-  const providers = (choice ?? "")
-    .split(",").map((s: string) => s.trim().toLowerCase()).filter(Boolean);
-
-  if (providers.length > 0) return { mode: "choice", providers };
-  return { mode: "auto" };
+function normalizeProviderId(value: string): string {
+  return String(value || "").trim().toLowerCase();
 }
 
-/** Loads provider config from settings table. Returns null if not configured or secret is a placeholder.
- *  Pass provider="generic" to use the unprefixed SSO_* settings (SSO_LOGIN=true, SSO_CHOICE blank). */
+function isConfigured(row: Pick<SSOConfigRow, "client_id" | "client_secret" | "authorization_url" | "token_url">): boolean {
+  const secret = String(row.client_secret || "");
+  return !!(
+    row.client_id &&
+    secret &&
+    row.authorization_url &&
+    row.token_url &&
+    !secret.startsWith("REPLACE_WITH")
+  );
+}
+
+async function loadActiveRows(): Promise<SSOConfigRow[]> {
+  const { rows } = await db.query(
+    `SELECT provider_id, label, is_active, show_on_login,
+            client_id, client_secret, authorization_url, token_url, logoff_url, scope
+       FROM sso_config
+      WHERE COALESCE(is_active, false) = true
+      ORDER BY CASE WHEN LOWER(provider_id) = 'generic' THEN 0 ELSE 1 END, provider_id`
+  );
+  return rows as SSOConfigRow[];
+}
+
+/** Returns login mode from sso_config rows */
+export async function getSSOState(): Promise<SSOState> {
+  const active = (await loadActiveRows()).filter(isConfigured);
+  if (active.length === 0) return { mode: "off" };
+
+  const choiceProviders = active
+    .filter((r) => r.show_on_login)
+    .map((r) => normalizeProviderId(r.provider_id));
+
+  if (choiceProviders.length > 0) {
+    return { mode: "choice", providers: choiceProviders };
+  }
+
+  // Auto mode: prefer generic, else first active configured provider
+  const autoProvider = normalizeProviderId(active[0].provider_id);
+  return { mode: "auto", provider: autoProvider };
+}
+
+/** Loads provider config from sso_config */
 export async function getProviderConfig(provider: string): Promise<ProviderConfig | null> {
-  const isGeneric = provider === "generic";
-  const P = provider.toUpperCase();
-  const s = (name: string) => isGeneric ? name : `${name}_${P}`;
+  const id = normalizeProviderId(provider);
+  if (!id) return null;
 
-  const [clientId, clientSecret, authUrl, tokenUrl, logoffUrl] = await Promise.all([
-    getSystemSetting(s("SSO_CLIENT_ID")),
-    getSystemSetting(s("SSO_CLIENT_SECRET")),
-    getSystemSetting(s("SSO_AUTHORIZATION_URL")),
-    getSystemSetting(s("SSO_TOKEN_URL")),
-    getSystemSetting(s("SSO_LOGOFF_URL")),
-  ]);
+  const { rows } = await db.query(
+    `SELECT provider_id, label, is_active, show_on_login,
+            client_id, client_secret, authorization_url, token_url, logoff_url, scope
+       FROM sso_config
+      WHERE LOWER(provider_id) = LOWER($1)
+      LIMIT 1`,
+    [id]
+  );
 
-  if (!clientId || !clientSecret || !authUrl || !tokenUrl) return null;
-  if (clientSecret.startsWith("REPLACE_WITH")) return null;
-
-  const scopes: Record<string, string> = {
-    MICROSOFT: "openid email profile",
-    GOOGLE:    "openid email profile",
-    OKTA:      "openid email profile",
-  };
+  if (!rows.length) return null;
+  const row = rows[0] as SSOConfigRow;
+  if (!row.is_active) return null;
+  if (!isConfigured(row)) return null;
 
   return {
-    clientId,
-    clientSecret,
-    authorizationUrl: authUrl,
-    tokenUrl,
-    logoffUrl: logoffUrl ?? "",
-    scope: scopes[P] ?? "openid email profile",
+    clientId: row.client_id,
+    clientSecret: row.client_secret,
+    authorizationUrl: row.authorization_url,
+    tokenUrl: row.token_url,
+    logoffUrl: row.logoff_url ?? "",
+    scope: row.scope || "openid email profile",
   };
 }
 
@@ -92,7 +128,8 @@ export function decodeJwtPayload(token: string): Record<string, any> {
 }
 
 export const PROVIDER_META: Record<string, { label: string }> = {
+  generic: { label: "Single Sign-On" },
   microsoft: { label: "Microsoft" },
-  google:    { label: "Google"    },
-  okta:      { label: "Okta"      },
+  google: { label: "Google" },
+  okta: { label: "Okta" },
 };

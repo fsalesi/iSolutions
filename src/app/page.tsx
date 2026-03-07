@@ -16,6 +16,7 @@ function normalizeNavKey(raw: string | null): string {
   if (key === "locales") return "form:locales";
   if (key === "translations") return "form:translations";
   if (key === "settings") return "form:settings";
+  if (key === "sso_config") return "form:sso_config";
   return key;
 }
 

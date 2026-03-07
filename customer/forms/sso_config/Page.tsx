@@ -1,0 +1,38 @@
+/**
+ * Customer SsoConfig page override.
+ * This file is NEVER overwritten by re-generate.
+ */
+import { FormPage } from "@/components/pages/FormPage";
+import { buttonHandlers as productHandlers, lookupHandlers as productLookupHandlers } from "@/components/forms/sso_config/Page";
+import type { ButtonHandlerContext } from "@/components/crud-toolbar/types";
+import type { LookupHandlers } from "@/components/pages/FormPage";
+
+interface Props {
+  activeNav: string;
+  onNavigate: (key: string, oid?: string) => void;
+  selectRecordOid?: string;
+  selectSeq?: number;
+}
+
+export const buttonHandlers: Record<string, (ctx: ButtonHandlerContext) => void | Promise<void>> = {
+  ...productHandlers,
+};
+
+export const lookupHandlers: LookupHandlers = {
+  ...productLookupHandlers,
+};
+
+export default function CustomerSsoConfigPage({ activeNav, onNavigate, selectRecordOid, selectSeq }: Props) {
+  return (
+    <FormPage
+      formKey="sso_config"
+      apiPath="/api/forms/sso_config"
+      buttonHandlers={buttonHandlers}
+      lookupHandlers={lookupHandlers}
+      activeNav={activeNav}
+      onNavigate={onNavigate}
+      selectRecordOid={selectRecordOid}
+      selectSeq={selectSeq}
+    />
+  );
+}
