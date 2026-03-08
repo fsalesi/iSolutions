@@ -9,6 +9,7 @@ export interface ButtonDef {
   icon?: string;
   hideLabel?: boolean;
   disabled?: boolean;
+  requiresRecord?: boolean;
   hidden?: boolean;
   onClick: () => void;
 }
@@ -25,7 +26,8 @@ export class ToolbarDef {
   useAudit:  boolean = false;
   usePrint:  boolean = false;
 
-  buttons: ButtonDef[] = [];
+  buttons:   ButtonDef[] = [];
+  onRefresh: (() => void) | null = null;
 
 
   // Semantic commands — delegate to panel
@@ -38,5 +40,5 @@ export class ToolbarDef {
   addButton(button: ButtonDef): this  { this.buttons.push(button); return this; }
   getButton(key: string): ButtonDef   { const btn = this.buttons.find(b => b.key === key); if (!btn) throw new Error(`Button "${key}" not found`); return btn; }
   removeButton(key: string): this     { return this; } // stub
-  refresh(): void                     {} // stub
+  refresh(): void                     { this.onRefresh?.(); }
 }

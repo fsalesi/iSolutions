@@ -16,6 +16,8 @@ type PageConstructor = new () => PageInstance;
 const registry: Record<string, () => Promise<PageConstructor>> = {
   sso_config: () =>
     import("@customer/pages/sso_config").then(m => m.SsoConfigPage),
+  pasoe_brokers: () =>
+    import("@customer/pages/pasoe_brokers").then(m => m.PasoeBrokersPage),
   users: () =>
     import("@customer/pages/users").then(m => m.UsersPage),
 };

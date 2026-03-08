@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Icon } from "@/components/icons/Icon";
 import { AuditPanel } from "@/components/audit-panel/AuditPanel";
 import { NotesPanel } from "@/components/notes-panel/NotesPanel";
@@ -25,6 +25,12 @@ interface ToolBtn {
 
 export function PanelToolbar({ toolbar, isNew, isDirty, readOnly }: PanelToolbarProps) {
   const [auditOpen, setAuditOpen] = useState(false);
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    toolbar.onRefresh = () => setTick(t => t + 1);
+    return () => { toolbar.onRefresh = null; };
+  }, [toolbar]);
   const [notesOpen, setNotesOpen] = useState(false);
 
   const hasRecord = !isNew && !!toolbar.panel?.currentRecord;
@@ -42,7 +48,7 @@ export function PanelToolbar({ toolbar, isNew, isDirty, readOnly }: PanelToolbar
 
   const custom: ToolBtn[] = toolbar.buttons.map((b: ButtonDef) => ({
     key: b.key, label: b.label, icon: b.icon ?? "bolt",
-    hidden: b.hidden, disabled: b.disabled, onClick: b.onClick,
+    hidden: b.hidden, disabled: b.disabled || (b.requiresRecord && !hasRecord), onClick: b.onClick,
   }));
 
   const visible = [...builtins, ...custom].filter(b => !b.hidden);
