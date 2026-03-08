@@ -14,8 +14,12 @@
 
 import type { PanelDef } from "./PanelDef";
 import type { DataGridDef } from "./DataGridDef";
+import { AlertDialogService } from "./AlertDialogService";
 
 export class PageDef {
+  /** Call from anywhere in the form tree: await this.form.alertDialog.danger({ title, message }) */
+  readonly alertDialog = AlertDialogService;
+
   /** The form key — e.g. "sso_config". Matches the page route. */
   key: string = "";
 

@@ -23,11 +23,15 @@ export class PanelDef {
   onDisplay:      ((row: Row | null) => void) | null = null;
 
   /**
-   * Optional custom header renderer — overrides the default KeyPanel.
-   * Set this in subclass constructor to a function that returns ReactNode.
-   * Receives { currentRecord, isNew } as props.
+   * Header renderer — renders the panel header strip.
+   * Default: KeyPanel (shows keyField=true fields).
+   * Override in subclass constructor to customise.
    */
-  headerRenderer: ((props: { currentRecord: Row | null; isNew: boolean }) => import("react").ReactNode) | null = null;
+  headerRenderer: (props: { currentRecord: Row | null; isNew: boolean }) => import("react").ReactNode =
+    ({ currentRecord, isNew }) => {
+      const { KeyPanel } = require("@/components/panel/KeyPanel");
+      return KeyPanel({ panel: this, currentRecord, isNew });
+    };
   onFocusTab:     ((index: number) => void) | null = null;
   activeTabKey:   string = "";
   onDirtyChanged: ((dirty: boolean) => void) | null = null;
@@ -196,14 +200,22 @@ export class PanelDef {
     const table = this.grid?.dataSource?.table;
     if (!api || !table) return;
     if (!this.currentRecord?.oid) return;
-    if (!confirm("Delete this record?")) return;
+
+    // Build a meaningful record label from key fields
+    const keyFields = this.fields.filter(f => f.keyField);
+    const label = keyFields.map(f => this.currentRecord?.[f.key]).filter(Boolean).join(" / ")
+                  || "this record";
+
+    const confirmed = await (this.form?.alertDialog ?? { danger: () => Promise.resolve(window.confirm("Delete this record?")) })
+      .danger({ title: "Delete Record", message: `Delete ${label}? This cannot be undone.`, confirmLabel: "Delete" });
+    if (!confirmed) return;
 
     const qs = new URLSearchParams({ table, oid: this.currentRecord.oid });
     const res = await fetch(`${api}?${qs}`, { method: "DELETE" });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      this.showMessage(data.error ?? "Delete failed", "error");
+      await this.form?.alertDialog.error(data.error ?? "Delete failed.", "Delete Failed");
       return;
     }
 

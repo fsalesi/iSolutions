@@ -48,7 +48,7 @@ export function EditPanelRenderer({ panel }: EditPanelRendererProps) {
         readOnly={panel.readOnly}
       />
 
-      {panel.headerRenderer ? panel.headerRenderer({ currentRecord, isNew }) : <KeyPanel panel={panel} currentRecord={currentRecord} isNew={isNew} />}
+      {panel.headerRenderer({ currentRecord, isNew })}
 
       <div style={{ flex: 1, overflow: "auto", padding: "1rem" }}>
         {!showForm ? (

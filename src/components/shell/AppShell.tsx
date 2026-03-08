@@ -4,6 +4,7 @@ import { useState, useMemo, type ReactNode } from "react";
 import { Sidebar, type NavSection } from "./Sidebar";
 import { UserMenu } from "./UserMenu";
 import { Icon } from "@/components/icons/Icon";
+import { AlertDialogRenderer } from "@/components/dialog/AlertDialogRenderer";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSession } from "@/context/SessionContext";
 
@@ -141,6 +142,7 @@ export function AppShell({ children, title, subtitle, activeNav: controlledNav, 
           {children}
         </div>
       </div>
+    <AlertDialogRenderer />
     </div>
   );
 }

@@ -363,6 +363,15 @@ export class CrudRoute {
     return [];
   }
 
+  /**
+   * SQL expressions for virtual (joined) columns, used in WHERE clauses.
+   * Override in subclasses to allow filtering on joined columns.
+   * Key = column key, value = SQL expression (e.g. '_sup.full_name')
+   */
+  protected virtualFilterExprs(): Record<string, string> {
+    return {};
+  }
+
   /* ── Query extension hooks ── */
 
   /** Extra JOIN clauses to append to the main SELECT. Override in subclass. */
@@ -425,7 +434,18 @@ export class CrudRoute {
       if (filtersJson) {
         const filterColTypes: Record<string, ColType> = { ...meta.colTypes };
         const filterAllowedCols = new Set(allowedCols);
+        // Pre-qualify all real columns with table name to avoid ambiguity when JOINs are present
         const filterExpr: Record<string, string> = {};
+        for (const col of meta.allColumns) {
+          filterExpr[col] = `"${tableName}"."${col}"`;
+        }
+        // Register virtual column SQL expressions so they can be filtered too
+        const virtExprs = this.virtualFilterExprs();
+        for (const [key, expr] of Object.entries(virtExprs)) {
+          filterAllowedCols.add(key);
+          filterExpr[key] = expr;
+          if (!filterColTypes[key]) filterColTypes[key] = "text";
+        }
         for (const [key, cfg] of Object.entries(meta.customLayoutFields)) {
           if (cfg.transient) continue;
           filterAllowedCols.add(key);

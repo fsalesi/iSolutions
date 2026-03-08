@@ -32,6 +32,13 @@ export class UsersRoute extends CrudRoute {
     return `, _sup.full_name AS supervisor_name, _del.full_name AS delegate_name`;
   }
 
+  protected virtualFilterExprs(): Record<string, string> {
+    return {
+      supervisor_name: "_sup.full_name",
+      delegate_name:   "_del.full_name",
+    };
+  }
+
   private scrubSensitive(row: Record<string, any>): Record<string, any> {
     if ("password_hash" in row) delete row.password_hash;
     return row;
