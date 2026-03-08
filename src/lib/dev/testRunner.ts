@@ -53,8 +53,8 @@ interface RunMeta extends RunSummary {
 }
 
 const PROJECT_ROOT = process.cwd();
-const SPEC_ROOT = path.join(PROJECT_ROOT, "test", "e2e");
-const RUN_ROOT = path.join(PROJECT_ROOT, "test", ".test-runner");
+const SPEC_ROOT = path.join(PROJECT_ROOT, "src", "test", "e2e");
+const RUN_ROOT = path.join(PROJECT_ROOT, "work", "test-artifacts", ".test-runner");
 
 const g = global as typeof globalThis & {
   __testRunnerChildren?: Map<string, number>;
@@ -244,7 +244,7 @@ export async function startRun(specPath: string | null, target: RunTarget = spec
     specArg = path.relative(PROJECT_ROOT, absoluteSpec).replace(/\\/g, "/");
   }
 
-  const args = ["playwright", "test"];
+  const args = ["playwright", "test", "--config=playwright.config.ts"];
   if (target === "last-failed") args.push("--last-failed");
   else if (specArg) args.push(specArg);
   args.push(`--output=${outputDir}`);

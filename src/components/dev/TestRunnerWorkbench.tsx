@@ -462,7 +462,7 @@ export function TestRunnerWorkbench() {
                 </button>
               );
             })}
-            {!filteredSpecs.length && !loading && <EmptyState title="No specs match" body="Adjust the filter or create a new spec under test/e2e." />}
+            {!filteredSpecs.length && !loading && <EmptyState title="No specs match" body="Adjust the filter or create a new spec under src/test/e2e." />}
           </div>
         </section>
 
