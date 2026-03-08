@@ -524,6 +524,28 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 8, color: "var(--text-muted)" }}>
             <Icon name="list" size={28} />
             <span style={{ fontSize: "0.82rem" }}>No records</span>
+            {grid.panel && (
+              <button
+                onClick={() => grid.panel?.newRecord()}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  marginTop: 8,
+                  padding: "6px 12px",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                  border: "none",
+                  borderRadius: 6,
+                  background: "var(--accent)",
+                  color: "var(--accent-text)",
+                  cursor: "pointer",
+                }}
+              >
+                <Icon name="plus" size={14} />
+                New
+              </button>
+            )}
           </div>
         ) : isMobile ? (
           rows.map(row => {

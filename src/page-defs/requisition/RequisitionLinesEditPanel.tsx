@@ -6,12 +6,12 @@ import { TabDef } from "@/platform/core/TabDef";
 export class RequisitionLinesEditPanel extends EditPanel {
   constructor(form?: any) {
     super({
-      useNotes: false,
-      useAudit: false,
-      usePrint: false,
+      useNotes: true,
+      useAudit: true,
     }, form);
 
     this.displayMode = "slide-in-right";
+    this.title = "Line Details";
 
     this.tabs = [
       new TabDef({

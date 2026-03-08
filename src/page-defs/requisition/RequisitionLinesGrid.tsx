@@ -8,7 +8,7 @@ export class RequisitionLinesGrid extends DataGridDef {
       key: "requisition_lines",
       pageSize: 0,
       mode: "browse",
-      allowSearch: false,
+      allowSearch: true,
       showTitle: false,
     }, form);
     this.dataSource = new RequisitionLinesDataSource();

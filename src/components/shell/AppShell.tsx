@@ -6,6 +6,8 @@ import { UserMenu } from "./UserMenu";
 import { Icon } from "@/components/icons/Icon";
 import { tx } from "@/lib/i18n/types";
 import { AlertDialogRenderer } from "@/components/dialog/AlertDialogRenderer";
+import { DrawerProvider } from "@/context/DrawerContext";
+import { DrawerRenderer } from "@/components/drawer/DrawerRenderer";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSession } from "@/context/SessionContext";
 
@@ -75,82 +77,85 @@ export function AppShell({ children, title, subtitle, activeNav: controlledNav, 
   };
 
   return (
-    <div style={{ display: "flex", height: "100dvh", overflow: "hidden", background: "var(--bg-body)" }}>
-      <Sidebar
-        sections={sections}
-        activeItem={activeNav}
-        onNavigate={handleNavigate}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        isMobile={isMobile}
-      />
+    <DrawerProvider>
+      <div style={{ display: "flex", height: "100dvh", overflow: "hidden", background: "var(--bg-body)" }}>
+        <Sidebar
+          sections={sections}
+          activeItem={activeNav}
+          onNavigate={handleNavigate}
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          isMobile={isMobile}
+        />
 
-      {/* Main column */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, marginLeft: (!isMobile && sidebarOpen) ? 240 : 0, transition: "margin-left 0.2s" }}>
-        {/* Header */}
-        <header
-          style={{
-            height:       "var(--header-height, 52px)",
-            display:      "flex",
-            alignItems:   "center",
-            padding:      "0 14px",
-            gap:          8,
-            flexShrink:   0,
-            background:   "var(--header-bg)",
-            borderBottom: "1px solid var(--header-border)",
-            boxShadow:    "var(--header-shadow)",
-          }}
-        >
-          {/* Hamburger */}
-          <button
-            onClick={() => setSidebarOpen(o => !o)}
-            style={{ color: "var(--header-text-muted)", padding: 8, display: "flex", borderRadius: 10, background: "transparent" }}
+        {/* Main column */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, marginLeft: (!isMobile && sidebarOpen) ? 240 : 0, transition: "margin-left 0.2s" }}>
+          {/* Header */}
+          <header
+            style={{
+              height:       "var(--header-height, 52px)",
+              display:      "flex",
+              alignItems:   "center",
+              padding:      "0 14px",
+              gap:          8,
+              flexShrink:   0,
+              background:   "var(--header-bg)",
+              borderBottom: "1px solid var(--header-border)",
+              boxShadow:    "var(--header-shadow)",
+            }}
           >
-            <Icon name="menu" size={20} />
-          </button>
-
-          {/* Domain picker */}
-          {domainList.length > 1 && (
-            <select
-              value={domain}
-              onChange={e => setDomain(e.target.value)}
-              style={{
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                borderRadius: 6,
-                padding: "4px 8px",
-                background: "var(--header-control-bg)",
-                border: "1px solid var(--header-control-border)",
-                color: "var(--header-text)",
-                cursor: "pointer",
-              }}
+            {/* Hamburger */}
+            <button
+              onClick={() => setSidebarOpen(o => !o)}
+              style={{ color: "var(--header-text-muted)", padding: 8, display: "flex", borderRadius: 10, background: "transparent" }}
             >
-              {domainList.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-          )}
+              <Icon name="menu" size={20} />
+            </button>
 
-          {/* Title */}
-          <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--header-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {title}
-          </span>
-          {subtitle && (
-            <span style={{ fontSize: "0.875rem", color: "var(--header-text-muted)", whiteSpace: "nowrap" }}>
-              <span style={{ opacity: 0.3, margin: "0 4px" }}>/</span>{subtitle}
+            {/* Domain picker */}
+            {domainList.length > 1 && (
+              <select
+                value={domain}
+                onChange={e => setDomain(e.target.value)}
+                style={{
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  borderRadius: 6,
+                  padding: "4px 8px",
+                  background: "var(--header-control-bg)",
+                  border: "1px solid var(--header-control-border)",
+                  color: "var(--header-text)",
+                  cursor: "pointer",
+                }}
+              >
+                {domainList.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            )}
+
+            {/* Title */}
+            <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--header-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {title}
             </span>
-          )}
+            {subtitle && (
+              <span style={{ fontSize: "0.875rem", color: "var(--header-text-muted)", whiteSpace: "nowrap" }}>
+                <span style={{ opacity: 0.3, margin: "0 4px" }}>/</span>{subtitle}
+              </span>
+            )}
 
-          <div style={{ flex: 1 }} />
+            <div style={{ flex: 1 }} />
 
-          {/* User menu */}
-          <UserMenu onNavigate={handleNavigate} />
-        </header>
+            {/* User menu */}
+            <UserMenu onNavigate={handleNavigate} />
+          </header>
 
-        {/* Content */}
-        <div style={{ flex: 1, overflow: "hidden", minHeight: 0, position: "relative" }}>
-          {children}
+          {/* Content — with DrawerRenderer for slide-in panels */}
+          <div style={{ flex: 1, overflow: "hidden", minHeight: 0, position: "relative" }}>
+            {children}
+            <DrawerRenderer />
+          </div>
         </div>
+        <AlertDialogRenderer />
       </div>
-    <AlertDialogRenderer />
-    </div>
+    </DrawerProvider>
   );
 }

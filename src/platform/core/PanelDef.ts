@@ -12,6 +12,7 @@ import type { SectionDef } from "./SectionDef";
 import type { TabDef } from "./TabDef";
 import type { Row, DisplayMode } from "./types";
 import { AlertDialogService } from "./AlertDialogService";
+import { DrawerService } from "./DrawerService";
 import { ToolbarDef } from "./ToolbarDef";
 
 type PanelForm = PageDef & {
@@ -31,6 +32,9 @@ export class PanelDef {
 
   displayMode: DisplayMode = "inline";
   readOnly:    boolean = false;
+
+  /** Title shown in drawer header (defaults to "Details") */
+  title: string = "Details";
 
   grid: DataGridDef | null = null;
 
@@ -87,7 +91,7 @@ export class PanelDef {
     return this.sections.flatMap(section => section.children.filter((child): child is FieldDef => child.type === "field"));
   }
 
-  // ── Init ──────────────────────────────────────────────────────────────────
+  // —— Init ——————————————————————————————————————————————————————————
   // Walks the tree and stamps field.panel = this on every FieldDef.
   // Called lazily on first display() or newRecord().
 
@@ -105,10 +109,16 @@ export class PanelDef {
     }
   }
 
-  // ── Display ───────────────────────────────────────────────────────────────
+  // —— Display ———————————————————————————————————————————————————————
 
   display(row: Row | null): void {
     this._init();
+
+    // If this panel uses slide-in mode, push it onto the drawer stack
+    if (this.displayMode === "slide-in-right") {
+      DrawerService.push(this);
+    }
+
     this.currentRecord = row;
     this.isNew = false;
     this.displayNonce++;
@@ -116,7 +126,7 @@ export class PanelDef {
     this.notifyDisplay(row);
   }
 
-  // ── Dirty tracking ────────────────────────────────────────────────────────
+  // —— Dirty tracking ————————————————————————————————————————————————
 
   setDirty(dirty: boolean): void {
     if (this.isDirty === dirty) return;
@@ -124,10 +134,16 @@ export class PanelDef {
     this.onDirtyChanged?.(dirty);
   }
 
-  // ── New ───────────────────────────────────────────────────────────────────
+  // —— New ———————————————————————————————————————————————————————————
 
   newRecord(): void {
     this._init();
+
+    // If this panel uses slide-in mode, push it onto the drawer stack
+    if (this.displayMode === "slide-in-right") {
+      DrawerService.push(this);
+    }
+
     this.currentRecord = null;
     this.isNew = true;
     // Walk fields — apply defaultValues, clear everything else
@@ -139,7 +155,7 @@ export class PanelDef {
     this.notifyDisplay(null);
   }
 
-  // ── Validate ──────────────────────────────────────────────────────────────
+  // —— Validate ——————————————————————————————————————————————————————
 
   validate(): boolean {
     this._init();
@@ -170,7 +186,7 @@ export class PanelDef {
     return valid;
   }
 
-  // ── Save ──────────────────────────────────────────────────────────────────
+  // —— Save ——————————————————————————————————————————————————————————
 
   async save(): Promise<void> {
     const api   = this.grid?.dataSource?.api;
@@ -212,7 +228,7 @@ export class PanelDef {
     this.setDirty(false);
   }
 
-  // ── Delete ────────────────────────────────────────────────────────────────
+  // —— Delete ————————————————————————————————————————————————————————
 
   async deleteRecord(): Promise<void> {
     const api   = this.grid?.dataSource?.api;
@@ -252,7 +268,7 @@ export class PanelDef {
     this.notifyDisplay(null);
   }
 
-  // ── Copy ──────────────────────────────────────────────────────────────────
+  // —— Copy ——————————————————————————————————————————————————————————
 
   copyRecord(): void {
     if (!this.currentRecord) return;
@@ -267,7 +283,7 @@ export class PanelDef {
     this.notifyDisplay(null);
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // —— Helpers ———————————————————————————————————————————————————————
 
   showMessage(message: string, type: "info" | "error" | "warning" = "info"): void {
     if (type === "error") this.form?.alertDialog.error(message);
