@@ -1,0 +1,111 @@
+"use client";
+
+import { useState, useRef, useCallback } from "react";
+import { LeafNode, SplitNode } from "@/platform/core/LayoutNode";
+
+type LayoutChild = LeafNode | SplitNode;
+
+interface LayoutRendererProps {
+  node: LayoutChild;
+}
+
+/** Walks a SplitNode / LeafNode tree and renders it with draggable dividers. */
+export function LayoutRenderer({ node }: LayoutRendererProps) {
+  if (node instanceof LeafNode) {
+    return (
+      <div style={{ width: "100%", height: "100%", overflow: "hidden" }}>
+        {node.render()}
+      </div>
+    );
+  }
+  return <SplitRenderer node={node} />;
+}
+
+// ─── SplitRenderer ───────────────────────────────────────────────────────────
+
+const DIVIDER_PX = 5;
+
+function SplitRenderer({ node }: { node: SplitNode }) {
+  const [sizes, setSizes] = useState<[number, number]>(node.sizes);
+  const containerRef      = useRef<HTMLDivElement>(null);
+  const dragging          = useRef(false);
+  const isHoriz           = node.direction === "horizontal";
+  const [minA, minB]      = node.minSizes;
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragging.current = true;
+
+    const onMove = (ev: MouseEvent) => {
+      if (!dragging.current || !containerRef.current) return;
+      const rect   = containerRef.current.getBoundingClientRect();
+      const total  = isHoriz ? rect.width  : rect.height;
+      const offset = isHoriz ? ev.clientX - rect.left : ev.clientY - rect.top;
+      const pctA   = Math.max(
+        (minA / total) * 100,
+        Math.min((offset / total) * 100, 100 - (minB / total) * 100),
+      );
+      setSizes([pctA, 100 - pctA]);
+    };
+
+    const onUp = (ev: MouseEvent) => {
+      dragging.current = false;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+
+      // Fire onChange with final sizes so the preset can persist them
+      if (containerRef.current) {
+        const rect   = containerRef.current.getBoundingClientRect();
+        const total  = isHoriz ? rect.width  : rect.height;
+        const offset = isHoriz ? ev.clientX - rect.left : ev.clientY - rect.top;
+        const pctA   = Math.max(
+          (minA / total) * 100,
+          Math.min((offset / total) * 100, 100 - (minB / total) * 100),
+        );
+        node.onChange?.([pctA, 100 - pctA]);
+      }
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup",   onUp);
+  }, [isHoriz, minA, minB, node]);
+
+  const [sizeA, sizeB] = sizes;
+
+  const paneA: React.CSSProperties = isHoriz
+    ? { width: `${sizeA}%`, height: "100%", overflow: "hidden", flexShrink: 0 }
+    : { height: `${sizeA}%`, width: "100%", overflow: "hidden", flexShrink: 0 };
+
+  const paneB: React.CSSProperties = isHoriz
+    ? { width: `${sizeB}%`, height: "100%", overflow: "hidden", flexShrink: 0 }
+    : { height: `${sizeB}%`, width: "100%", overflow: "hidden", flexShrink: 0 };
+
+  const divider: React.CSSProperties = isHoriz
+    ? { width: DIVIDER_PX,  height: "100%", flexShrink: 0, cursor: "col-resize",
+        background: "var(--border, #e0e0e0)", userSelect: "none", transition: "background 0.15s" }
+    : { height: DIVIDER_PX, width:  "100%", flexShrink: 0, cursor: "row-resize",
+        background: "var(--border, #e0e0e0)", userSelect: "none", transition: "background 0.15s" };
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ display: "flex", flexDirection: isHoriz ? "row" : "column",
+               width: "100%", height: "100%", overflow: "hidden" }}
+    >
+      <div style={paneA}>
+        <LayoutRenderer node={node.children[0]} />
+      </div>
+
+      <div
+        style={divider}
+        onMouseDown={onMouseDown}
+        onMouseEnter={e => (e.currentTarget.style.background = "var(--accent, #0e86ca)")}
+        onMouseLeave={e => (e.currentTarget.style.background = "var(--border, #e0e0e0)")}
+      />
+
+      <div style={paneB}>
+        <LayoutRenderer node={node.children[1]} />
+      </div>
+    </div>
+  );
+}

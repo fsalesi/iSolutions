@@ -1,31 +1,15 @@
 import type { Metadata } from "next";
-import { ThemeProvider } from "@/components/theme";
 import { SessionProvider } from "@/context/SessionContext";
 import { LocaleFromAuth } from "@/context/LocaleFromAuth";
 import { ConfirmProvider } from "@/context/ConfirmContext";
+import { ThemeProvider } from "@/components/theme";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "iSolutions",
-  description: "Enterprise procurement platform",
-};
+export const metadata: Metadata = { title: "iSolutions" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                var t = localStorage.getItem('isolutions-theme');
-                if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-                document.documentElement.setAttribute('data-theme', t);
-              })();
-            `,
-          }}
-        />
-      </head>
+    <html lang="en">
       <body>
         <ThemeProvider>
           <SessionProvider>

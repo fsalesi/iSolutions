@@ -1,0 +1,18 @@
+import { createCrudRoutes } from "@/lib/crud-route";
+
+export const { GET, POST, PUT, DELETE } = createCrudRoutes({
+  table: "users",
+  columns: [
+    "user_id", "full_name", "email", "title", "company",
+    "is_active", "expire_date", "last_login", "failed_logins",
+    "domains", "phone", "cell_phone",
+    "street1", "street2", "city", "state", "postal_code", "country",
+    "supervisor_id", "delegate_id", "approval_limit",
+    "employee_number", "locale",
+    "created_at", "created_by", "updated_at", "updated_by", "oid",
+  ],
+  defaultSort: "full_name",
+  searchColumns: ["user_id", "full_name", "email"],
+  requiredFields: ["user_id", "full_name", "email", "domains"],
+  uniqueErrorMsg: (body) => `User ID "${body.user_id}" already exists`,
+});

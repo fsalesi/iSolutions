@@ -1,10 +1,26 @@
-import { createCrudRoutes } from "@/lib/crud-route";
+/**
+ * Locales — Product API route (ISS layer).
+ * Extends CrudRoute base class. ISS developers add business logic here.
+ */
+import { CrudRoute, exportRouteHandlers } from "@/lib/CrudRoute";
 
-export const { GET, POST, PUT, DELETE } = createCrudRoutes({
-  table: "locales",
-  columns: ["code", "description", "date_format", "decimal_char", "separator_char", "is_default", "flag_svg"],
-  defaultSort: "code",
-  searchColumns: ["code", "description"],
-  requiredFields: ["code", "description"],
-  uniqueErrorMsg: () => "Locale code already exists",
-});
+export class LocalesRoute extends CrudRoute {
+  protected keyFields = ["code"];
+
+  constructor() {
+    super("locales");
+  }
+}
+
+// --- Customer override resolution ---
+let RouteClass: { new(): CrudRoute } = LocalesRoute;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const cust = require("@customer/api/locales/route");
+  if (cust?.default) RouteClass = cust.default;
+} catch {
+  // No customer override — use product route
+}
+
+const instance = new RouteClass();
+export const { GET, POST, PUT, DELETE } = exportRouteHandlers(instance);

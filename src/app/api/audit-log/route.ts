@@ -9,18 +9,13 @@ import { db } from "@/lib/db";
  * Joins to users table to resolve changed_by user IDs to full names.
  */
 
-// Cache of audited table names (refreshed once per cold start)
-let auditedTables: Set<string> | null = null;
-
 async function getAuditedTables(): Promise<Set<string>> {
-  if (auditedTables) return auditedTables;
   const res = await db.query(
     `SELECT DISTINCT event_object_table AS tbl
      FROM information_schema.triggers
      WHERE action_statement LIKE '%audit_log_notify%'`
   );
-  auditedTables = new Set(res.rows.map((r: { tbl: string }) => r.tbl));
-  return auditedTables;
+  return new Set(res.rows.map((r: { tbl: string }) => r.tbl));
 }
 
 // Simple table name validation: alphanumeric + underscore only

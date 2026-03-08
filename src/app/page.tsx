@@ -1,67 +1,52 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useSession } from "@/context/SessionContext";
 import LoginScreen from "@/components/LoginScreen";
-import EntityDesigner from "@/components/pages/EntityDesigner";
-import { FormPage } from "@/components/pages/FormPage";
-import { formPageRegistry } from "@/components/forms/registry";
+import { AppShell } from "@/components/shell/AppShell";
+import { resolvePage, type PageInstance } from "@/page-defs/registry";
 
-function normalizeNavKey(raw: string | null): string {
-  const key = String(raw || "").trim();
-  if (!key) return "form:users";
-  if (key === "users") return "form:users";
-  if (key === "groups") return "form:groups";
-  if (key === "pasoe_brokers") return "form:pasoe_brokers";
-  if (key === "locales") return "form:locales";
-  if (key === "translations") return "form:translations";
-  if (key === "settings") return "form:settings";
-  if (key === "sso_config") return "form:sso_config";
-  return key;
-}
-
-export default function RootPage() {
+export default function Home() {
   const { loggedIn, ready } = useSession();
-  const [activeNav, setActiveNav] = useState(() => {
-    if (typeof window !== "undefined") {
-      return normalizeNavKey(sessionStorage.getItem("activeNav"));
+  const [activeNav, setActiveNav]     = useState(() => typeof window !== "undefined" ? sessionStorage.getItem("isolutions.nav") ?? "" : "");
+  const [page, setPage]               = useState<PageInstance | null>(null);
+  const [content, setContent]         = useState<ReactNode>(null);
+
+  // Resolve page whenever activeNav changes
+  useEffect(() => {
+    if (!activeNav.startsWith("form:")) {
+      setPage(null);
+      setContent(null);
+      return;
     }
-    return "form:users";
-  });
-  const [selectOid, setSelectOid] = useState<string | undefined>();
-  const [selectSeq, setSelectSeq] = useState(0);
+    const formKey = activeNav.slice(5); // strip "form:"
+    resolvePage(formKey).then(p => {
+      setPage(p);
+      setContent(p ? p.render() : (
+        <div style={{ padding: "2rem", color: "var(--text-muted)", fontSize: "0.875rem" }}>
+          Page not yet implemented: {formKey}
+        </div>
+      ));
+    });
+  }, [activeNav]);
 
-  const HARD_WIRED = new Set(["entity_designer", "profile"]);
-  const handleNavigate = useCallback((key: string, recordOid?: string) => {
-    const normalized = normalizeNavKey(key);
-    const resolved = (!normalized.startsWith("form:") && !HARD_WIRED.has(normalized)) ? `form:${normalized}` : normalized;
-    setActiveNav(resolved);
-    sessionStorage.setItem("activeNav", resolved);
-    setSelectOid(recordOid);
-    if (recordOid) setSelectSeq(s => s + 1);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Wait for session check to complete
-  if (!ready) return null;
-
-  // Not logged in — show login screen
+  if (!ready)    return null;
   if (!loggedIn) return <LoginScreen />;
 
+  const title = page?.title ?? "iSolutions";
 
-  if (activeNav === "entity_designer") {
-    return <EntityDesigner activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;
-  }
-
-
-  if (activeNav.startsWith("form:")) {
-    const formKey = activeNav.slice(5);
-    // Three-tier resolution: registry has generated page -> fallback to generic FormPage
-    const RegisteredPage = formPageRegistry[formKey];
-    if (RegisteredPage) {
-      return <RegisteredPage activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;
-    }
-    return <FormPage formKey={formKey} apiPath={`/api/forms/${formKey}`} activeNav={activeNav} onNavigate={handleNavigate} />;
-  }
-
-  return <FormPage formKey="users" apiPath="/api/forms/users" activeNav={activeNav} onNavigate={handleNavigate} selectRecordOid={selectOid} selectSeq={selectSeq} />;
+  return (
+    <AppShell title={title} activeNav={activeNav} onNavigate={nav => {
+        sessionStorage.setItem("isolutions.nav", nav);
+        setActiveNav(nav);
+      }}>
+      <div key={activeNav} style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+        {content ?? (
+          <div style={{ padding: "2rem", color: "var(--text-muted)", fontSize: "0.875rem" }}>
+            Select a page from the sidebar.
+          </div>
+        )}
+      </div>
+    </AppShell>
+  );
 }

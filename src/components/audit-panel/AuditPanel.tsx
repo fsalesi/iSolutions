@@ -99,7 +99,8 @@ export function AuditPanel({ table, recordOid, open, onClose }: AuditPanelProps)
   const [error, setError] = useState("");
 
   const fetchAudit = useCallback(async () => {
-    if (!table || !recordOid) return;
+    console.log("[AuditPanel] fetchAudit table:", table, "recordOid:", recordOid);
+    if (!table || !recordOid) { console.log("[AuditPanel] SKIPPING - missing table or oid"); return; }
     setLoading(true);
     setError("");
     try {

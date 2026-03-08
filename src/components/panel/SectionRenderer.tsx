@@ -1,0 +1,38 @@
+"use client";
+
+import type { SectionDef } from "@/platform/core/SectionDef";
+import type { FieldDef } from "@/platform/core/FieldDef";
+import { FieldRenderer } from "./FieldRenderer";
+
+interface SectionRendererProps {
+  section: SectionDef;
+}
+
+export function SectionRenderer({ section }: SectionRendererProps) {
+  if (section.hidden) return null;
+
+  const fields = section.children.filter(c => c.type === "field") as FieldDef[];
+
+  return (
+    <div style={{ marginBottom: "1.25rem" }}>
+      {!section.hideLabel && section.label && (
+        <h3 style={{
+          fontSize: "0.7rem", fontWeight: 600, color: "var(--section-title, var(--text-muted))",
+          textTransform: "uppercase", letterSpacing: "0.06em",
+          marginBottom: "0.75rem",
+        }}>
+          {section.label}
+        </h3>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${section.columns}, 1fr)`, gap: "0.75rem" }}>
+        {fields.map(field => (
+          <FieldRenderer
+            key={field.key}
+            field={field}
+            onChange={v => field.setValue(v)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}

@@ -152,7 +152,7 @@ export function NotesPanel({ table, recordOid, open, onClose, onCountChange }: N
     const q = mentionSearch;
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/users?search=${encodeURIComponent(q)}&limit=8`);
+        const res = await fetch(`/api/users?table=users&search=${encodeURIComponent(q)}&limit=8`);
         const data = await res.json();
         setMentionUsers((data.rows || []).map((u: any) => ({
           user_id: u.user_id, full_name: u.full_name || u.user_id,
