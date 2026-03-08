@@ -408,9 +408,9 @@ export class CrudRoute {
     try {
       this.requireAuth(req);
       const url = req.nextUrl;
-      const tableName = url.searchParams.get("table") || "";
-
-      // No table = return form structure
+      // If no ?table param, default to the header table for this route
+      // (allows /api/users?search=x to work without ?table=users)
+      let tableName = url.searchParams.get("table") || "";
       if (!tableName) {
         const tRes = await db.query(
           `SELECT table_name, is_header, parent_table, tab_label, sort_order
@@ -418,7 +418,9 @@ export class CrudRoute {
           [this.formKey]
         );
         const headerTable = tRes.rows.find((r: any) => r.is_header)?.table_name || "";
-        return NextResponse.json({ tables: tRes.rows, headerTable });
+        // If the caller genuinely wants the form structure (no table found either), return it
+        if (!headerTable) return NextResponse.json({ tables: tRes.rows, headerTable });
+        tableName = headerTable;
       }
 
       const meta = await this.loadMeta(tableName);

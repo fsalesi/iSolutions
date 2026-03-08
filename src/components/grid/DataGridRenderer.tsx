@@ -127,8 +127,11 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
   const fetchChunkDirect = useCallback(async (
     offset: number, sv: string, ft: FilterTree, sk: string, sd: string
   ): Promise<{ rows: Row[]; total: number }> => {
+    const api   = grid.api   || grid.dataSource?.api   || "";
+    const table = grid.table || grid.dataSource?.table || "";
+    if (!api || !table) return { rows: [], total: 0 };
     const qs = new URLSearchParams({
-      table:  grid.table,
+      table,
       offset: String(offset),
       limit:  String(CHUNK),
       sort:   sk,
@@ -136,13 +139,19 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
     });
     if (sv) qs.set("search",  sv);
     if (ft)  qs.set("filters", JSON.stringify(ft));
-    const res  = await fetch(`${grid.api}?${qs}`);
-    const data = await res.json();
+    let data: any;
+    try {
+      const res = await fetch(`${api}?${qs}`);
+      if (!res.ok) return { rows: [], total: 0 };
+      data = await res.json();
+    } catch {
+      return { rows: [], total: 0 };
+    }
     return {
       rows:  Array.isArray(data?.rows) ? data.rows : (Array.isArray(data) ? data : []),
       total: typeof data?.total === "number" ? data.total : 0,
     };
-  }, [grid.api, grid.table]);
+  }, [grid.api, grid.table, grid.dataSource]);
 
   // ── Infinite: cache key ───────────────────────────────────────────────────
   const makeCacheKey = (offset: number, sv: string, ft: FilterTree, sk: string, sd: string) =>
@@ -346,7 +355,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
     const isSel = oid === selectedOid;
     return (
       <div key={oid}
-        onClick={() => { setSelectedOid(oid); if (grid.panel) grid.panel.display(row); }}
+        onClick={() => { setSelectedOid(oid); if (grid.mode === "lookup") { grid.onSelect?.(row); } else if (grid.panel) { grid.panel.display(row); } }}
         style={{ display: "flex", borderBottom: "1px solid var(--border-light, var(--border))", borderLeft: isSel ? "2px solid var(--accent)" : "2px solid transparent", background: isSel ? "var(--bg-selected, rgba(14,134,202,0.08))" : "transparent", cursor: "pointer" }}
         onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = "var(--bg-hover, rgba(0,0,0,0.03))"; }}
         onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = "transparent"; }}

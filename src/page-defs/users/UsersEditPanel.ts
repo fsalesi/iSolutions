@@ -2,6 +2,7 @@ import { EditPanel } from "@/platform/core/EditPanel";
 import { TabDef } from "@/platform/core/TabDef";
 import { SectionDef } from "@/platform/core/SectionDef";
 import { FieldDef } from "@/platform/core/FieldDef";
+import { ActiveUserLookup } from "@/components/lookup/presets/UserLookup";
 
 /**
  * UsersEditPanel — Edit panel for User maintenance.
@@ -96,7 +97,7 @@ export class UsersEditPanel extends EditPanel {
             label:    "Account",
             columns:  2,
             children: [
-              new FieldDef({ key: "supervisor_id",  label: "Supervisor",       renderer: "readonly" }),
+              new FieldDef({ key: "supervisor_id",  label: "Supervisor",       renderer: "lookup", lookupConfig: ActiveUserLookup() }),
               new FieldDef({ key: "delegate_id",    label: "Delegate",         renderer: "readonly" }),
               new FieldDef({ key: "approval_limit", label: "Approval Limit",   renderer: "number" }),
               new FieldDef({ key: "employee_number",label: "Employee Number" }),

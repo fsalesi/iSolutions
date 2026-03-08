@@ -1,24 +1,21 @@
 import { DataGridDef } from "@/platform/core/DataGridDef";
+import { SsoDataSource } from "./SsoDataSource";
 
 /**
  * SsoGrid — SSO Configuration data grid.
- * Extends DataGridDef — inherits all grid behaviour, events, and render().
- *
- * loadColumns() calls super to auto-discover, then customizes per-column.
+ * SsoDataSource owns api, table, client_secret suppression, and canonical labels.
+ * This grid just selects which columns to show in the browse view.
  */
 export class SsoGrid extends DataGridDef {
   constructor(form?: any) {
-    super({
-      key:   "sso_config",
-      api:   "/api/sso_config",
-      table: "sso_config",
-    }, form);
+    super({ key: "sso_config" }, form);
+    this.dataSource = new SsoDataSource();
   }
 
   async loadColumns() {
-    await super.loadColumns();
-    this.getColumn("scope").hidden        = true;
-    this.getColumn("client_secret").width = 200;
-    this.getColumn("label").label         = "Provider Name";
+    await super.loadColumns();  // delegates to SsoDataSource.loadColumns()
+
+    // scope is a technical detail — hide in the grid, still available in the edit panel
+    this.getColumn("scope").hidden = true;
   }
 }

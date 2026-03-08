@@ -31,7 +31,8 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
 
   const { user } = useSession();
   const userId = user.userId;
-  const gridKey = grid.key || grid.table;
+  const gridTable = grid.table || grid.dataSource?.table || "";
+  const gridKey = grid.key || gridTable;
 
   const [savedFilters, setSavedFilters] = useState<{ id: number; name: string; filters_json: any; is_default: boolean }[]>([]);
   const [filterDropOpen, setFilterDropOpen] = useState(false);
@@ -93,7 +94,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
   };
 
   const handleExport = async () => {
-    if (!exportKeys.length || !grid.table) return;
+    if (!exportKeys.length || !gridTable) return;
     setExporting(true);
     try {
       const columns = exportKeys
@@ -109,13 +110,13 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          table:        grid.table,
+          table:        gridTable,
           columns,
           search,
           searchFields,
           sort:         sortKey,
           dir:          sortDir.toLowerCase(),
-          filename:     grid.table,
+          filename:     gridTable,
         }),
       });
 
@@ -125,7 +126,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement("a");
       a.href     = url;
-      a.download = `${grid.table}.xlsx`;
+      a.download = `${gridTable}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
       setExportOpen(false);

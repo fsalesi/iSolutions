@@ -6,6 +6,7 @@ import { Toggle } from "@/components/ui/Toggle";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { NumberInput } from "@/components/ui/NumberInput";
 import type { FieldDef } from "@/platform/core/FieldDef";
+import { Lookup } from "@/components/lookup/Lookup";
 
 interface FieldRendererProps {
   field: FieldDef;
@@ -80,7 +81,18 @@ export function FieldRenderer({ field, onChange }: FieldRendererProps) {
       break;
 
     case "lookup":
-      input = <span style={{ color: "var(--text-muted)", fontSize: "0.75rem", fontStyle: "italic" }}>Lookup — not yet implemented</span>;
+      input = field.lookupConfig ? (
+        <Lookup
+          value={value}
+          onChange={handleChange}
+          config={field.lookupConfig}
+          label={field.label}
+        />
+      ) : (
+        <span style={{ color: "var(--text-muted)", fontSize: "0.75rem", fontStyle: "italic" }}>
+          Lookup — no config
+        </span>
+      );
       break;
 
     case "text":

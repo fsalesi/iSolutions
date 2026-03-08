@@ -7,6 +7,7 @@ import type { ChildElement } from "./ChildElement";
 import type { Row, GridMode, FetchParams } from "./types";
 import type { FilterTree } from "@/components/grid/filter/filter-types";
 import type { ColumnDef } from "./ColumnDef";
+import type { DataSourceDef } from "./DataSourceDef";
 
 export interface DataGridDefOptions {
   key?: string;
@@ -60,7 +61,8 @@ export class DataGridDef implements ChildElement, Renderable {
   }
 
   // Child grid config
-  dataSource?: any;        // PanelDef — drives this grid when set
+  dataSource?: DataSourceDef;  // column catalogue + data origin
+  _panelSource?: any;      // PanelDef — drives this child grid when set
   parentLink?: { parentField: string; myField: string; };
 
   mode: GridMode = "browse";
@@ -155,7 +157,9 @@ export class DataGridDef implements ChildElement, Renderable {
 
   // Data loading
   async fetch(params?: Partial<FetchParams>): Promise<void> {
-    if (!this.api || !this.table) return;
+    const api   = this.api   || this.dataSource?.api   || "";
+    const table = this.table || this.dataSource?.table || "";
+    if (!api || !table) return;
     this.isLoading = true;
 
     const sort   = params?.sort?.[0]          ?? this.sort[0]          ?? "";
@@ -166,7 +170,7 @@ export class DataGridDef implements ChildElement, Renderable {
     const filters = params?.filter ?? this.filter ?? null;
 
     const qsObj: Record<string, string> = {
-      table:  this.table,
+      table:  table,
       offset: String(page * size),
       limit:  String(size),
       sort,
@@ -178,7 +182,7 @@ export class DataGridDef implements ChildElement, Renderable {
     const qs = new URLSearchParams(qsObj);
 
     try {
-      const res  = await fetch(`${this.api}?${qs}`);
+      const res  = await fetch(`${api}?${qs}`);
       const json = await res.json();
       this.rows      = json.rows  ?? [];
       this.totalRows = json.total ?? 0;
@@ -212,60 +216,16 @@ export class DataGridDef implements ChildElement, Renderable {
    * Returns a DataGridRenderer once implemented; red placeholder for now.
    */
   /**
-   * Auto-discovers columns from /api/table_schema for this.table.
-   * Skips columns already defined, skips oid/created_at/updated_at/created_by/updated_by by default.
-   * Call once on mount from DataGridRenderer.
+   * Load column catalogue from the attached DataSourceDef.
+   * Falls back gracefully if no dataSource is set.
    */
   async loadColumns(): Promise<void> {
-    if (!this.table) return;
-
-    const SKIP = new Set(["oid", "created_at", "updated_at", "created_by", "updated_by"]);
-
-    const res  = await fetch(`/api/table_schema?tables=${this.table}`);
-    const json = await res.json();
-    if (!json.rows) return;
-
-    const existingKeys = new Set(this.columns.map((c: import("./ColumnDef").ColumnDef) => c.key));
-
-    const typeMap: Record<string, import("./ColumnDef").ColumnDefOptions["dataType"]> = {
-      text:        "string",
-      integer:     "number",
-      numeric:     "decimal",
-      boolean:     "boolean",
-      date:        "date",
-      timestamptz: "datetime",
-      uuid:        "string",
-      jsonb:       "string",
-    };
-
-    const rendererMap: Record<string, import("../core/types").RendererType> = {
-      string:   "text",
-      number:   "number",
-      decimal:  "currency",
-      boolean:  "boolean",
-      date:     "dateDisplay",
-      datetime: "dateDisplay",
-    };
-
-    const toLabel = (key: string) =>
-      key.replace(/_/g, " ").replace(/\w/g, c => c.toUpperCase());
-
-    const { ColumnDef } = await import("./ColumnDef");
-
-    for (const row of json.rows) {
-      if (row.table_name !== this.table) continue;
-      if (SKIP.has(row.field_name))      continue;
-      if (existingKeys.has(row.field_name)) continue;
-
-      const dt = typeMap[row.data_type] ?? "string";
-      this.columns.push(new ColumnDef({
-        key:      row.field_name,
-        label:    toLabel(row.field_name),
-        dataType: dt,
-        renderer: rendererMap[dt] ?? "text",
-        sortable: true,
-        align:    row.data_type === "boolean" ? "center" : "left",
-      }));
+    if (this.dataSource) {
+      await this.dataSource.loadColumns();
+      const existingKeys = new Set(this.columns.map(c => c.key));
+      for (const col of this.dataSource.columns) {
+        if (!existingKeys.has(col.key)) this.columns.push(col);
+      }
     }
   }
 

@@ -55,4 +55,21 @@ export class ColumnDef {
     if (options.alwaysRetrieve   !== undefined) this.alwaysRetrieve   = options.alwaysRetrieve;
     if (options.rendererOptions  !== undefined) this.rendererOptions  = options.rendererOptions;
   }
+
+  /** Apply a partial set of options — used by DataSourceDef to set canonical labels/renderers. */
+  applyOptions(options: Partial<Omit<ColumnDefOptions, "key">>): this {
+    if (options.label           !== undefined) this.label           = options.label;
+    if (options.renderer        !== undefined) this.renderer        = options.renderer;
+    if (options.hidden          !== undefined) this.hidden          = options.hidden;
+    if (options.width           !== undefined) this.width           = options.width;
+    if (options.minWidth        !== undefined) this.minWidth        = options.minWidth;
+    if (options.align           !== undefined) this.align           = options.align;
+    if (options.sortable        !== undefined) this.sortable        = options.sortable;
+    if (options.sortField       !== undefined) this.sortField       = options.sortField;
+    if (options.dataType        !== undefined) this.dataType        = options.dataType;
+    if (options.precision       !== undefined) this.precision       = options.precision;
+    if (options.alwaysRetrieve  !== undefined) this.alwaysRetrieve  = options.alwaysRetrieve;
+    if (options.rendererOptions !== undefined) this.rendererOptions = options.rendererOptions;
+    return this;
+  }
 }
