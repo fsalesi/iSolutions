@@ -381,7 +381,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
         filterActive={!!filterTree && countConditions(filterTree) > 0 || colFilterCount > 0}
         filterOpen={filterOpen}
         onSearchChange={handleSearch}
-        onColumnsChanged={() => setColumns([...grid.columns])}
+        onColumnsChanged={() => { setColumns([...grid.columns]); grid.saveColumnPrefs(); }}
         onFilterOpen={() => setFilterOpen(true)}
         onApplyFilter={handleApplyFilter}
         onClearFilter={() => {

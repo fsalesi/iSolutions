@@ -213,6 +213,49 @@ export class DataGridDef implements ChildElement, Renderable {
    * Load column catalogue from the attached DataSourceDef.
    * Falls back gracefully if no dataSource is set.
    */
+  /** localStorage key for persisting column prefs for this grid. */
+  private get _colPrefKey(): string | null {
+    const fk = this.form?.formKey;
+    if (!fk || !this.key) return null;
+    return `isolutions.cols.${fk}.${this.key}`;
+  }
+
+  /** Persist current column hidden/width state to localStorage. */
+  saveColumnPrefs(): void {
+    const k = this._colPrefKey;
+    if (!k || typeof localStorage === "undefined") return;
+    const prefs = this.columns.map(c => ({ key: c.key, hidden: c.hidden ?? false, width: c.width }));
+    localStorage.setItem(k, JSON.stringify(prefs));
+  }
+
+  /** Apply saved column prefs (hidden, width, order) from localStorage. */
+  private _applyColumnPrefs(): void {
+    const k = this._colPrefKey;
+    if (!k || typeof localStorage === "undefined") return;
+    const raw = localStorage.getItem(k);
+    if (!raw) return;
+    try {
+      const prefs: { key: string; hidden: boolean; width?: number }[] = JSON.parse(raw);
+      // Apply hidden + width
+      for (const p of prefs) {
+        const col = this.columns.find(c => c.key === p.key);
+        if (col) {
+          col.hidden = p.hidden;
+          if (p.width !== undefined) col.width = p.width;
+        }
+      }
+      // Reorder columns to match saved order (unknown cols stay at end)
+      const savedKeys = prefs.map(p => p.key);
+      const ordered = [
+        ...savedKeys.map(k => this.columns.find(c => c.key === k)).filter(Boolean),
+        ...this.columns.filter(c => !savedKeys.includes(c.key)),
+      ] as typeof this.columns;
+      this.columns = ordered;
+    } catch {
+      // Corrupt prefs — ignore
+    }
+  }
+
   async loadColumns(): Promise<void> {
     if (this.dataSource) {
       await this.dataSource.loadColumns();
@@ -221,6 +264,8 @@ export class DataGridDef implements ChildElement, Renderable {
         if (!existingKeys.has(col.key)) this.columns.push(col);
       }
     }
+    // Apply user's saved column prefs on top of defaults
+    this._applyColumnPrefs();
   }
 
   render(): import("react").ReactNode {
