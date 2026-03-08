@@ -3,6 +3,8 @@
 // Cascades display(row) through the entire child tree.
 
 import type { ReactNode } from "react";
+import { resolveClientText } from "@/lib/i18n/runtime";
+import { tx } from "@/lib/i18n/types";
 import type { DataGridDef } from "./DataGridDef";
 import type { FieldDef } from "./FieldDef";
 import type { PageDef } from "./PageDef";
@@ -92,6 +94,12 @@ export class PanelDef {
   _init(): void {
     if (this._initialized) return;
     this._initialized = true;
+    for (const tab of this.tabs) {
+      (tab as any).panel = this;
+    }
+    for (const section of this.sections) {
+      (section as any).panel = this;
+    }
     for (const field of this.fields) {
       field.panel = this;
     }
@@ -145,7 +153,7 @@ export class PanelDef {
         for (const field of section.children.filter((child): child is FieldDef => child.type === "field")) {
           field.clearError?.();
           if (field.required && (field.value === null || field.value === "" || field.value === undefined)) {
-            field.showError?.(`${field.label} is required`);
+            field.showError?.(resolveClientText(tx("panel.validation.required", "{field} is required"), { field: field.getLabel() }));
             tab.hasError = true;
             valid = false;
             if (firstFailingTabIndex === -1) firstFailingTabIndex = ti;
@@ -194,7 +202,7 @@ export class PanelDef {
     const data = await res.json().catch(() => ({}));
     console.log("[save] response status:", res.status, "data:", JSON.stringify(data));
     if (!res.ok) {
-      this.showMessage(data.error ?? "Save failed", "error");
+      this.showMessage(data.error ?? resolveClientText(tx("panel.save.failed", "Save failed")), "error");
       return;
     }
 
@@ -218,7 +226,11 @@ export class PanelDef {
                   || "this record";
 
     const confirmed = await (this.form?.alertDialog ?? AlertDialogService)
-      .danger({ title: "Delete Record", message: `Delete ${label}? This cannot be undone.`, confirmLabel: "Delete" });
+      .danger({
+        title: resolveClientText(tx("panel.delete.title", "Delete Record")),
+        message: resolveClientText(tx("panel.delete.confirm", "Delete {label}? This cannot be undone."), { label }),
+        confirmLabel: resolveClientText(tx("common.actions.delete", "Delete")),
+      });
     if (!confirmed) return;
 
     const qs = new URLSearchParams({ table, oid: this.currentRecord.oid });
@@ -226,7 +238,10 @@ export class PanelDef {
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      await this.form?.alertDialog.error(data.error ?? "Delete failed.", "Delete Failed");
+      await this.form?.alertDialog.error(
+        data.error ?? resolveClientText(tx("panel.delete.failed", "Delete failed.")),
+        resolveClientText(tx("panel.delete.title", "Delete Record"))
+      );
       return;
     }
 
@@ -256,7 +271,7 @@ export class PanelDef {
 
   showMessage(message: string, type: "info" | "error" | "warning" = "info"): void {
     if (type === "error") this.form?.alertDialog.error(message);
-    else if (type === "warning") this.form?.alertDialog.warning({ title: "Warning", message });
+    else if (type === "warning") this.form?.alertDialog.warning({ title: resolveClientText(tx("common.warning.title", "Warning")), message });
     else this.form?.alertDialog.info(message);
   }
 

@@ -4,6 +4,7 @@ import { useState, useMemo, type ReactNode } from "react";
 import { Sidebar, type NavSection } from "./Sidebar";
 import { UserMenu } from "./UserMenu";
 import { Icon } from "@/components/icons/Icon";
+import { tx } from "@/lib/i18n/types";
 import { AlertDialogRenderer } from "@/components/dialog/AlertDialogRenderer";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSession } from "@/context/SessionContext";
@@ -19,36 +20,36 @@ interface AppShellProps {
 const NAV_SECTIONS: NavSection[] = [
   {
     key: "admin",
-    label: "Administration",
+    label: tx("shell.sections.admin", "Administration"),
     icon: "settings",
     items: [
-      { key: "form:groups",        label: "Groups",           icon: "fileText" },
-      { key: "form:locales",       label: "Locales",          icon: "fileText" },
-      { key: "form:translations",  label: "Translations",     icon: "fileText" },
-      { key: "form:pasoe_brokers", label: "PASOE Brokers",    icon: "fileText" },
-      { key: "form:sso_config",    label: "SSO Configuration",icon: "fileText" },
-      { key: "form:settings", label: "System Settings", icon: "fileText" },
-      { key: "form:users",         label: "Users",            icon: "fileText" },
+      { key: "form:groups",        label: tx("shell.items.groups", "Groups"),           icon: "fileText" },
+      { key: "form:locales",       label: tx("shell.items.locales", "Locales"),          icon: "fileText" },
+      { key: "form:translations",  label: tx("shell.items.translations", "Translations"),     icon: "fileText" },
+      { key: "form:pasoe_brokers", label: tx("shell.items.pasoe_brokers", "PASOE Brokers"),    icon: "fileText" },
+      { key: "form:sso_config",    label: tx("shell.items.sso_config", "SSO Configuration"),icon: "fileText" },
+      { key: "form:settings", label: tx("shell.items.settings", "System Settings"), icon: "fileText" },
+      { key: "form:users",         label: tx("shell.items.users", "Users"),            icon: "fileText" },
     ],
   },
   {
     key: "i18n",
-    label: "Internationalization",
+    label: tx("shell.sections.i18n", "Internationalization"),
     icon: "globe",
     items: [],
   },
   {
     key: "ipurchase",
-    label: "iPurchase",
+    label: tx("shell.sections.ipurchase", "iPurchase"),
     icon: "briefcase",
     items: [],
   },
   {
     key: "platform",
-    label: "Platform",
+    label: tx("shell.sections.platform", "Platform"),
     icon: "edit",
     items: [
-      { key: "tool:test-runner", label: "Test Runner", icon: "fileText" },
+      { key: "tool:test-runner", label: tx("shell.items.test_runner", "Test Runner"), icon: "fileText" },
     ],
   },
 ];

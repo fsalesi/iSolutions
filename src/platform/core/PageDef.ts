@@ -12,11 +12,14 @@
 //   this.form.getPanel("ssoEdit").getField("client_id").value
 //   this.form.getGrid("sso_config").rows
 
+import { resolveClientText } from "@/lib/i18n/runtime";
+import { tx, type TranslatableText } from "@/lib/i18n/types";
 import type { PanelDef } from "./PanelDef";
 import type { DataGridDef } from "./DataGridDef";
 import { AlertDialogService } from "./AlertDialogService";
 
 export class PageDef {
+  titleText?: TranslatableText;
   /** Call from anywhere in the form tree: await this.form.alertDialog.danger({ title, message }) */
   readonly alertDialog = AlertDialogService;
 
@@ -26,6 +29,15 @@ export class PageDef {
   /** Flat registry — populated automatically when node.form = this */
   readonly panels: PanelDef[] = [];
   readonly grids:  DataGridDef[] = [];
+
+  getTitle(): string {
+    const raw = this.titleText ?? (this as { title?: TranslatableText }).title ?? this.key;
+    if (typeof raw === "string") {
+      const formKey = (this as { formKey?: string }).formKey ?? this.key;
+      return resolveClientText(tx(`${formKey}.title`, raw));
+    }
+    return resolveClientText(raw);
+  }
 
   getPanel(key?: string): PanelDef {
     if (!key) {

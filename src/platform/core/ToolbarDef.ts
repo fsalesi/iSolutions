@@ -2,10 +2,11 @@
 // Sends semantic commands to the panel's datagrid.
 // Does NOT own CRUD logic — it signals intent.
 
+import type { TranslatableText } from "@/lib/i18n/types";
 
 export interface ButtonDef {
   key: string;
-  label: string;
+  label: TranslatableText;
   icon?: string;
   hideLabel?: boolean;
   disabled?: boolean;

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import ExcelJS from "exceljs";
+import { getRequestLocale, translateRequest } from "@/lib/i18n/server";
+import { translateMessage } from "@/lib/translate";
 
 /**
  * Generic grid-to-Excel export.
@@ -35,6 +37,8 @@ async function getTableColumns(table: string): Promise<Set<string>> {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const locale = await getRequestLocale(req);
+
     const {
       table,
       columns,
@@ -47,13 +51,15 @@ export async function POST(req: NextRequest) {
 
     // Validate table name format
     if (!table || !SAFE_IDENT.test(table)) {
-      return NextResponse.json({ error: `Invalid table name` }, { status: 400 });
+      return NextResponse.json({ error: await translateRequest(req, "api.export.invalid_table_name", "Invalid table name") }, { status: 400 });
     }
 
     // Validate table exists and get its columns
     const realCols = await getTableColumns(table);
     if (realCols.size === 0) {
-      return NextResponse.json({ error: `Table "${table}" not found` }, { status: 400 });
+      return NextResponse.json({
+        error: await translateRequest(req, "api.export.table_not_found", "Table \"{table}\" not found", { table }),
+      }, { status: 400 });
     }
 
     // Validate requested columns against real schema
@@ -61,7 +67,7 @@ export async function POST(req: NextRequest) {
       c => SAFE_IDENT.test(c.key) && realCols.has(c.key)
     );
     if (validColumns.length === 0) {
-      return NextResponse.json({ error: "No valid columns specified" }, { status: 400 });
+      return NextResponse.json({ error: await translateRequest(req, "api.export.no_valid_columns", "No valid columns specified") }, { status: 400 });
     }
 
     // Build SELECT
@@ -103,7 +109,7 @@ export async function POST(req: NextRequest) {
     wb.creator = "iSolutions";
     wb.created = new Date();
 
-    const ws = ws_create(wb, validColumns, result.rows);
+    const ws = await ws_create(wb, validColumns, result.rows, locale);
 
     // Stream response
     const buffer = await wb.xlsx.writeBuffer();
@@ -121,12 +127,16 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function ws_create(
+async function ws_create(
   wb: ExcelJS.Workbook,
   columns: { key: string; label: string }[],
-  rows: any[]
-): ExcelJS.Worksheet {
-  const ws = wb.addWorksheet("Export");
+  rows: any[],
+  locale: string,
+): Promise<ExcelJS.Worksheet> {
+  const sheetName = await translateMessage(locale, "api.export.sheet_name", undefined, "Export");
+  const yesText = await translateMessage(locale, "api.export.boolean_yes", undefined, "Yes");
+  const noText = await translateMessage(locale, "api.export.boolean_no", undefined, "No");
+  const ws = wb.addWorksheet(sheetName);
 
   // Header row
   ws.columns = columns.map(col => ({
@@ -148,7 +158,7 @@ function ws_create(
     for (const col of columns) {
       let val = row[col.key];
       // Format booleans nicely
-      if (typeof val === "boolean") val = val ? "Yes" : "No";
+      if (typeof val === "boolean") val = val ? yesText : noText;
       // Format dates
       if (val instanceof Date) val = val.toISOString().split("T")[0];
       values[col.key] = val ?? "";

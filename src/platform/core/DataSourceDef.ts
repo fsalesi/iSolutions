@@ -1,6 +1,7 @@
 // DataSourceDef.ts — Single source of truth for data origin + column catalogue.
 // Shared by DataGridDef and LookupConfig so both always read from the same place.
 
+import { tx } from "@/lib/i18n/types";
 import { ColumnDef, type ColumnDefOptions } from "./ColumnDef";
 import type { Row } from "./types";
 
@@ -33,14 +34,13 @@ const RENDERER_MAP: Record<string, import("./types").RendererType> = {
 };
 
 const toLabel = (key: string) =>
-  key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  key.replace(/_/g, " ").replace(/\w/g, c => c.toUpperCase());
 
 export class DataSourceDef {
   api:         string;
   table:       string | undefined;
   baseFilters: Record<string, string | number | boolean> = {};
 
-  // Full column catalogue — populated lazily by loadColumns()
   columns: ColumnDef[] = [];
 
   private _suppressed = new Set<string>();
@@ -53,7 +53,6 @@ export class DataSourceDef {
     if (options.baseFilters) this.baseFilters = options.baseFilters;
   }
 
-  /** Permanently hide one or more columns from all consumers (grid, lookup, browse modal). */
   suppress(...keys: string[]): this {
     for (const key of keys) {
       this._suppressed.add(key);
@@ -62,14 +61,18 @@ export class DataSourceDef {
     return this;
   }
 
-  /** Fetch column catalogue from the route's ?columns=1 endpoint once. Safe to call from multiple consumers. */
   async loadColumns(): Promise<void> {
     if (this._loaded) return;
-    // If already in-flight, wait for the same promise
     if (this._loading) return this._loading;
 
     this._loading = this._doLoad();
     await this._loading;
+  }
+
+  private _defaultLabel(key: string, fallback?: string) {
+    const label = fallback ?? toLabel(key);
+    if (!this.table) return label;
+    return tx(`${this.table}.columns.${key}`, label);
   }
 
   private async _doLoad(): Promise<void> {
@@ -92,20 +95,21 @@ export class DataSourceDef {
       if (existingKeys.has(col.key))     continue;
 
       const dt = col.dataType ?? "string";
-      this.columns.push(new ColumnDef({
+      const column = new ColumnDef({
         key:      col.key,
-        label:    col.label ?? toLabel(col.key),
+        label:    this._defaultLabel(col.key, col.label),
         dataType: dt,
         renderer: RENDERER_MAP[dt] ?? "text",
         sortable: true,
         align:    dt === "boolean" ? "center" : "left",
-      }));
+      });
+      column.translationScope = this.table;
+      this.columns.push(column);
     }
 
     this._loaded = true;
   }
 
-  /** Look up a single column from the catalogue by key. */
   getColumn(key: string): ColumnDef | undefined {
     return this.columns.find(c => c.key === key);
   }

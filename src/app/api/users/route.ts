@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { CrudRoute, exportRouteHandlers } from "@/lib/CrudRoute";
 import type { TableMeta } from "@/lib/CrudRoute";
 import { db } from "@/lib/db";
+import { getUserLocale, translateMessage } from "@/lib/translate";
 
 
 export class UsersRoute extends CrudRoute {
@@ -144,7 +145,8 @@ export class UsersRoute extends CrudRoute {
    * Prevent supervisor cycles:
    * A -> B -> C means C cannot be assigned supervisor A.
    */
-  async validate(data: Record<string, any>): Promise<void> {
+  async validate(data: Record<string, any>, _meta: TableMeta, actorUserId: string): Promise<void> {
+    const locale = await getUserLocale(actorUserId);
     const oid = this.normalizeId(data.oid);
     let userId = this.normalizeId(data.user_id);
     let supervisorId = this.normalizeId(data.supervisor_id);
@@ -163,7 +165,7 @@ export class UsersRoute extends CrudRoute {
     if (!userId || !supervisorId) return;
 
     if (userId.toLowerCase() === supervisorId.toLowerCase()) {
-      throw new Error("Supervisor cannot be the same as the user");
+      throw new Error(await translateMessage(locale, "api.users.supervisor_same_user", undefined, "Supervisor cannot be the same as the user"));
     }
 
     const target = userId.toLowerCase();
@@ -173,10 +175,10 @@ export class UsersRoute extends CrudRoute {
     for (let depth = 0; depth < 200; depth++) {
       const key = current.toLowerCase();
       if (key === target) {
-        throw new Error("Invalid supervisor assignment: this creates a circular supervisor chain");
+        throw new Error(await translateMessage(locale, "api.users.supervisor_cycle_create", undefined, "Invalid supervisor assignment: this creates a circular supervisor chain"));
       }
       if (visited.has(key)) {
-        throw new Error("Invalid supervisor assignment: supervisor chain already contains a cycle");
+        throw new Error(await translateMessage(locale, "api.users.supervisor_cycle_exists", undefined, "Invalid supervisor assignment: supervisor chain already contains a cycle"));
       }
       visited.add(key);
 

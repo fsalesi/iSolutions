@@ -1,4 +1,6 @@
-import { expect, type BrowserContext, type Page } from "@playwright/test";
+import { expect, type BrowserContext, type Locator, type Page } from "@playwright/test";
+
+const BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL ?? "http://localhost:3001";
 
 const AUTH_COOKIE = {
   name: "isolutions-user",
@@ -10,8 +12,11 @@ const AUTH_COOKIE = {
   sameSite: "Lax" as const,
 };
 
-export async function authenticate(context: BrowserContext) {
+export async function authenticate(context: BrowserContext, userId: string = "frank") {
   await context.addCookies([AUTH_COOKIE]);
+  await context.request.put(`${BASE_URL}/api/users/locale`, {
+    data: { userId, locale: "en-us" },
+  });
 }
 
 export function field(page: Page, key: string) {
@@ -20,6 +25,10 @@ export function field(page: Page, key: string) {
 
 export function gridRow(page: Page, gridKey: string) {
   return page.locator(`[data-testid^="grid-row-${gridKey}-"]`);
+}
+
+export async function expectRequired(locator: Locator) {
+  await expect(locator).toContainText(/required|obbligatorio/i);
 }
 
 export async function gotoForm(page: Page, formKey: string, readyLocator: string) {
@@ -52,8 +61,8 @@ export async function openSidebar(page: Page) {
   await expect(page.getByText("iSolutions", { exact: true })).toBeVisible({ timeout: 10000 });
 }
 
-export async function navigateViaSidebar(page: Page, label: string, readyLocator: string) {
+export async function navigateViaSidebar(page: Page, label: string | RegExp, readyLocator: string) {
   await openSidebar(page);
-  await page.getByRole("button", { name: label, exact: true }).click();
+  await page.getByRole("button", { name: label }).click();
   await expect(page.locator(readyLocator)).toBeVisible({ timeout: 15000 });
 }

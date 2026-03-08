@@ -1,4 +1,6 @@
 import { SsoConfigPage as ProductSsoConfigPage } from "@/page-defs/sso_config";
+import { resolveClientText } from "@/lib/i18n/runtime";
+import { tx } from "@/lib/i18n/types";
 
 /**
  * Customer layer — extends the product SsoConfigPage.
@@ -13,17 +15,17 @@ export class SsoConfigPage extends ProductSsoConfigPage {
     const btn = this.editPanel.toolbar.getButton("franksButton");
     const superOnClick = btn.onClick;
     btn.onClick = () => {
-      alert("Before Frank's Button");
+      alert(resolveClientText(tx("sso_config.messages.before_franks_button", "Before Frank's Button")));
       superOnClick();
-      alert("After Frank's Button");
+      alert(resolveClientText(tx("sso_config.messages.after_franks_button", "After Frank's Button")));
     };
 
     // Add a second customer-only button
     this.editPanel.toolbar.addButton({
       key:     "acmeButton",
-      label:   "Acme's Button",
+      label:   tx("sso_config.actions.acme_button", "Acme's Button"),
       icon:    "building",
-      onClick: () => alert("You've clicked Acme's button"),
+      onClick: () => alert(resolveClientText(tx("sso_config.messages.acme_button_clicked", "You've clicked Acme's button"))),
     });
   }
 }

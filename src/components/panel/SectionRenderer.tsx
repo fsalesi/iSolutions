@@ -18,13 +18,13 @@ export function SectionRenderer({ section }: SectionRendererProps) {
 
   return (
     <div style={{ marginBottom: "1.25rem" }}>
-      {!section.hideLabel && section.label && (
+      {!section.hideLabel && section.getLabel() && (
         <h3 style={{
           fontSize: "0.7rem", fontWeight: 600, color: "var(--section-title, var(--text-muted))",
           textTransform: "uppercase", letterSpacing: "0.06em",
           marginBottom: "0.75rem",
         }}>
-          {section.label}
+          {section.getLabel()}
         </h3>
       )}
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${columnCount}, 1fr)`, gap: "0.75rem" }}>

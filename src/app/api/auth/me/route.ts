@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { translateRequest } from "@/lib/i18n/server";
 
 export async function GET(req: NextRequest) {
   const userId = getCurrentUser(req);
 
   if (!userId) {
-    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+    return NextResponse.json({ error: await translateRequest(req, "api.auth.not_logged_in", "Not logged in") }, { status: 401 });
   }
 
   try {
@@ -19,13 +20,13 @@ export async function GET(req: NextRequest) {
     );
 
     if (rows.length === 0) {
-      return NextResponse.json({ error: "User not found" }, { status: 401 });
+      return NextResponse.json({ error: await translateRequest(req, "api.auth.user_not_found", "User not found") }, { status: 401 });
     }
 
     const u = rows[0];
 
     if (!u.is_active) {
-      return NextResponse.json({ error: "Account disabled" }, { status: 403 });
+      return NextResponse.json({ error: await translateRequest(req, "api.auth.account_disabled_short", "Account disabled") }, { status: 403 });
     }
 
     return NextResponse.json({

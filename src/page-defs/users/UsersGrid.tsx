@@ -1,13 +1,10 @@
+import { resolveClientText } from "@/lib/i18n/runtime";
+import { tx } from "@/lib/i18n/types";
 import { DataGridDef } from "@/platform/core/DataGridDef";
-import { UserDataSource } from "./UserDataSource";
 import type { Row } from "@/platform/core/types";
 import { useEffect, useState } from "react";
+import { UserDataSource } from "./UserDataSource";
 
-/**
- * UsersGrid — Users data grid.
- * DataSource owns suppression of password_hash, photo, etc. and canonical labels.
- * This grid just selects which columns are visible by default.
- */
 export class UsersGrid extends DataGridDef {
   constructor(form?: any) {
     super({ key: "users", pageSize: 0 }, form);
@@ -36,13 +33,6 @@ export class UsersGrid extends DataGridDef {
   }
 
   renderCard(row: Row, isSelected: boolean) {
-    const initials = ((row.full_name as string) || (row.user_id as string) || "?")
-      .split(" ")
-      .map((w: string) => w[0])
-      .slice(0, 2)
-      .join("")
-      .toUpperCase();
-
     const isActive = row.is_active === true || row.is_active === 1 || row.is_active === "true";
 
     return (
@@ -69,7 +59,9 @@ export class UsersGrid extends DataGridDef {
           background: isActive ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.10)",
           color: isActive ? "rgb(22,163,74)" : "rgb(220,38,38)",
         }}>
-          {isActive ? "Active" : "Inactive"}
+          {isActive
+            ? resolveClientText(tx("users.status.active", "Active"))
+            : resolveClientText(tx("users.status.inactive", "Inactive"))}
         </div>
       </div>
     );

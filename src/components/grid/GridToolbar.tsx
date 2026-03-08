@@ -4,6 +4,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useSession } from "@/context/SessionContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { Icon } from "@/components/icons/Icon";
+import { resolveClientText } from "@/lib/i18n/runtime";
+import { tx } from "@/lib/i18n/types";
 import type { DataGridDef } from "@/platform/core/DataGridDef";
 
 interface GridToolbarProps {
@@ -102,7 +104,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
       const columns = exportKeys
         .map(k => grid.columns.find(c => c.key === k))
         .filter(Boolean)
-        .map(c => ({ key: c!.key, label: c!.label || c!.key }));
+        .map(c => ({ key: c!.key, label: c!.getLabel() || c!.key }));
 
       const searchFields = grid.columns
         .filter(c => !c.hidden)
@@ -150,7 +152,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
             type="text"
             value={search}
             onChange={e => onSearchChange(e.target.value)}
-            placeholder="Search…"
+            placeholder={resolveClientText(tx("grid.search.placeholder", "Search..."))}
             style={{ width: "100%", paddingLeft: 28, paddingRight: 8, paddingTop: 5, paddingBottom: 5, fontSize: "0.8rem", border: "1px solid var(--border)", borderRadius: 6, background: "var(--bg-body)", color: "var(--text-primary)", outline: "none" }}
           />
         </div>
@@ -165,13 +167,13 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
             {/* Main filter button */}
             <button
               onClick={onFilterOpen}
-              title="Advanced filter"
+              title={resolveClientText(tx("grid.filter", "Filter"))}
               style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 8px", fontSize: "0.75rem", fontWeight: 500, background: filterActive ? "var(--bg-hover, rgba(14,134,202,0.08))" : "transparent", color: filterActive ? "var(--accent)" : "var(--text-secondary)", cursor: "pointer", border: "none", position: "relative" }}
               onMouseEnter={e => { if (!filterActive) e.currentTarget.style.background = "var(--bg-hover, rgba(0,0,0,0.04))"; }}
               onMouseLeave={e => { if (!filterActive) e.currentTarget.style.background = "transparent"; }}
             >
               <Icon name="filter" size={13} />
-              {!isMobile && <span>Filter</span>}
+              {!isMobile && <span>{resolveClientText(tx("grid.filter", "Filter"))}</span>}
               {filterActive && (
                 <span style={{ marginLeft: 2, fontSize: 10, fontWeight: 700, background: "var(--accent)", color: "var(--accent-text)", borderRadius: 8, padding: "0 5px", lineHeight: "16px" }}>
                   ●
@@ -205,7 +207,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
                   <Icon name="filter" size={12} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
                   <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sf.name}</span>
                   {sf.is_default && (
-                    <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "var(--accent)", color: "var(--accent-text)", flexShrink: 0 }}>default</span>
+                    <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "var(--accent)", color: "var(--accent-text)", flexShrink: 0 }}>{resolveClientText(tx("grid.saved_filter.default", "default"))}</span>
                   )}
                 </button>
               ))}
@@ -216,7 +218,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
                   onMouseEnter={e => { e.currentTarget.style.color = "var(--text-primary)"; }}
                   onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; }}
                 >
-                  Clear filters
+                  {resolveClientText(tx("grid.clear_filters", "Clear Filters"))}
                 </button>
               </div>
             </div>
@@ -227,18 +229,18 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
       {/* Export */}
       {grid.allowExcelExport && (
         <div ref={exportRef} style={{ position: "relative" }}>
-          <ToolbarButton icon="download" label="Export" active={exportOpen} onClick={handleExportOpen} mobileIconOnly={isMobile} />
+          <ToolbarButton icon="download" label={resolveClientText(tx("grid.export", "Export"))} active={exportOpen} onClick={handleExportOpen} mobileIconOnly={isMobile} />
 
           {exportOpen && (
             <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 200, background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-md)", minWidth: 230, maxHeight: 420 }}>
 
               {/* Header */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px 7px", fontSize: "0.72rem", fontWeight: 600, color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
-                <span>Export Columns</span>
+                <span>{resolveClientText(tx("grid.export_columns", "Export Columns"))}</span>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => setExportKeys(grid.columns.map(c => c.key))} style={{ fontSize: "0.72rem", color: "var(--accent)", background: "none", border: "none", cursor: "pointer" }}>All</button>
-                  <button onClick={() => setExportKeys(grid.columns.filter(c => !c.hidden).map(c => c.key))} style={{ fontSize: "0.72rem", color: "var(--accent)", background: "none", border: "none", cursor: "pointer" }}>Visible</button>
-                  <button onClick={() => setExportKeys([])} style={{ fontSize: "0.72rem", color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}>None</button>
+                  <button onClick={() => setExportKeys(grid.columns.map(c => c.key))} style={{ fontSize: "0.72rem", color: "var(--accent)", background: "none", border: "none", cursor: "pointer" }}>{resolveClientText(tx("grid.export.all", "All"))}</button>
+                  <button onClick={() => setExportKeys(grid.columns.filter(c => !c.hidden).map(c => c.key))} style={{ fontSize: "0.72rem", color: "var(--accent)", background: "none", border: "none", cursor: "pointer" }}>{resolveClientText(tx("grid.export.visible", "Visible"))}</button>
+                  <button onClick={() => setExportKeys([])} style={{ fontSize: "0.72rem", color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}>{resolveClientText(tx("grid.export.none", "None"))}</button>
                 </div>
               </div>
 
@@ -257,7 +259,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
                       <div style={{ width: 16, height: 16, borderRadius: 3, border: `2px solid ${checked ? "var(--accent)" : "var(--border)"}`, background: checked ? "var(--accent)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                         {checked && <Icon name="check" size={10} style={{ color: "var(--accent-text)" }} />}
                       </div>
-                      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{col.label || col.key}</span>
+                      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{col.getLabel() || col.key}</span>
                     </div>
                   );
                 })}
@@ -271,7 +273,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
                   style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", padding: "7px 12px", fontSize: "0.82rem", fontWeight: 600, borderRadius: 6, border: "none", background: exportKeys.length === 0 ? "var(--bg-body)" : "var(--accent)", color: exportKeys.length === 0 ? "var(--text-muted)" : "var(--accent-text)", cursor: exportKeys.length === 0 ? "not-allowed" : "pointer", opacity: exporting ? 0.7 : 1 }}
                 >
                   <Icon name="download" size={13} />
-                  {exporting ? "Exporting…" : `Export ${exportKeys.length} column${exportKeys.length !== 1 ? "s" : ""}`}
+                  {exporting ? resolveClientText(tx("grid.export.in_progress", "Exporting...")) : resolveClientText(tx(exportKeys.length === 1 ? "grid.export.count_one" : "grid.export.count", exportKeys.length === 1 ? "Export {count} column" : "Export {count} columns"), { count: exportKeys.length })}
                 </button>
               </div>
             </div>
@@ -282,12 +284,12 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
       {/* Column picker */}
       {grid.allowColumnChanger && (
         <div ref={pickerRef} style={{ position: "relative" }}>
-          <ToolbarButton icon="columns" label="Columns" active={pickerOpen} onClick={() => setPickerOpen(o => !o)} mobileIconOnly={isMobile} />
+          <ToolbarButton icon="columns" label={resolveClientText(tx("grid.columns", "Columns"))} active={pickerOpen} onClick={() => setPickerOpen(o => !o)} mobileIconOnly={isMobile} />
 
           {pickerOpen && (
             <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 200, background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-md)", minWidth: 220, maxHeight: 380, overflowY: "auto" }}>
               <div style={{ padding: "8px 12px 7px", fontSize: "0.72rem", fontWeight: 600, color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
-                Columns
+                {resolveClientText(tx("grid.columns", "Columns"))}
               </div>
               {grid.columns.map((col, i) => {
                 const visible = !col.hidden;
@@ -309,7 +311,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
                         {visible && <Icon name="check" size={10} style={{ color: "var(--accent-text)" }} />}
                       </div>
                     </button>
-                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{col.label || col.key}</span>
+                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{col.getLabel() || col.key}</span>
                     {visible && (
                       <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
                         <button onClick={() => moveColumn(i, -1)} disabled={i === 0}
@@ -334,7 +336,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
         </div>
       )}
 
-      <ToolbarButton icon="edit" label="Design" onClick={() => {}} mobileIconOnly={isMobile} />
+      <ToolbarButton icon="edit" label={resolveClientText(tx("grid.design", "Design"))} onClick={() => {}} mobileIconOnly={isMobile} />
     </div>
   );
 }

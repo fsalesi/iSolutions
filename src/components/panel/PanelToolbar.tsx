@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { Icon } from "@/components/icons/Icon";
+import { useTranslation } from "@/context/TranslationContext";
+import { resolveClientText } from "@/lib/i18n/runtime";
+import { tx } from "@/lib/i18n/types";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { AuditPanel } from "@/components/audit-panel/AuditPanel";
 import { NotesPanel } from "@/components/notes-panel/NotesPanel";
@@ -25,6 +28,7 @@ interface ToolBtn {
 }
 
 export function PanelToolbar({ toolbar, isNew, isDirty, readOnly }: PanelToolbarProps) {
+  const { locale } = useTranslation();
   const isMobile = useIsMobile();
   const [auditOpen, setAuditOpen] = useState(false);
   const [, setTick] = useState(0);
@@ -40,16 +44,16 @@ export function PanelToolbar({ toolbar, isNew, isDirty, readOnly }: PanelToolbar
   const recordOid = toolbar.panel?.currentRecord?.oid ?? "";
 
   const builtins: ToolBtn[] = [
-    { key: "new",    label: "New",    icon: "plus",   hidden: !toolbar.useNew    || readOnly, onClick: () => toolbar.onNew()    },
-    { key: "save",   label: "Save",   icon: "save",   hidden: !toolbar.useSave   || readOnly, disabled: !isDirty && !isNew,  onClick: () => toolbar.onSave()   },
-    { key: "copy",   label: "Copy",   icon: "copy",   hidden: !toolbar.useCopy   || readOnly, disabled: !hasRecord,          onClick: () => toolbar.onCopy()   },
-    { key: "delete", label: "Delete", icon: "trash",  hidden: !toolbar.useDelete || readOnly, disabled: !hasRecord,          onClick: () => toolbar.onDelete(), danger: true },
-    { key: "audit",  label: "Audit",  icon: "shield", hidden: !toolbar.useAudit,              disabled: !hasRecord,          onClick: () => { console.log("[Audit] table:", table, "recordOid:", recordOid, "hasRecord:", hasRecord, "currentRecord:", toolbar.panel?.currentRecord); setAuditOpen(true); } },
-    { key: "notes",  label: "Notes",  icon: "messageSquare", hidden: !toolbar.useNotes, disabled: !hasRecord,          onClick: () => setNotesOpen(true) },
+    { key: "new",    label: resolveClientText(tx("panel.actions.new", "New")),    icon: "plus",   hidden: !toolbar.useNew    || readOnly, onClick: () => toolbar.onNew()    },
+    { key: "save",   label: resolveClientText(tx("panel.actions.save", "Save")),   icon: "save",   hidden: !toolbar.useSave   || readOnly, disabled: !isDirty && !isNew,  onClick: () => toolbar.onSave()   },
+    { key: "copy",   label: resolveClientText(tx("panel.actions.copy", "Copy")),   icon: "copy",   hidden: !toolbar.useCopy   || readOnly, disabled: !hasRecord,          onClick: () => toolbar.onCopy()   },
+    { key: "delete", label: resolveClientText(tx("panel.actions.delete", "Delete")), icon: "trash",  hidden: !toolbar.useDelete || readOnly, disabled: !hasRecord,          onClick: () => toolbar.onDelete(), danger: true },
+    { key: "audit",  label: resolveClientText(tx("panel.actions.audit", "Audit")),  icon: "shield", hidden: !toolbar.useAudit,              disabled: !hasRecord,          onClick: () => { console.log("[Audit] table:", table, "recordOid:", recordOid, "hasRecord:", hasRecord, "currentRecord:", toolbar.panel?.currentRecord); setAuditOpen(true); } },
+    { key: "notes",  label: resolveClientText(tx("panel.actions.notes", "Notes")),  icon: "messageSquare", hidden: !toolbar.useNotes, disabled: !hasRecord,          onClick: () => setNotesOpen(true) },
   ];
 
   const custom: ToolBtn[] = toolbar.buttons.map((b: ButtonDef) => ({
-    key: b.key, label: b.label, icon: b.icon ?? "bolt",
+    key: b.key, label: resolveClientText(b.label), icon: b.icon ?? "bolt",
     hidden: b.hidden, disabled: b.disabled || (b.requiresRecord && !hasRecord), onClick: b.onClick,
   }));
 
@@ -57,7 +61,7 @@ export function PanelToolbar({ toolbar, isNew, isDirty, readOnly }: PanelToolbar
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", flexWrap: isMobile ? "wrap" : "nowrap", gap: 4, padding: "5px 8px", borderBottom: "1px solid var(--border)", background: "var(--bg-surface)", flexShrink: 0 }}>
+      <div key={locale} style={{ display: "flex", alignItems: "center", flexWrap: isMobile ? "wrap" : "nowrap", gap: 4, padding: "5px 8px", borderBottom: "1px solid var(--border)", background: "var(--bg-surface)", flexShrink: 0 }}>
         {visible.map((btn, i) => {
           const divider = btn.key === "delete" && i > 0;
           return (

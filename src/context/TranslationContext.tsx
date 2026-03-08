@@ -1,29 +1,29 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
-import { substitute } from "@/lib/substitute";
+import { getCatalogBundle, resolveText, splitTranslationKey } from "@/lib/i18n/resolve";
+import { setClientTranslations } from "@/lib/i18n/runtime";
+import type { TranslationBundle, TranslationParams, TranslatableText } from "@/lib/i18n/types";
 
-type TranslationMap = Record<string, string>;
+type TranslationMap = TranslationBundle;
 
 interface TranslationContextValue {
-  /** Translate a key. Returns the translated value, or the fallback (defaults to key). */
-  t: (key: string, fallback?: string, params?: Record<string, string | number>) => string;
-  /** Current locale code */
+  t: (value: TranslatableText, fallback?: string, params?: TranslationParams) => string;
   locale: string;
-  /** Switch locale */
   setLocale: (code: string) => void;
-  /** Whether translations are loaded */
   ready: boolean;
-  /** Whether inline translation editing is active */
   editMode: boolean;
-  /** Toggle inline edit mode */
   setEditMode: (on: boolean) => void;
-  /** Update a single translation (writes to DB and local cache) */
   updateTranslation: (key: string, value: string) => Promise<void>;
 }
 
 const TranslationContext = createContext<TranslationContextValue>({
-  t: (key, fallback, params) => substitute(fallback ?? key, params),
+  t: (value, fallback, params) => {
+    const input = typeof value === "string" && fallback
+      ? { key: value, fallback, params }
+      : value;
+    return resolveText(input, getCatalogBundle("en-us"), params);
+  },
   locale: "en-us",
   setLocale: () => {},
   ready: false,
@@ -36,7 +36,6 @@ export function useTranslation() {
   return useContext(TranslationContext);
 }
 
-/** Shorthand — just the t function */
 export function useT() {
   return useContext(TranslationContext).t;
 }
@@ -48,65 +47,65 @@ interface TranslationProviderProps {
 
 export function TranslationProvider({ children, defaultLocale = "en-us" }: TranslationProviderProps) {
   const [locale, setLocaleState] = useState(defaultLocale);
-  const [translations, setTranslations] = useState<TranslationMap>({});
+  const [translations, setTranslations] = useState<TranslationMap>(getCatalogBundle(defaultLocale));
+  const [ready, setReady] = useState(false);
+  const [editMode, setEditMode] = useState(false);
 
-  // Sync locale when defaultLocale prop changes (e.g. auth loads)
   useEffect(() => {
     setLocaleState(defaultLocale);
   }, [defaultLocale]);
 
-  // Wrap setLocale so both internal and external callers update state
   const setLocale = useCallback((code: string) => setLocaleState(code), []);
-  const [ready, setReady] = useState(false);
-  const [editMode, setEditMode] = useState(false);
 
-  // Load all translations for current locale
   useEffect(() => {
     let cancelled = false;
     setReady(false);
-    console.log("[i18n] Loading translations for locale:", locale);
 
     fetch(`/api/translations/bundle?locale=${encodeURIComponent(locale)}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((data: TranslationMap) => {
-        if (!cancelled) {
-          console.log("[i18n] Loaded", Object.keys(data).length, "keys for", locale);
-          setTranslations(data);
-          setReady(true);
-        }
+        if (cancelled) return;
+        const merged = getCatalogBundle(locale, data);
+        setTranslations(merged);
+        setClientTranslations(locale, data);
+        setReady(true);
       })
-      .catch((err) => {
-        console.error("Failed to load translations:", err);
-        if (!cancelled) setReady(true); // proceed with fallbacks
+      .catch(() => {
+        if (cancelled) return;
+        const merged = getCatalogBundle(locale);
+        setTranslations(merged);
+        setClientTranslations(locale);
+        setReady(true);
       });
 
     return () => { cancelled = true; };
   }, [locale]);
 
   const t = useCallback(
-    (key: string, fallback?: string, params?: Record<string, string | number>): string => {
-      const raw = translations[key] ?? fallback ?? key;
-      return params ? substitute(raw, params) : raw;
+    (value: TranslatableText, fallback?: string, params?: TranslationParams): string => {
+      const input = typeof value === "string" && fallback
+        ? { key: value, fallback, params }
+        : value;
+      return resolveText(input, translations, params);
     },
     [translations]
   );
 
   const updateTranslation = useCallback(
     async (key: string, value: string) => {
-      // Parse key into namespace.key
-      const dotIdx = key.indexOf(".");
-      const ns = dotIdx > 0 ? key.slice(0, dotIdx) : "global";
-      const k = dotIdx > 0 ? key.slice(dotIdx + 1) : key;
-
+      const { namespace, key: leafKey } = splitTranslationKey(key);
       const res = await fetch("/api/translations/inline", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locale, namespace: ns, key: k, value }),
+        body: JSON.stringify({ locale, namespace, key: leafKey, value }),
       });
 
       if (res.ok) {
-        // Update local cache immediately
-        setTranslations((prev) => ({ ...prev, [key]: value }));
+        setTranslations((prev) => {
+          const next = { ...prev, [key]: value };
+          setClientTranslations(locale, next);
+          return next;
+        });
       }
     },
     [locale]

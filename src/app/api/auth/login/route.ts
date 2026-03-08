@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { COOKIE_NAME } from "@/lib/auth";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { translateRequest } from "@/lib/i18n/server";
 
 export async function POST(req: NextRequest) {
   try {
     const { userId, password } = await req.json();
 
     if (!userId?.trim()) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+      return NextResponse.json({ error: await translateRequest(req, "api.auth.user_id_required", "User ID is required") }, { status: 400 });
     }
 
     const { rows } = await db.query(
@@ -20,13 +21,13 @@ export async function POST(req: NextRequest) {
     );
 
     if (rows.length === 0) {
-      return NextResponse.json({ error: "Invalid user ID or password" }, { status: 401 });
+      return NextResponse.json({ error: await translateRequest(req, "api.auth.invalid_credentials", "Invalid user ID or password") }, { status: 401 });
     }
 
     const u = rows[0];
 
     if (!u.is_active) {
-      return NextResponse.json({ error: "Account is disabled" }, { status: 403 });
+      return NextResponse.json({ error: await translateRequest(req, "api.auth.account_disabled", "Account is disabled") }, { status: 403 });
     }
 
     const hash = u.password_hash ?? "";
@@ -35,16 +36,16 @@ export async function POST(req: NextRequest) {
       // No password set — reject unless they submitted a blank password too
       // (blank = account not yet configured for credential login)
       if (password?.length > 0) {
-        return NextResponse.json({ error: "Invalid user ID or password" }, { status: 401 });
+        return NextResponse.json({ error: await translateRequest(req, "api.auth.invalid_credentials", "Invalid user ID or password") }, { status: 401 });
       }
       // blank password + blank hash = allow (dev/SSO-only accounts)
     } else {
       if (!password?.length) {
-        return NextResponse.json({ error: "Password is required" }, { status: 400 });
+        return NextResponse.json({ error: await translateRequest(req, "api.auth.password_required", "Password is required") }, { status: 400 });
       }
       const valid = await bcrypt.compare(password, hash);
       if (!valid) {
-        return NextResponse.json({ error: "Invalid user ID or password" }, { status: 401 });
+        return NextResponse.json({ error: await translateRequest(req, "api.auth.invalid_credentials", "Invalid user ID or password") }, { status: 401 });
       }
     }
 

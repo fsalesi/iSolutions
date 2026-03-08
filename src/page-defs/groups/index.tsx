@@ -6,6 +6,8 @@ import { GroupEditPanel } from "./GroupEditPanel";
 import type { Renderable } from "@/platform/core/LayoutNode";
 import ExcelJS from "exceljs";
 import { AlertDialogService } from "@/platform/core/AlertDialogService";
+import { resolveClientText } from "@/lib/i18n/runtime";
+import { tx } from "@/lib/i18n/types";
 
 export class GroupsPage extends PageDef implements Renderable {
   readonly title   = "Groups";
@@ -27,7 +29,7 @@ export class GroupsPage extends PageDef implements Renderable {
 
     this.editPanel.toolbar.addButton({
       key:   "export",
-      label: "Export",
+      label: tx("groups.actions.export", "Export"),
       icon:  "download",
       onClick: () => this.exportToExcel(),
     });
@@ -72,7 +74,7 @@ export class GroupsPage extends PageDef implements Renderable {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      AlertDialogService.error("Export failed: " + String(err));
+      AlertDialogService.error(resolveClientText(tx("groups.messages.export_failed", "Export failed: {error}"), { error: String(err) }));
     }
   }
 

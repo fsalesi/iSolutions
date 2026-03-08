@@ -14,7 +14,7 @@ export interface TestSpecInfo {
 export interface ArtifactInfo {
   relativePath: string;
   name: string;
-  kind: "image" | "text" | "json" | "zip" | "html" | "other";
+  kind: "image" | "video" | "text" | "json" | "zip" | "html" | "other";
   size: number;
   updatedAt: string;
 }
@@ -50,8 +50,8 @@ interface RunMeta extends RunSummary {
 }
 
 const PROJECT_ROOT = process.cwd();
-const SPEC_ROOT = path.join(PROJECT_ROOT, "e2e");
-const RUN_ROOT = path.join(PROJECT_ROOT, ".test-runner");
+const SPEC_ROOT = path.join(PROJECT_ROOT, "test", "e2e");
+const RUN_ROOT = path.join(PROJECT_ROOT, "test", ".test-runner");
 
 const g = global as typeof globalThis & {
   __testRunnerChildren?: Map<string, number>;
@@ -105,6 +105,7 @@ async function walkFiles(rootDir: string): Promise<string[]> {
 function classifyArtifact(filePath: string): ArtifactInfo["kind"] {
   const ext = path.extname(filePath).toLowerCase();
   if ([".png", ".jpg", ".jpeg", ".gif", ".webp"].includes(ext)) return "image";
+  if ([".webm", ".mp4", ".m4v", ".mov"].includes(ext)) return "video";
   if ([".log", ".txt", ".md"].includes(ext)) return "text";
   if (ext === ".json") return "json";
   if (ext === ".zip") return "zip";
@@ -361,6 +362,25 @@ export async function getRunDetails(runId: string): Promise<RunDetails | null> {
     logTail: logText.slice(-100_000),
     artifacts,
   };
+}
+
+
+export async function deleteRun(runId: string): Promise<void> {
+  if (childRegistry.has(runId)) {
+    throw new Error("Run is still running");
+  }
+  const { runDir } = buildRunPaths(runId);
+  const resolved = ensureInside(RUN_ROOT, runDir);
+  await fs.rm(resolved, { recursive: true, force: true });
+}
+
+export async function clearRuns(): Promise<void> {
+  await ensureDir(RUN_ROOT);
+  const runDirs = await fs.readdir(RUN_ROOT, { withFileTypes: true }).catch(() => []);
+  for (const entry of runDirs) {
+    if (!entry.isDirectory()) continue;
+    await deleteRun(entry.name);
+  }
 }
 
 export async function readRunArtifact(runId: string, relativePath: string): Promise<{ filePath: string; buffer: Buffer }> {

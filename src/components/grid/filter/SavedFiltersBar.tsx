@@ -1,18 +1,20 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import { Icon } from "@/components/icons/Icon";
-import type { SavedFilter } from "./filter-types";
+import { resolveClientText } from "@/lib/i18n/runtime";
+import { tx } from "@/lib/i18n/types";
+import { useEffect, useRef, useState } from "react";
 import { SEL } from "./filter-types";
+import type { SavedFilter } from "./filter-types";
 
-function InlineConfirm({ message, onConfirm, onCancel }: {
-  message: string; onConfirm: () => void; onCancel: () => void;
+function InlineConfirm({ name, onConfirm, onCancel }: {
+  name: string; onConfirm: () => void; onCancel: () => void;
 }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 6, background: "var(--danger-hover)", border: "1px solid var(--danger-border)", fontSize: 12 }}>
-      <span style={{ color: "var(--text-primary)" }}>{message}</span>
-      <button onClick={onConfirm} style={{ padding: "2px 8px", borderRadius: 4, background: "var(--danger-text)", color: "var(--accent-text)", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>Delete</button>
-      <button onClick={onCancel} style={{ padding: "2px 8px", borderRadius: 4, color: "var(--text-muted)", border: "none", background: "none", cursor: "pointer", fontSize: 11 }}>Cancel</button>
+      <span style={{ color: "var(--text-primary)" }}>{resolveClientText(tx("grid.saved.delete_confirm", 'Delete "{name}"?'), { name })}</span>
+      <button onClick={onConfirm} style={{ padding: "2px 8px", borderRadius: 4, background: "var(--danger-text)", color: "var(--accent-text)", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>{resolveClientText(tx("grid.advanced.delete", "Delete"))}</button>
+      <button onClick={onCancel} style={{ padding: "2px 8px", borderRadius: 4, color: "var(--text-muted)", border: "none", background: "none", cursor: "pointer", fontSize: 11 }}>{resolveClientText(tx("grid.saved.cancel", "Cancel"))}</button>
     </div>
   );
 }
@@ -24,15 +26,15 @@ function InlineSaveName({ onSave, onCancel }: { onSave: (name: string) => void; 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <input ref={ref} type="text" value={name} onChange={e => setName(e.target.value)}
-        placeholder="Filter name…"
+        placeholder={resolveClientText(tx("grid.saved.filter_name", "Filter name..."))}
         style={{ ...SEL, flex: "0 1 160px", fontSize: 12 }}
         onKeyDown={e => { if (e.key === "Enter" && name.trim()) onSave(name.trim()); if (e.key === "Escape") onCancel(); }} />
       <button onClick={() => name.trim() && onSave(name.trim())} disabled={!name.trim()}
         style={{ padding: "3px 10px", borderRadius: 4, background: "var(--accent)", color: "var(--accent-text)", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, opacity: name.trim() ? 1 : 0.4 }}>
-        Save
+        {resolveClientText(tx("grid.saved.save", "Save"))}
       </button>
       <button onClick={onCancel} style={{ padding: "3px 8px", borderRadius: 4, color: "var(--text-muted)", border: "none", background: "none", cursor: "pointer", fontSize: 12 }}>
-        Cancel
+        {resolveClientText(tx("grid.saved.cancel", "Cancel"))}
       </button>
     </div>
   );
@@ -61,24 +63,24 @@ export function SavedFiltersBar({ saved, activeName, onLoad, onSave, onSaveAs, o
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 20px", flexWrap: "wrap", borderBottom: "1px solid var(--border)" }}>
       <Icon name="save" size={14} />
-      <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-muted)" }}>Saved:</span>
+      <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-muted)" }}>{resolveClientText(tx("grid.saved.label", "Saved:"))}</span>
 
       <div style={{ position: "relative" }} ref={ref}>
         <button onClick={() => setOpen(!open)}
           style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, padding: "4px 10px", borderRadius: 5, border: "1px solid var(--border)", color: "var(--text-primary)", background: "var(--bg-surface)", minWidth: 150, fontSize: 12, fontWeight: 500, cursor: "pointer" }}>
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeName || "— None —"}</span>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeName || resolveClientText(tx("grid.saved.none", "— None —"))}</span>
           <Icon name="chevDown" size={12} />
         </button>
         {open && (
           <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 300, background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-md)", minWidth: 240, overflow: "hidden" }}>
             {saved.length === 0 && (
-              <div style={{ padding: "10px 14px", fontSize: 12, color: "var(--text-muted)" }}>No saved filters yet</div>
+              <div style={{ padding: "10px 14px", fontSize: 12, color: "var(--text-muted)" }}>{resolveClientText(tx("grid.saved.none_yet", "No saved filters yet"))}</div>
             )}
             {saved.map(s => (
               <div key={s.id}>
                 {confirmDelete?.id === s.id ? (
                   <div style={{ padding: "8px 10px" }}>
-                    <InlineConfirm message={`Delete "${s.name}"?`}
+                    <InlineConfirm name={s.name}
                       onConfirm={() => { onDelete(s); setConfirmDelete(null); }}
                       onCancel={() => setConfirmDelete(null)} />
                   </div>
@@ -92,18 +94,18 @@ export function SavedFiltersBar({ saved, activeName, onLoad, onSave, onSaveAs, o
                     <span style={{ flex: 1, fontSize: 12, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {s.name}
                       {s.is_default && (
-                        <span style={{ marginLeft: 6, fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "var(--accent)", color: "var(--accent-text)" }}>default</span>
+                        <span style={{ marginLeft: 6, fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "var(--accent)", color: "var(--accent-text)" }}>{resolveClientText(tx("grid.saved_filter.default", "default"))}</span>
                       )}
                     </span>
                     <button onClick={e => { e.stopPropagation(); onSetDefault(s); }}
-                      title={s.is_default ? "Remove default" : "Set as default"}
+                      title={s.is_default ? resolveClientText(tx("grid.saved.remove_default", "Remove default")) : resolveClientText(tx("grid.saved.set_default", "Set as default"))}
                       style={{ padding: 3, borderRadius: 3, background: "none", border: "none", cursor: "pointer", color: s.is_default ? "var(--accent)" : "var(--text-muted)", opacity: 0.6 }}
                       onMouseEnter={e => { e.currentTarget.style.opacity = "1"; }}
                       onMouseLeave={e => { e.currentTarget.style.opacity = "0.6"; }}>
                       <Icon name="check" size={12} />
                     </button>
                     <button onClick={e => { e.stopPropagation(); setConfirmDelete(s); }}
-                      title="Delete"
+                      title={resolveClientText(tx("grid.advanced.delete", "Delete"))}
                       style={{ padding: 3, borderRadius: 3, background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", opacity: 0.6 }}
                       onMouseEnter={e => { e.currentTarget.style.color = "var(--danger-text)"; e.currentTarget.style.opacity = "1"; }}
                       onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.opacity = "0.6"; }}>
@@ -128,7 +130,7 @@ export function SavedFiltersBar({ saved, activeName, onLoad, onSave, onSaveAs, o
             style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid var(--border)", color: "var(--text-primary)", background: "none", cursor: "pointer", fontSize: 12, fontWeight: 500 }}
             onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover, rgba(0,0,0,0.04))"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "none"; }}>
-            Save
+            {resolveClientText(tx("grid.saved.save", "Save"))}
           </button>
         )}
         <button
@@ -136,7 +138,7 @@ export function SavedFiltersBar({ saved, activeName, onLoad, onSave, onSaveAs, o
           style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid var(--border)", color: "var(--text-primary)", background: "none", cursor: "pointer", fontSize: 12, fontWeight: 500 }}
           onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover, rgba(0,0,0,0.04))"; }}
           onMouseLeave={e => { e.currentTarget.style.background = "none"; }}>
-          Save As…
+          {resolveClientText(tx("grid.saved.save_as", "Save As…"))}
         </button>
       </>)}
     </div>

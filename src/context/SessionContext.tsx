@@ -25,6 +25,7 @@ type SessionContextType = {
   logout: () => void;
   setDomain: (d: string) => void;
   setForm: (f: string) => void;
+  setUserLocale: (locale: string) => void;
 };
 
 const EMPTY_USER: SessionUser = {
@@ -43,6 +44,7 @@ const SessionContext = createContext<SessionContextType>({
   logout: () => {},
   setDomain: () => {},
   setForm: () => {},
+  setUserLocale: () => {},
 });
 
 export function SessionProvider({ children }: { children: ReactNode }) {
@@ -101,9 +103,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const setDomain = useCallback((d: string) => setDomainState(d), []);
   const setForm = useCallback((f: string) => setFormState(f), []);
+  const setUserLocale = useCallback((locale: string) => {
+    setUser((prev) => ({ ...prev, locale }));
+  }, []);
 
   return (
-    <SessionContext.Provider value={{ user, loggedIn, ready, domain, form, login, logout, setDomain, setForm }}>
+    <SessionContext.Provider value={{ user, loggedIn, ready, domain, form, login, logout, setDomain, setForm, setUserLocale }}>
       {children}
     </SessionContext.Provider>
   );

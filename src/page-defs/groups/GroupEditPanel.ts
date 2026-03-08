@@ -23,9 +23,9 @@ export class GroupEditPanel extends EditPanel {
             label:    "Identity",
             columns:  2,
             children: [
-              new FieldDef({ key: "group_id",    label: "Group ID",    keyField: true, required: true }),
-              new FieldDef({ key: "description", label: "Description", required: true }),
-              new FieldDef({ key: "is_active",   label: "Active",      renderer: "checkbox" }),
+              new FieldDef({ key: "group_id",    keyField: true, required: true }),
+              new FieldDef({ key: "description", required: true }),
+              new FieldDef({ key: "is_active",   renderer: "checkbox" }),
             ],
           }),
         ],

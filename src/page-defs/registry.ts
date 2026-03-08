@@ -2,9 +2,10 @@ import type { ReactNode } from "react";
 
 /** Every page class must satisfy this shape. */
 export interface PageInstance {
-  title: string;
+  title?: string;
   formKey: string;
   render(): ReactNode;
+  getTitle?(): string;
 }
 
 type PageConstructor = new () => PageInstance;

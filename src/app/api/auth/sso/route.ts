@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { getProviderConfig, getOrigin } from "@/lib/sso";
+import { translateRequest } from "@/lib/i18n/server";
 
 export async function GET(req: NextRequest) {
   const provider = req.nextUrl.searchParams.get("provider")?.toLowerCase();
 
   if (!provider) {
-    return NextResponse.json({ error: "Missing provider" }, { status: 400 });
+    return NextResponse.json({ error: await translateRequest(req, "api.auth.sso.missing_provider", "Missing provider") }, { status: 400 });
   }
 
   const config = await getProviderConfig(provider);
   if (!config) {
-    return NextResponse.json({ error: `SSO provider "${provider}" is not configured` }, { status: 404 });
+    return NextResponse.json({
+      error: await translateRequest(
+        req,
+        "api.auth.sso.provider_not_configured",
+        "SSO provider \"{provider}\" is not configured",
+        { provider },
+      ),
+    }, { status: 404 });
   }
 
   const state       = randomBytes(16).toString("hex");

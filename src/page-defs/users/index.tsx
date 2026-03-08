@@ -1,17 +1,17 @@
 import { LayoutRenderer } from "@/components/layout/LayoutRenderer";
+import type { Renderable } from "@/platform/core/LayoutNode";
 import { PageDef } from "@/platform/core/PageDef";
 import { HorizontalLayout } from "@/platform/core/layouts";
-import { UsersGrid } from "./UsersGrid";
 import { UsersEditPanel } from "./UsersEditPanel";
-import type { Renderable } from "@/platform/core/LayoutNode";
+import { UsersGrid } from "./UsersGrid";
 
 /**
  * UsersPage — Product layer.
  * Layout: HorizontalLayout (left = grid, right = edit panel)
  */
 export class UsersPage extends PageDef implements Renderable {
-  readonly title   = "Users";
   readonly formKey = "users";
+  readonly title = "Users";
 
   protected grid      = new UsersGrid(this);
   protected editPanel = new UsersEditPanel(this);

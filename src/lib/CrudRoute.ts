@@ -15,6 +15,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { translateRequest } from "@/lib/i18n/server";
 import { db } from "@/lib/db";
 import { buildFilterWhere, parseOidFilter } from "@/lib/filter-sql";
 import bcrypt from "bcryptjs";
@@ -265,6 +266,10 @@ export class CrudRoute {
     this.formKey = formKey;
   }
 
+  protected async t(req: NextRequest, key: string, fallback: string, params?: Record<string, string | number>): Promise<string> {
+    return translateRequest(req, key, fallback, params);
+  }
+
   /* ── Overridable hooks ── */
 
   /** Validate data before POST or PUT. Throw an Error to reject. */
@@ -511,7 +516,7 @@ export class CrudRoute {
       const userId = getCurrentUser(req);
       let body = await req.json();
       const tableName = body._table || req.nextUrl.searchParams.get("table") || "";
-      if (!tableName) return NextResponse.json({ error: "Missing _table" }, { status: 400 });
+      if (!tableName) return NextResponse.json({ error: await this.t(req, "api.crud.missing_table", "Missing _table") }, { status: 400 });
 
       const meta = await this.loadMeta(tableName);
 
@@ -522,12 +527,12 @@ export class CrudRoute {
       for (const f of requiredOnCreate) {
         if (meta.colTypes[f] === "boolean") {
           if (!(f in body) || body[f] === null || body[f] === undefined) {
-            return NextResponse.json({ error: `${f} is required` }, { status: 400 });
+            return NextResponse.json({ error: await this.t(req, "api.crud.field_required", "{field} is required", { field: f }) }, { status: 400 });
           }
           continue;
         }
         if (!body[f]?.toString().trim()) {
-          return NextResponse.json({ error: `${f} is required` }, { status: 400 });
+          return NextResponse.json({ error: await this.t(req, "api.crud.field_required", "{field} is required", { field: f }) }, { status: 400 });
         }
       }
 
@@ -586,7 +591,7 @@ export class CrudRoute {
 
       return NextResponse.json(saved, { status: 201 });
     } catch (e: any) {
-      if (e.code === "23505") return NextResponse.json({ error: "Duplicate value — record already exists" }, { status: 409 });
+      if (e.code === "23505") return NextResponse.json({ error: await this.t(req, "api.crud.duplicate", "Duplicate value — record already exists") }, { status: 409 });
       console.error(`POST ${this.formKey} error:`, e);
       return NextResponse.json({ error: e.message }, { status: 500 });
     }
@@ -599,10 +604,10 @@ export class CrudRoute {
       const userId = getCurrentUser(req);
       let body = await req.json();
       const oid = body.oid;
-      if (!oid) return NextResponse.json({ error: "oid is required" }, { status: 400 });
+      if (!oid) return NextResponse.json({ error: await this.t(req, "api.crud.oid_required", "oid is required") }, { status: 400 });
 
       const tableName = body._table || req.nextUrl.searchParams.get("table") || "";
-      if (!tableName) return NextResponse.json({ error: "Missing _table" }, { status: 400 });
+      if (!tableName) return NextResponse.json({ error: await this.t(req, "api.crud.missing_table", "Missing _table") }, { status: 400 });
 
       const meta = await this.loadMeta(tableName);
       const keyFields = this.keyFields.filter((f) => meta.allColumns.includes(f));
@@ -618,7 +623,7 @@ export class CrudRoute {
           `SELECT ${selectCols} FROM "${tableName}" WHERE oid = $1::uuid LIMIT 1`,
           [oid]
         );
-        if (!existingR.rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
+        if (!existingR.rows.length) return NextResponse.json({ error: await this.t(req, "api.crud.not_found", "Not found") }, { status: 404 });
         existing = existingR.rows[0] as Record<string, any>;
       }
 
@@ -626,12 +631,12 @@ export class CrudRoute {
         if (!(f in body)) continue;
         if (meta.colTypes[f] === "boolean") {
           if (body[f] === null || body[f] === undefined) {
-            return NextResponse.json({ error: `${f} is required` }, { status: 400 });
+            return NextResponse.json({ error: await this.t(req, "api.crud.field_required", "{field} is required", { field: f }) }, { status: 400 });
           }
           continue;
         }
         if (!body[f]?.toString().trim()) {
-          return NextResponse.json({ error: `${f} is required` }, { status: 400 });
+          return NextResponse.json({ error: await this.t(req, "api.crud.field_required", "{field} is required", { field: f }) }, { status: 400 });
         }
       }
 
@@ -642,7 +647,7 @@ export class CrudRoute {
           const incoming = normalizeComparable(body[f]);
           const stored = normalizeComparable(existingKeys[f]);
           if (incoming !== stored) {
-            return NextResponse.json({ error: `${f} cannot be changed after create` }, { status: 400 });
+            return NextResponse.json({ error: await this.t(req, "api.crud.field_immutable", "{field} cannot be changed after create", { field: f }) }, { status: 400 });
           }
         }
       }
@@ -693,7 +698,7 @@ export class CrudRoute {
         values
       );
 
-      if (!res.rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      if (!res.rows.length) return NextResponse.json({ error: await this.t(req, "api.crud.not_found", "Not found") }, { status: 404 });
 
       const saved = this.hydrateCustomFieldsIntoRow(res.rows[0], meta);
 
@@ -703,7 +708,7 @@ export class CrudRoute {
 
       return NextResponse.json(saved);
     } catch (e: any) {
-      if (e.code === "23505") return NextResponse.json({ error: "Duplicate value — record already exists" }, { status: 409 });
+      if (e.code === "23505") return NextResponse.json({ error: await this.t(req, "api.crud.duplicate", "Duplicate value — record already exists") }, { status: 409 });
       console.error(`PUT ${this.formKey} error:`, e);
       return NextResponse.json({ error: e.message }, { status: 500 });
     }
@@ -718,8 +723,8 @@ export class CrudRoute {
       const url = req.nextUrl;
       const oid = url.searchParams.get("oid");
       const tableName = url.searchParams.get("table") || "";
-      if (!oid) return NextResponse.json({ error: "oid is required" }, { status: 400 });
-      if (!tableName) return NextResponse.json({ error: "Missing table" }, { status: 400 });
+      if (!oid) return NextResponse.json({ error: await this.t(req, "api.crud.oid_required", "oid is required") }, { status: 400 });
+      if (!tableName) return NextResponse.json({ error: await this.t(req, "api.crud.missing_table_name", "Missing table") }, { status: 400 });
 
       const meta = await this.loadMeta(tableName);
 

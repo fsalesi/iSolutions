@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callQAD, QADProxyError } from "@/lib/qad/proxy";
+import { translateRequest } from "@/lib/i18n/server";
 
 /**
  * POST /api/pasoe_brokers/test-connection
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
   const name   = body?.name   as string | undefined;
 
   if (!domain || !name) {
-    return NextResponse.json({ ok: false, message: "domain and name are required" }, { status: 400 });
+    return NextResponse.json({ ok: false, message: await translateRequest(req, "api.pasoe_brokers.domain_name_required", "domain and name are required") }, { status: 400 });
   }
 
   try {
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
       domain,
     });
 
-    return NextResponse.json({ ok: true, message: `Connected to broker "${name}" (${domain})` });
+    return NextResponse.json({ ok: true, message: await translateRequest(req, "api.pasoe_brokers.connected", "Connected to broker \"{name}\" ({domain})", { name, domain }) });
   } catch (err) {
     const msg = err instanceof QADProxyError ? err.message : String(err);
     return NextResponse.json({ ok: false, message: msg });

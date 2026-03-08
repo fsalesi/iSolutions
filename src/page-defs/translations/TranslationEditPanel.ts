@@ -12,9 +12,9 @@ export class TranslationEditPanel extends EditPanel {
       new TabDef({ key: "details", label: "Details", children: [
 
         new SectionDef({ key: "identity", columns: 3, children: [
-          new FieldDef({ key: "locale",    label: "Locale",    keyField: true, required: true,
+          new FieldDef({ key: "locale",    keyField: true, required: true,
             renderer: "lookup", lookupConfig: LocaleLookup() }),
-          new FieldDef({ key: "namespace", label: "Namespace", keyField: true, required: true,
+          new FieldDef({ key: "namespace", keyField: true, required: true,
             renderer: "select",
             options: [
               { value: "audit",         label: "audit" },
@@ -36,11 +36,11 @@ export class TranslationEditPanel extends EditPanel {
               { value: "validation",    label: "validation" },
             ],
           }),
-          new FieldDef({ key: "key",   label: "Key", keyField: true, required: true }),
+          new FieldDef({ key: "key", keyField: true, required: true }),
         ]}),
 
         new SectionDef({ key: "translation", label: "Translation", columns: 1, children: [
-          new FieldDef({ key: "value", label: "Value", renderer: "textarea", required: true }),
+          new FieldDef({ key: "value", renderer: "textarea", required: true }),
         ]}),
 
       ]}),

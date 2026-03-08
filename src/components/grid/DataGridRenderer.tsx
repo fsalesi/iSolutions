@@ -427,7 +427,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
                 onMouseEnter={e => { if (col.sortable) e.currentTarget.style.color = "var(--text-primary)"; }}
                 onMouseLeave={e => { if (col.sortable) e.currentTarget.style.color = "var(--text-muted)"; }}
               >
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{col.label}</span>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{col.getLabel()}</span>
                 {col.sortable && sortKey === col.key && <Icon name={sortDir === "ASC" ? "chevUp" : "chevDown"} size={11} />}
                 {/* Per-column filter icon */}
                 {col.dataType !== "boolean" && (
@@ -465,7 +465,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
                   ref={colFilterInputRef}
                   type="text"
                   value={columnFilters[col.key] || ""}
-                  placeholder={`Filter ${col.label}…`}
+                  placeholder={`Filter ${col.getLabel()}…`}
                   onChange={e => setColumnFilters(prev => {
                     const next = { ...prev };
                     if (e.target.value) next[col.key] = e.target.value; else delete next[col.key];

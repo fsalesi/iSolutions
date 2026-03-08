@@ -1,12 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
-  testDir: "./e2e",
+  testDir: "./test/e2e",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  reporter: [["list"], ["html", { open: "never" }]],
+  reporter: [["list"], ["html", { open: "never", outputFolder: "./test/playwright-report" }]],
+  outputDir: "./test/test-results",
   use: {
     baseURL: "http://localhost:3001",
     trace: "on-first-retry",

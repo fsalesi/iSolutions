@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { authenticate, field, gotoForm, reopenForm, savePanel } from "./test-helpers";
+import { authenticate, expectRequired, field, gotoForm, reopenForm, savePanel } from "./test-helpers";
 
 const TARGET_SETTING = "APPROVALS_ROLE_SCOPE_TYPES";
 
@@ -17,8 +17,8 @@ test.describe.serial("Settings page regressions", () => {
     await expect(field(page, "setting_name").locator("input").first()).toHaveValue("");
 
     await page.getByTestId("panel-toolbar-save").click();
-    await expect(field(page, "setting_name")).toContainText("required");
-    await expect(field(page, "domain")).toContainText("required");
+    await expectRequired(field(page, "setting_name"));
+    await expectRequired(field(page, "domain"));
   });
 
   test("can update setting help text and restore it", async ({ page }) => {

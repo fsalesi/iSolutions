@@ -90,7 +90,7 @@ export function FieldRenderer({ field, onChange }: FieldRendererProps) {
           value={value}
           onChange={handleChange}
           config={field.lookupConfig}
-          label={field.label}
+          label={field.getLabel()}
           hydrateNonce={field.panel?.displayNonce !== undefined ? String(field.panel.displayNonce) : undefined}
         />
       ) : (
@@ -130,7 +130,7 @@ export function FieldRenderer({ field, onChange }: FieldRendererProps) {
   return (
     <div data-testid={`field-${field.key}`} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
       <label style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-        {field.label}
+        {field.getLabel()}
         {field.required && <span style={{ color: "var(--danger-text)", marginLeft: 2 }}>*</span>}
       </label>
       {input}

@@ -1,21 +1,23 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
 import { Icon } from "@/components/icons/Icon";
 import { useSession } from "@/context/SessionContext";
+import { resolveClientText } from "@/lib/i18n/runtime";
+import { tx } from "@/lib/i18n/types";
 import type { ColumnDef } from "@/platform/core/ColumnDef";
-import type { ColType, FilterTree, FilterGroup, SavedFilter } from "./filter-types";
-import { countConditions, cleanTree, mkGroup } from "./filter-types";
-import { findLocation, removeNodes, groupSelected, ungroupNode, moveNode } from "./filter-tree-ops";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { GroupNode } from "./FilterGroupNode";
-import { SavedFiltersBar } from "./SavedFiltersBar";
 import { Modal } from "./FilterModal";
+import { SavedFiltersBar } from "./SavedFiltersBar";
+import { findLocation, groupSelected, moveNode, removeNodes, ungroupNode } from "./filter-tree-ops";
+import type { ColType, FilterGroup, FilterTree, SavedFilter } from "./filter-types";
+import { cleanTree, countConditions, mkGroup } from "./filter-types";
 
 interface AdvancedSearchProps {
   columns:  ColumnDef[];
   colTypes: Record<string, ColType>;
   filters:  FilterTree;
-  gridKey:  string;           // used as gridId for saved filters
+  gridKey:  string;
   onChange: (f: FilterTree) => void;
   onApply:  (tree?: FilterTree) => void;
   onClose:  () => void;
@@ -29,12 +31,10 @@ export function AdvancedSearch({ columns, colTypes, filters, gridKey, onChange, 
   const activeCount = filters ? countConditions(filters) : 0;
   const selCount = selection.size;
 
-  // Auto-init with AND group when empty
   useEffect(() => {
     if (!filters && df) onChange(mkGroup("and", df, colTypes));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Saved filters ──
   const canSave = !!(gridKey && userId);
   const [saved, setSaved] = useState<SavedFilter[]>([]);
   const [activeName, setActiveName] = useState("");
@@ -47,7 +47,6 @@ export function AdvancedSearch({ columns, colTypes, filters, gridKey, onChange, 
 
   useEffect(() => { fetchSaved(); }, [fetchSaved]);
 
-  // Load default filter on first open
   const defaultLoaded = useRef(false);
   useEffect(() => {
     if (defaultLoaded.current || !saved.length) return;
@@ -60,14 +59,12 @@ export function AdvancedSearch({ columns, colTypes, filters, gridKey, onChange, 
   }, [saved, filters, onChange]);
 
   const handleLoad = (s: SavedFilter) => { onChange(s.filters_json); setActiveName(s.name); setSelection(new Set()); };
-
   const handleSave = async (s: SavedFilter) => {
     if (!canSave || !filters) return;
     await fetch("/api/saved-filters", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, gridId: gridKey, name: s.name, filtersJson: filters, isDefault: s.is_default, id: s.id }) });
     fetchSaved();
   };
-
   const handleSaveAs = async (name: string) => {
     if (!canSave || !filters) return;
     await fetch("/api/saved-filters", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -75,25 +72,21 @@ export function AdvancedSearch({ columns, colTypes, filters, gridKey, onChange, 
     setActiveName(name);
     fetchSaved();
   };
-
   const handleDelete = async (s: SavedFilter) => {
     await fetch(`/api/saved-filters?id=${s.id}&userId=${userId}`, { method: "DELETE" });
     if (activeName === s.name) setActiveName("");
     fetchSaved();
   };
-
   const handleSetDefault = async (s: SavedFilter) => {
     await fetch("/api/saved-filters", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, gridId: gridKey, name: s.name, filtersJson: s.filters_json, isDefault: !s.is_default, id: s.id }) });
     fetchSaved();
   };
 
-  // ── Selection ──
   const handleSelect = useCallback((ids: string[], checked: boolean) => {
     setSelection(prev => { const n = new Set(prev); ids.forEach(id => checked ? n.add(id) : n.delete(id)); return n; });
   }, []);
 
-  // ── Actions ──
   const handleApply = () => {
     const cleaned = filters ? cleanTree(filters) as FilterGroup | null : null;
     onChange(cleaned);
@@ -131,14 +124,13 @@ export function AdvancedSearch({ columns, colTypes, filters, gridKey, onChange, 
 
   return (
     <Modal onClose={onClose}>
-      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px", borderBottom: "1px solid var(--border)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Icon name="filter" size={18} />
-          <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 15 }}>Advanced Search</span>
+          <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 15 }}>{resolveClientText(tx("grid.advanced.title", "Advanced Search"))}</span>
           {activeCount > 0 && (
             <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 10, fontWeight: 600, background: "var(--accent)", color: "var(--accent-text)" }}>
-              {activeCount} filter{activeCount !== 1 ? "s" : ""}
+              {resolveClientText(tx(activeCount === 1 ? "grid.advanced.filter_count_one" : "grid.advanced.filter_count", activeCount === 1 ? "{count} filter" : "{count} filters"), { count: activeCount })}
             </span>
           )}
         </div>
@@ -150,35 +142,32 @@ export function AdvancedSearch({ columns, colTypes, filters, gridKey, onChange, 
         </button>
       </div>
 
-      {/* Saved filters bar */}
       {canSave && (
         <SavedFiltersBar saved={saved} activeName={activeName}
           onLoad={handleLoad} onSave={handleSave} onSaveAs={handleSaveAs}
           onDelete={handleDelete} onSetDefault={handleSetDefault} />
       )}
 
-      {/* Toolbar */}
       {filters && (
         <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 20px", flexWrap: "wrap", borderBottom: "1px solid var(--border)", background: "var(--bg-surface-alt, var(--bg-body))" }}>
-          {tbtn("Group AND", "plus", () => doGroup("and"), selCount < 2)}
-          {tbtn("Group OR",  "plus", () => doGroup("or"),  selCount < 2)}
-          {tbtn("Ungroup",   "expand", doUngroup, !hasSelGroups)}
+          {tbtn(resolveClientText(tx("grid.advanced.group_and", "Group AND")), "plus", () => doGroup("and"), selCount < 2)}
+          {tbtn(resolveClientText(tx("grid.advanced.group_or", "Group OR")), "plus", () => doGroup("or"), selCount < 2)}
+          {tbtn(resolveClientText(tx("grid.advanced.ungroup", "Ungroup")), "expand", doUngroup, !hasSelGroups)}
           <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 2px" }} />
-          {tbtn("↑", "chevUp",   () => doMove(-1), selCount !== 1)}
-          {tbtn("↓", "chevDown", () => doMove(1),  selCount !== 1)}
+          {tbtn("↑", "chevUp", () => doMove(-1), selCount !== 1)}
+          {tbtn("↓", "chevDown", () => doMove(1), selCount !== 1)}
           <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 2px" }} />
-          {tbtn("Delete", "trash", doDelete, selCount === 0, true)}
+          {tbtn(resolveClientText(tx("grid.advanced.delete", "Delete")), "trash", doDelete, selCount === 0, true)}
           {selCount > 0 && (
-            <span style={{ fontSize: 12, marginLeft: "auto", color: "var(--text-muted)" }}>{selCount} selected</span>
+            <span style={{ fontSize: 12, marginLeft: "auto", color: "var(--text-muted)" }}>{resolveClientText(tx("grid.advanced.selected", "{count} selected"), { count: selCount })}</span>
           )}
         </div>
       )}
 
-      {/* Body */}
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px", minHeight: 120 }}>
         {!filters ? (
           <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-muted)", fontSize: 13 }}>
-            No filters set. Click "Show Results" to fetch all records.
+            {resolveClientText(tx("grid.advanced.no_filters", 'No filters set. Click "Show Results" to fetch all records.'))}
           </div>
         ) : (
           <GroupNode group={filters} columns={columns} colTypes={colTypes} depth={0}
@@ -188,7 +177,6 @@ export function AdvancedSearch({ columns, colTypes, filters, gridKey, onChange, 
         )}
       </div>
 
-      {/* Footer */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px", borderTop: "1px solid var(--border)" }}>
         <div>
           {activeCount > 0 && (
@@ -196,18 +184,18 @@ export function AdvancedSearch({ columns, colTypes, filters, gridKey, onChange, 
               style={{ fontSize: 13, padding: "6px 14px", borderRadius: 6, color: "var(--danger-text)", border: "1px solid var(--danger-border)", background: "transparent", cursor: "pointer" }}
               onMouseEnter={e => { e.currentTarget.style.background = "var(--danger-hover)"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
-              Clear All
+              {resolveClientText(tx("grid.advanced.clear_all", "Clear All"))}
             </button>
           )}
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={onClose}
             style={{ padding: "7px 18px", borderRadius: 6, border: "1px solid var(--border)", color: "var(--text-primary)", background: "var(--bg-surface)", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>
-            Close
+            {resolveClientText(tx("common.actions.close", "Close"))}
           </button>
           <button onClick={handleApply}
             style={{ padding: "7px 20px", borderRadius: 6, background: "var(--accent)", color: "var(--accent-text)", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-            Show Results
+            {resolveClientText(tx("grid.advanced.show_results", "Show Results"))}
           </button>
         </div>
       </div>

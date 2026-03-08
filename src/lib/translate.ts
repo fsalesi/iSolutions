@@ -1,61 +1,50 @@
-/**
- * Server-side translation resolver.
- * Looks up a "namespace.key" in the translations table for a given locale,
- * substitutes {named} params, and returns the resolved string.
- *
- * Falls back to system default locale, then to the raw key.
- */
 import { db } from "@/lib/db";
-import { substitute } from "@/lib/substitute";
+import { getCatalogBundle, resolveText, splitTranslationKey } from "@/lib/i18n/resolve";
+import type { TranslationBundle, TranslationParams } from "@/lib/i18n/types";
 
-/**
- * Translate a message key for a given locale.
- *
- *   await translateMessage("en-us", "message.delegate_inactive", { delegate: "bob" })
- *   → "Delegate bob is not an active user"
- */
+async function getDbOverrides(locale: string): Promise<TranslationBundle> {
+  const { rows } = await db.query(
+    `SELECT namespace, key, value FROM translations WHERE locale = $1`,
+    [locale]
+  );
+
+  const bundle: TranslationBundle = {};
+  for (const row of rows) {
+    bundle[`${row.namespace}.${row.key}`] = row.value;
+  }
+  return bundle;
+}
+
 export async function translateMessage(
   locale: string,
   fullKey: string,
-  params?: Record<string, string | number>,
+  params?: TranslationParams,
+  fallback?: string,
 ): Promise<string> {
-  // Split "message.delegate_inactive" → namespace="message", key="delegate_inactive"
-  const dotIdx = fullKey.indexOf(".");
-  const namespace = dotIdx > 0 ? fullKey.slice(0, dotIdx) : "global";
-  const key = dotIdx > 0 ? fullKey.slice(dotIdx + 1) : fullKey;
-
-  // Try requested locale first
-  const res = await db.query(
-    `SELECT value FROM translations
-     WHERE locale = $1 AND namespace = $2 AND key = $3`,
-    [locale, namespace, key]
-  );
-
-  if (res.rows.length) {
-    return substitute(res.rows[0].value, params);
-  }
-
-  // Fall back to system default locale
-  if (locale !== "en-us") {
-    const fallback = await db.query(
-      `SELECT value FROM translations
-       WHERE locale = (SELECT code FROM locales WHERE is_default = true LIMIT 1)
-         AND namespace = $1 AND key = $2`,
-      [namespace, key]
-    );
-    if (fallback.rows.length) {
-      return substitute(fallback.rows[0].value, params);
-    }
-  }
-
-  // Last resort: substitute into the key itself (returns key with params stripped)
-  return substitute(fullKey, params);
+  const overrides = await getDbOverrides(locale);
+  return resolveText({ key: fullKey, fallback }, getCatalogBundle(locale, overrides), params);
 }
 
-/**
- * Get the locale for a user by user_id.
- * Falls back to "en-us" if not set.
- */
+export async function getTranslationBundle(locale: string): Promise<TranslationBundle> {
+  const overrides = await getDbOverrides(locale);
+  return getCatalogBundle(locale, overrides);
+}
+
+export async function setTranslationOverride(
+  locale: string,
+  fullKey: string,
+  value: string,
+  updatedBy: string,
+): Promise<void> {
+  const { namespace, key } = splitTranslationKey(fullKey);
+  await db.query(
+    `INSERT INTO translations (locale, namespace, key, value, created_by, updated_by)
+     VALUES ($1, $2, $3, $4, $5, $5)
+     ON CONFLICT (locale, namespace, key) DO UPDATE SET value = $4, updated_by = $5`,
+    [locale, namespace, key, value, updatedBy]
+  );
+}
+
 export async function getUserLocale(userId: string): Promise<string> {
   if (!userId) return "en-us";
   const res = await db.query(

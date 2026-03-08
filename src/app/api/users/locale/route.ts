@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { translateRequest } from "@/lib/i18n/server";
 
 /** PUT /api/users/locale — updates the current user's locale preference */
 export async function PUT(req: NextRequest) {
   try {
     const { userId, locale } = await req.json();
     if (!userId || !locale) {
-      return NextResponse.json({ error: "userId and locale required" }, { status: 400 });
+      return NextResponse.json({ error: await translateRequest(req, "api.users.locale_required", "userId and locale required") }, { status: 400 });
     }
 
     // Validate locale exists
     const check = await db.query("SELECT code FROM locales WHERE code = $1", [locale]);
     if (check.rows.length === 0) {
-      return NextResponse.json({ error: `Unknown locale: ${locale}` }, { status: 400 });
+      return NextResponse.json({ error: await translateRequest(req, "api.users.unknown_locale", "Unknown locale: {locale}", { locale }) }, { status: 400 });
     }
 
     await db.query(

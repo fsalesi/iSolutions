@@ -34,10 +34,10 @@ export class SettingsEditPanel extends EditPanel {
             label:    "Identity",
             columns:  2,
             children: [
-              new FieldDef({ key: "setting_name", label: "Setting Name", keyField: true, required: true }),
-              new FieldDef({ key: "owner",        label: "Owner",        hidden: true, defaultValue: "SYSTEM" }),
-              new FieldDef({ key: "domain", label: "Domain", required: true, renderer: "lookup", lookupConfig: DomainLookup({ allOption: { value: "*", label: "All Domains" } }) }),
-              new FieldDef({ key: "form",         label: "Form",         hidden: true, defaultValue: "*" }),
+              new FieldDef({ key: "setting_name", keyField: true, required: true }),
+              new FieldDef({ key: "owner",        hidden: true, defaultValue: "SYSTEM" }),
+              new FieldDef({ key: "domain", required: true, renderer: "lookup", lookupConfig: DomainLookup({ allOption: { value: "*", label: "All Domains" } }) }),
+              new FieldDef({ key: "form",         hidden: true, defaultValue: "*" }),
             ],
           }),
           new SectionDef({
@@ -45,7 +45,7 @@ export class SettingsEditPanel extends EditPanel {
             label:    "Value",
             columns:  1,
             children: [
-              new FieldDef({ key: "value", label: "Value", renderer: "textarea" }),
+              new FieldDef({ key: "value", renderer: "textarea" }),
             ],
           }),
           new SectionDef({
@@ -53,7 +53,7 @@ export class SettingsEditPanel extends EditPanel {
             label:    "Help",
             columns:  1,
             children: [
-              new FieldDef({ key: "help_text", label: "Help Text", renderer: "textarea" }),
+              new FieldDef({ key: "help_text", renderer: "textarea" }),
             ],
           }),
         ],

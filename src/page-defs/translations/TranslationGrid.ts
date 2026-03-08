@@ -9,9 +9,8 @@ export class TranslationGrid extends DataGridDef {
 
   async loadColumns() {
     await super.loadColumns();
-    this.getColumn("locale")?.applyOptions    ({ label: "Locale",    width: 100 });
-    this.getColumn("namespace")?.applyOptions ({ label: "Namespace", width: 140 });
-    this.getColumn("key")?.applyOptions       ({ label: "Key",       width: 220 });
-    this.getColumn("value")?.applyOptions     ({ label: "Value" });
+    this.getColumn("locale")?.applyOptions    ({ width: 100 });
+    this.getColumn("namespace")?.applyOptions ({ width: 140 });
+    this.getColumn("key")?.applyOptions       ({ width: 220 });
   }
 }

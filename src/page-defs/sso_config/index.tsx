@@ -5,6 +5,8 @@ import { SsoGrid } from "./SsoGrid";
 import { SsoEditPanel } from "./SsoEditPanel";
 import { UsersGrid } from "@/page-defs/users/UsersGrid";
 import type { Renderable } from "@/platform/core/LayoutNode";
+import { resolveClientText } from "@/lib/i18n/runtime";
+import { tx } from "@/lib/i18n/types";
 
 /**
  * SsoConfigPage — Product layer.
@@ -40,9 +42,9 @@ export class SsoConfigPage extends PageDef implements Renderable {
 
     this.editPanel.toolbar.addButton({
       key:     "franksButton",
-      label:   "Frank's Button",
+      label:   tx("sso_config.actions.franks_button", "Frank's Button"),
       icon:    "star",
-      onClick: () => this.alertDialog.info("You've clicked Frank's button", "Test"),
+      onClick: () => this.alertDialog.info(resolveClientText(tx("sso_config.messages.franks_button_clicked", "You've clicked Frank's button")), resolveClientText(tx("sso_config.messages.test_title", "Test"))),
     });
   }
 

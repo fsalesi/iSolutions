@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { authenticate, field, gotoForm, gridRow, reopenForm, savePanel } from "./test-helpers";
+import { authenticate, expectRequired, field, gotoForm, gridRow, reopenForm, savePanel } from "./test-helpers";
 
 test.describe.serial("Locales page regressions", () => {
   test.beforeEach(async ({ context }) => {
@@ -16,8 +16,8 @@ test.describe.serial("Locales page regressions", () => {
     await expect(field(page, "description").locator("input").first()).toHaveValue("");
 
     await page.getByTestId("panel-toolbar-save").click();
-    await expect(field(page, "code")).toContainText("required");
-    await expect(field(page, "description")).toContainText("required");
+    await expectRequired(field(page, "code"));
+    await expectRequired(field(page, "description"));
   });
 
   test("can update a locale description and restore it", async ({ page }) => {

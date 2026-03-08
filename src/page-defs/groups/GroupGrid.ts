@@ -9,8 +9,7 @@ export class GroupGrid extends DataGridDef {
 
   async loadColumns() {
     await super.loadColumns();
-    this.getColumn("group_id")?.applyOptions({ label: "Group ID", width: 160 });
-    this.getColumn("description")?.applyOptions({ label: "Description" });
-    this.getColumn("is_active")?.applyOptions({ label: "Active", renderer: "boolean", width: 80 });
+    this.getColumn("group_id")?.applyOptions({ width: 160 });
+    this.getColumn("is_active")?.applyOptions({ width: 80 });
   }
 }

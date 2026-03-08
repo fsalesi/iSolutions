@@ -1,10 +1,12 @@
 // ColumnDef.ts — A single column in a DataGridDef
 
+import { resolveClientText } from "@/lib/i18n/runtime";
+import { tx, type TranslatableText } from "@/lib/i18n/types";
 import type { RendererType } from "./types";
 
 export interface ColumnDefOptions {
   key: string;
-  label: string;
+  label?: TranslatableText;
   renderer?: RendererType;
   hidden?: boolean;
   width?: number;
@@ -21,7 +23,8 @@ export interface ColumnDefOptions {
 
 export class ColumnDef {
   key: string;
-  label: string;
+  label?: TranslatableText;
+  translationScope?: string;
 
   renderer: RendererType = "text";
   hidden: boolean = false;
@@ -45,8 +48,8 @@ export class ColumnDef {
   hideOnMobile: boolean = false;
 
   constructor(options: ColumnDefOptions) {
-    this.key   = options.key;
-    this.label = options.label;
+    this.key = options.key;
+    if (options.label !== undefined) this.label = options.label;
     if (options.renderer         !== undefined) this.renderer         = options.renderer;
     if (options.hidden           !== undefined) this.hidden           = options.hidden;
     if (options.width            !== undefined) this.width            = options.width;
@@ -62,6 +65,15 @@ export class ColumnDef {
   }
 
   /** Apply a partial set of options — used by DataSourceDef to set canonical labels/renderers. */
+  getLabel(): string {
+    const fallback = typeof this.label === "string" && this.label.length > 0
+      ? this.label
+      : this.key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    return this.translationScope
+      ? resolveClientText(tx(`${this.translationScope}.columns.${this.key}`, fallback))
+      : resolveClientText(this.label ?? fallback);
+  }
+
   applyOptions(options: Partial<Omit<ColumnDefOptions, "key">>): this {
     if (options.label           !== undefined) this.label           = options.label;
     if (options.renderer        !== undefined) this.renderer        = options.renderer;

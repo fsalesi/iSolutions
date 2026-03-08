@@ -40,6 +40,10 @@ function field(page: Page, key: string) {
   return page.getByTestId(`field-${key}`);
 }
 
+function expectRequired(locator: ReturnType<typeof field>) {
+  return expect(locator).toContainText(/required|obbligatorio/i);
+}
+
 async function savePanel(page: Page) {
   const saveButton = page.getByTestId("panel-toolbar-save");
   await expect(saveButton).toBeEnabled();
@@ -135,9 +139,9 @@ test.describe.serial("Users page regressions", () => {
     await expect(page.getByTestId("panel-toolbar-save")).toBeEnabled();
 
     await page.getByTestId("panel-toolbar-save").click();
-    await expect(field(page, "user_id")).toContainText("required");
-    await expect(field(page, "full_name")).toContainText("required");
-    await expect(field(page, "email")).toContainText("required");
+    await expectRequired(field(page, "user_id"));
+    await expectRequired(field(page, "full_name"));
+    await expectRequired(field(page, "email"));
   });
 
   test("copy user flow keeps non-key values and clears key field", async ({ page }) => {

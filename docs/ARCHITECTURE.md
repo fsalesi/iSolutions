@@ -221,6 +221,97 @@ No event bus, no pub-sub. Direct callbacks only.
 
 ---
 
+## Translation / i18n Architecture
+
+### Source of Truth
+
+Base product translations live in files under `src/lib/i18n/messages/`. The file
+catalog is the canonical source of truth. Database translations are **overrides only**
+for runtime/customer-specific wording.
+
+```
+src/lib/i18n/
+  types.ts
+  catalog.ts
+  resolve.ts
+  runtime.ts
+  messages/
+    en-us.ts
+    it-it.ts
+```
+
+### Core Rule
+
+> **Do not scatter `t("...")` calls through JSX.**
+> Translation belongs in the object model and shared core helpers.
+
+Developers define text once in metadata and renderers resolve it automatically.
+
+```ts
+label: tx("users.fields.email", "Email")
+titleText: tx("users.title", "Users")
+```
+
+Plain strings are still allowed during development, but the preferred pattern is:
+- `tx(key, fallback)` for labels/titles/button text
+- `tx(key, fallback, params)` for parameterized messages
+
+### Where Translation Logic Lives
+
+- `src/lib/i18n/*` — shared catalog + resolver + runtime helpers
+- `src/context/TranslationContext.tsx` — client locale state and `setLocale()`
+- `src/lib/translate.ts` — server-side resolver
+
+Renderers should consume resolved text, not invent translation behavior.
+
+### DataSourceDef Is Canonical
+
+`DataSourceDef` is the canonical source for field/column metadata used by grids,
+panels, lookups, and other consumers. Default labels are generated there, not in
+individual pages.
+
+Schema/route columns should resolve by default as:
+
+```ts
+tx(`${table}.columns.${key}`, toLabel(key))
+```
+
+This means a column exposed by the data source automatically participates in i18n
+without requiring every page to override its label manually. Page defs should only
+override labels when they intentionally want different wording.
+
+### Messages / Phrases
+
+The system must support parameterized phrases, not just static labels.
+
+```ts
+tx("users.confirm.delete", "Do you want to delete user {name}?", { name })
+```
+
+Use this pattern for:
+- delete confirmations
+- validation messages
+- status/toast text
+- advanced filter prompts and saved-filter messaging
+
+### Locale Switching
+
+Locale switching is shell-owned. The current locale is changed through the
+translation context and persisted to the user profile. UI should react immediately
+after `setLocale(...)`.
+
+### Development Rule
+
+When adding a new page or feature:
+1. Put canonical base strings in `en-us.ts`
+2. Add other locales in sibling files (for example `it-it.ts`)
+3. Define labels/messages in metadata with `tx(...)`
+4. Let grids/panels/toolbars render resolved text automatically
+
+Do not make the database the primary source of product UI text.
+
+---
+
 ## API Layer
 
 All API routes extend `CrudRoute` which provides:

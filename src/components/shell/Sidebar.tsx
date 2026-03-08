@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { Icon } from "@/components/icons/Icon";
+import { resolveClientText } from "@/lib/i18n/runtime";
+import type { TranslatableText } from "@/lib/i18n/types";
 
-export type NavItem    = { key: string; label: string; icon: string };
-export type NavSection = { key: string; label: string; icon: string; items: NavItem[] };
+export type NavItem    = { key: string; label: TranslatableText; icon: string };
+export type NavSection = { key: string; label: TranslatableText; icon: string; items: NavItem[] };
 
 interface SidebarProps {
   sections:   NavSection[];
@@ -68,7 +70,7 @@ export function Sidebar({ sections, activeItem, onNavigate, open, onClose, isMob
               >
                 <Icon name={section.icon} size={14} className="flex-shrink-0" />
                 <span className="flex-1 text-left font-medium text-xs uppercase tracking-wider whitespace-nowrap">
-                  {section.label}
+                  {resolveClientText(section.label)}
                 </span>
                 <Icon name={expanded[section.key] ? "chevDown" : "chevRight"} size={13} />
               </button>
@@ -106,7 +108,7 @@ export function Sidebar({ sections, activeItem, onNavigate, open, onClose, isMob
                     }}
                   >
                     <Icon name={item.icon} size={13} className="flex-shrink-0" />
-                    <span className="whitespace-nowrap">{item.label}</span>
+                    <span className="whitespace-nowrap">{resolveClientText(item.label)}</span>
                   </button>
                 );
               })}

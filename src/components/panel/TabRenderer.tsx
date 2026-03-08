@@ -64,7 +64,7 @@ export function TabRenderer({ tabs, panel }: TabRendererProps) {
                 transition: "color 0.15s",
                 marginBottom: -1,
               }}>
-                {tab.label || tab.key}
+                {tab.getLabel() || tab.key}
                 {tab.hasError && (
                   <span style={{
                     display: "inline-block",

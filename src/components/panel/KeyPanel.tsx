@@ -40,7 +40,7 @@ export function KeyPanel({ panel, currentRecord, isNew }: KeyPanelProps) {
               letterSpacing: "0.05em",
               color: "var(--text-muted)",
             }}>
-              {field.label ?? field.key}
+              {field.getLabel() || field.key}
             </span>
             <span style={{
               fontSize: "1rem",
