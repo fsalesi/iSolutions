@@ -5,6 +5,7 @@ import { PanelToolbar } from "./PanelToolbar";
 import { TabRenderer } from "./TabRenderer";
 import type { EditPanel } from "@/platform/core/EditPanel";
 import type { Row } from "@/platform/core/types";
+import { KeyPanel } from "./KeyPanel";
 
 interface EditPanelRendererProps {
   panel: EditPanel;
@@ -46,6 +47,8 @@ export function EditPanelRenderer({ panel }: EditPanelRendererProps) {
         isDirty={isDirty}
         readOnly={panel.readOnly}
       />
+
+      {panel.headerRenderer ? panel.headerRenderer({ currentRecord, isNew }) : <KeyPanel panel={panel} currentRecord={currentRecord} isNew={isNew} />}
 
       <div style={{ flex: 1, overflow: "auto", padding: "1rem" }}>
         {!showForm ? (

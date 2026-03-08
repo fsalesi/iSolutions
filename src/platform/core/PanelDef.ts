@@ -21,6 +21,13 @@ export class PanelDef {
 
   // React callbacks — wired by the renderer
   onDisplay:      ((row: Row | null) => void) | null = null;
+
+  /**
+   * Optional custom header renderer — overrides the default KeyPanel.
+   * Set this in subclass constructor to a function that returns ReactNode.
+   * Receives { currentRecord, isNew } as props.
+   */
+  headerRenderer: ((props: { currentRecord: Row | null; isNew: boolean }) => import("react").ReactNode) | null = null;
   onFocusTab:     ((index: number) => void) | null = null;
   activeTabKey:   string = "";
   onDirtyChanged: ((dirty: boolean) => void) | null = null;
@@ -242,6 +249,24 @@ export class PanelDef {
   canNavigateAway(): Promise<boolean> { return Promise.resolve(true); }
 
   // Flat addressable access — searches entire tree
+
+  /** Flat array of all FieldDef instances in this panel. Computed lazily, cached. */
+  private _fields: any[] | null = null;
+  get fields(): any[] {
+    if (this._fields) return this._fields;
+    const result: any[] = [];
+    for (const tab of this.tabs) {
+      for (const child of tab.children ?? []) {
+        if (child.type === "section") {
+          for (const field of child.children ?? []) {
+            if (field.type === "field") result.push(field);
+          }
+        }
+      }
+    }
+    return (this._fields = result);
+  }
+
   getField(key: string): any {
     for (const tab of this.tabs) {
       for (const child of tab.children ?? []) {

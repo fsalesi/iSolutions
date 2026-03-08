@@ -3,6 +3,7 @@ import { TabDef } from "@/platform/core/TabDef";
 import { SectionDef } from "@/platform/core/SectionDef";
 import { FieldDef } from "@/platform/core/FieldDef";
 import { ActiveUserLookup } from "@/components/lookup/presets/UserLookup";
+import { UsersKeyPanel } from "./UsersKeyPanel";
 import { ActiveGroupLookup } from "@/components/lookup/presets/GroupLookup";
 import { LocaleLookup }      from "@/components/lookup/presets/LocaleLookup";
 import { DomainLookup }      from "@/components/lookup/presets/DomainLookup";
@@ -38,6 +39,9 @@ export class UsersEditPanel extends EditPanel {
       useAudit: true,
       usePrint: false,
     }, form);
+
+    this.headerRenderer = ({ currentRecord, isNew }) =>
+      UsersKeyPanel({ currentRecord, isNew });
 
     this.tabs = [
 
