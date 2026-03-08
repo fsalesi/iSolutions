@@ -37,9 +37,9 @@ export function LookupBrowseModal({
     if (dataSource) {
       g.dataSource = dataSource;
     } else if (apiPath) {
-      // Legacy: apiPath on LookupConfig
-      g.api   = apiPath;
-      g.table = apiPath.replace("/api/", "");
+      // Legacy: apiPath on LookupConfig — wrap in a DataSourceDef
+      const { DataSourceDef } = require("@/platform/core/DataSourceDef");
+      g.dataSource = new DataSourceDef({ api: apiPath, table: apiPath.replace("/api/", "") });
     }
 
     // Override with explicit gridColumns if provided

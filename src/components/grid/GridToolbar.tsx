@@ -31,7 +31,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
 
   const { user } = useSession();
   const userId = user.userId;
-  const gridTable = grid.table || grid.dataSource?.table || "";
+  const gridTable = grid.dataSource?.table || "";
   const gridKey = grid.key || gridTable;
 
   const [savedFilters, setSavedFilters] = useState<{ id: number; name: string; filters_json: any; is_default: boolean }[]>([]);

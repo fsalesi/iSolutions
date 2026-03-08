@@ -3,6 +3,8 @@ import { TabDef } from "@/platform/core/TabDef";
 import { SectionDef } from "@/platform/core/SectionDef";
 import { FieldDef } from "@/platform/core/FieldDef";
 import { ActiveUserLookup } from "@/components/lookup/presets/UserLookup";
+import { LocaleLookup }      from "@/components/lookup/presets/LocaleLookup";
+import { DomainLookup }      from "@/components/lookup/presets/DomainLookup";
 
 /**
  * UsersEditPanel — Edit panel for User maintenance.
@@ -20,9 +22,9 @@ import { ActiveUserLookup } from "@/components/lookup/presets/UserLookup";
  *
  * Tab: Settings
  *   Section: Account
- *     supervisor_id (readonly — lookup deferred)
- *     delegate_id   (readonly — lookup deferred)
- *     approval_limit  employee_number  expire_date  locale
+ *     supervisor_id (lookup — ActiveUserLookup)
+ *     delegate_id   (lookup — ActiveUserLookup)
+ *     approval_limit  employee_number  expire_date  locale (lookup)  domains (lookup)
  *
  * Tab: Groups
  *   Section: Groups
@@ -53,7 +55,7 @@ export class UsersEditPanel extends EditPanel {
               new FieldDef({ key: "title",     label: "Title" }),
               new FieldDef({ key: "company",   label: "Company" }),
               new FieldDef({ key: "is_active", label: "Active",   renderer: "checkbox" }),
-              new FieldDef({ key: "domains",   label: "Domains" }),
+              new FieldDef({ key: "domains",   label: "Domains", renderer: "lookup", lookupConfig: DomainLookup({ multiple: true }) }),
             ],
           }),
         ],
@@ -98,11 +100,11 @@ export class UsersEditPanel extends EditPanel {
             columns:  2,
             children: [
               new FieldDef({ key: "supervisor_id",  label: "Supervisor",       renderer: "lookup", lookupConfig: ActiveUserLookup() }),
-              new FieldDef({ key: "delegate_id",    label: "Delegate",         renderer: "readonly" }),
+              new FieldDef({ key: "delegate_id",    label: "Delegate",         renderer: "lookup", lookupConfig: ActiveUserLookup() }),
               new FieldDef({ key: "approval_limit", label: "Approval Limit",   renderer: "number" }),
               new FieldDef({ key: "employee_number",label: "Employee Number" }),
               new FieldDef({ key: "expire_date",    label: "Expire Date",      renderer: "date" }),
-              new FieldDef({ key: "locale",         label: "Locale" }),
+              new FieldDef({ key: "locale",         label: "Locale",  renderer: "lookup", lookupConfig: LocaleLookup() }),
             ],
           }),
         ],

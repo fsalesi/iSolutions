@@ -28,7 +28,7 @@ export function PanelToolbar({ toolbar, isNew, isDirty, readOnly }: PanelToolbar
   const [notesOpen, setNotesOpen] = useState(false);
 
   const hasRecord = !isNew && !!toolbar.panel?.currentRecord;
-  const table     = toolbar.panel?.grid?.table  ?? "";
+  const table     = toolbar.panel?.grid?.dataSource?.table  ?? "";
   const recordOid = toolbar.panel?.currentRecord?.oid ?? "";
 
   const builtins: ToolBtn[] = [

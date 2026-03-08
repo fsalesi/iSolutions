@@ -127,8 +127,8 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
   const fetchChunkDirect = useCallback(async (
     offset: number, sv: string, ft: FilterTree, sk: string, sd: string
   ): Promise<{ rows: Row[]; total: number }> => {
-    const api   = grid.api   || grid.dataSource?.api   || "";
-    const table = grid.table || grid.dataSource?.table || "";
+    const api   = grid.dataSource?.api   || "";
+    const table = grid.dataSource?.table || "";
     if (!api || !table) return { rows: [], total: 0 };
     const qs = new URLSearchParams({
       table,
@@ -151,7 +151,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
       rows:  Array.isArray(data?.rows) ? data.rows : (Array.isArray(data) ? data : []),
       total: typeof data?.total === "number" ? data.total : 0,
     };
-  }, [grid.api, grid.table, grid.dataSource]);
+  }, [grid.dataSource]);
 
   // ── Infinite: cache key ───────────────────────────────────────────────────
   const makeCacheKey = (offset: number, sv: string, ft: FilterTree, sk: string, sd: string) =>
@@ -514,7 +514,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
           columns={columns}
           colTypes={colTypes()}
           filters={filterTree}
-          gridKey={grid.key || grid.table}
+          gridKey={grid.key || grid.dataSource?.table || ""}
           onChange={setFilterTree}
           onApply={tree => handleApplyFilter(tree ?? null)}
           onClose={() => setFilterOpen(false)}

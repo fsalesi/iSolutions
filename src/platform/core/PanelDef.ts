@@ -134,14 +134,16 @@ export class PanelDef {
   // ── Save ──────────────────────────────────────────────────────────────────
 
   async save(): Promise<void> {
-    if (!this.grid?.api || !this.grid?.table) {
+    const api   = this.grid?.api   ?? this.grid?.dataSource?.api;
+    const table = this.grid?.table ?? this.grid?.dataSource?.table;
+    if (!api || !table) {
       console.error("PanelDef.save: no grid.api or grid.table");
       return;
     }
     if (!this.validate()) return;
 
     // Collect field values
-    const payload: Record<string, any> = { _table: this.grid.table };
+    const payload: Record<string, any> = { _table: table };
     for (const tab of this.tabs) {
       for (const child of tab.children ?? []) {
         if (child.type === "section") {
@@ -160,7 +162,7 @@ export class PanelDef {
     }
 
     const method = this.isNew ? "POST" : "PUT";
-    const res = await fetch(this.grid.api, {
+    const res = await fetch(api, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -182,12 +184,14 @@ export class PanelDef {
   // ── Delete ────────────────────────────────────────────────────────────────
 
   async deleteRecord(): Promise<void> {
-    if (!this.grid?.api || !this.grid?.table) return;
+    const api   = this.grid?.dataSource?.api;
+    const table = this.grid?.dataSource?.table;
+    if (!api || !table) return;
     if (!this.currentRecord?.oid) return;
     if (!confirm("Delete this record?")) return;
 
-    const qs = new URLSearchParams({ table: this.grid.table, oid: this.currentRecord.oid });
-    const res = await fetch(`${this.grid.api}?${qs}`, { method: "DELETE" });
+    const qs = new URLSearchParams({ table, oid: this.currentRecord.oid });
+    const res = await fetch(`${api}?${qs}`, { method: "DELETE" });
 
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));

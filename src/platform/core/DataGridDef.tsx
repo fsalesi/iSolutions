@@ -11,8 +11,6 @@ import type { DataSourceDef } from "./DataSourceDef";
 
 export interface DataGridDefOptions {
   key?: string;
-  table?: string;
-  api?: string;
   mode?: GridMode;
   whereClause?: string;
   globalWhereClause?: string;
@@ -46,8 +44,6 @@ export class DataGridDef implements ChildElement, Renderable {
   readonly type = "grid" as const;
 
   key: string = "";
-  table: string = "";
-  api:   string = "";
   columns: ColumnDef[] = [];
 
   panel: any = null;   // PanelDef — set via myGrid.panel = myPanel
@@ -117,8 +113,6 @@ export class DataGridDef implements ChildElement, Renderable {
     if (form) this.form = form;
     if (!options) return;
     if (options.key                !== undefined) this.key                = options.key;
-    if (options.table              !== undefined) this.table              = options.table;
-    if (options.api                !== undefined) this.api                = options.api;
     if (options.mode               !== undefined) this.mode               = options.mode;
     if (options.whereClause        !== undefined) this.whereClause        = options.whereClause;
     if (options.globalWhereClause  !== undefined) this.globalWhereClause  = options.globalWhereClause;
@@ -157,8 +151,8 @@ export class DataGridDef implements ChildElement, Renderable {
 
   // Data loading
   async fetch(params?: Partial<FetchParams>): Promise<void> {
-    const api   = this.api   || this.dataSource?.api   || "";
-    const table = this.table || this.dataSource?.table || "";
+    const api   = this.dataSource?.api   || "";
+    const table = this.dataSource?.table || "";
     if (!api || !table) return;
     this.isLoading = true;
 

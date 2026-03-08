@@ -1,7 +1,8 @@
+import { GroupDataSource } from "@/page-defs/groups/GroupDataSource";
 import type { LookupConfig } from "../LookupTypes";
 
 export const GroupLookup = (overrides?: Partial<LookupConfig>): LookupConfig => ({
-  apiPath: "/api/forms/groups?table=groups",
+  dataSource: new GroupDataSource(),
   valueField: "group_id",
   displayField: "group_id",
   displayTemplate: "{group_id} - {description}",

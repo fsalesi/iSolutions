@@ -6,7 +6,7 @@ import type { Row } from "./types";
 
 export interface DataSourceDefOptions {
   api:          string;
-  table:        string;
+  table?:       string;
   baseFilters?: Record<string, string | number | boolean>;
 }
 
@@ -37,7 +37,7 @@ const toLabel = (key: string) =>
 
 export class DataSourceDef {
   api:         string;
-  table:       string;
+  table:       string | undefined;
   baseFilters: Record<string, string | number | boolean> = {};
 
   // Full column catalogue — populated lazily by loadColumns()
@@ -49,15 +49,16 @@ export class DataSourceDef {
 
   constructor(options: DataSourceDefOptions) {
     this.api   = options.api;
-    this.table = options.table;
+    this.table = options.table ?? undefined;
     if (options.baseFilters) this.baseFilters = options.baseFilters;
   }
 
-  /** Permanently hide a column from all consumers (grid, lookup, browse modal). */
-  suppress(key: string): this {
-    this._suppressed.add(key);
-    // Also remove if already in catalogue
-    this.columns = this.columns.filter(c => c.key !== key);
+  /** Permanently hide one or more columns from all consumers (grid, lookup, browse modal). */
+  suppress(...keys: string[]): this {
+    for (const key of keys) {
+      this._suppressed.add(key);
+      this.columns = this.columns.filter(c => c.key !== key);
+    }
     return this;
   }
 

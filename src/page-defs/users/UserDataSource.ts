@@ -32,10 +32,3 @@ export class UserDataSource extends DataSourceDef {
   }
 }
 
-/** Active users only — for supervisor, delegate, buyer fields */
-export class ActiveUserDataSource extends UserDataSource {
-  constructor() {
-    super();
-    this.baseFilters = { is_active: true };
-  }
-}

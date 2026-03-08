@@ -1,3 +1,4 @@
+import { SettingsDataSource } from "@/page-defs/settings/SettingsDataSource";
 import type { LookupConfig } from "../LookupTypes";
 
 /**
@@ -5,7 +6,8 @@ import type { LookupConfig } from "../LookupTypes";
  * Single-select by default, preloaded on mount.
  */
 export const DomainLookup = (overrides?: Partial<LookupConfig>): LookupConfig => ({
-  apiPath: "/api/settings/list?name=ALLOWED_DOMAINS",
+  dataSource:  new SettingsDataSource(),
+  baseFilters: { setting_name: "ALLOWED_DOMAINS" },
   valueField: "code",
   displayField: "code",
   multiple: false,
