@@ -29,6 +29,8 @@ const registry: Record<string, () => Promise<PageConstructor>> = {
     import("@customer/pages/translations").then(m => m.TranslationsPage),
   settings: () =>
     import("@customer/pages/settings").then(m => m.SystemSettingsPage),
+  requisition: () =>
+    import("@customer/pages/requisition").then(m => m.RequisitionPage),
 };
 
 /** Resolve and instantiate a page by form key. Returns null if not registered. */

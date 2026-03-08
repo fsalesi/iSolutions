@@ -1,17 +1,96 @@
-import { test, expect, type BrowserContext, type Page } from "@playwright/test";
+import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+import { authenticate } from "./test-helpers";
 
-const AUTH_COOKIE = {
-  name: "isolutions-user",
-  value: "frank",
-  domain: "localhost",
-  path: "/",
-  secure: false,
-  httpOnly: false,
-  sameSite: "Lax" as const,
+const BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL ?? "http://localhost:3001";
+
+type TempUser = {
+  userId: string;
+  fullName: string;
+  email: string;
 };
 
-async function authenticate(context: BrowserContext) {
-  await context.addCookies([AUTH_COOKIE]);
+function makeTempUser(): TempUser {
+  const stamp = Date.now().toString(36).slice(-6);
+  const userId = `pw_${stamp}`;
+  return {
+    userId,
+    fullName: `Playwright ${stamp}`,
+    email: `${userId}@example.com`,
+  };
+}
+
+async function apiFindUser(request: APIRequestContext, userId: string) {
+  const res = await request.get(`${BASE_URL}/api/users?table=users&search=${encodeURIComponent(userId)}&limit=20`);
+  expect(res.ok(), `User lookup failed with status ${res.status()}`).toBeTruthy();
+  const data = await res.json();
+  const rows = Array.isArray(data?.rows) ? data.rows : [];
+  return rows.find((row: Record<string, unknown>) => String(row.user_id ?? "").toLowerCase() === userId.toLowerCase()) ?? null;
+}
+
+async function apiDeleteUser(request: APIRequestContext, oid: string) {
+  const res = await request.delete(`${BASE_URL}/api/users?table=users&oid=${encodeURIComponent(oid)}`);
+  expect(res.ok(), `Delete failed with status ${res.status()}`).toBeTruthy();
+}
+
+async function expectLoginStatus(request: APIRequestContext, userId: string, password: string, expectedStatus: number) {
+  const res = await request.post(`${BASE_URL}/api/auth/login`, {
+    data: { userId, password },
+  });
+  expect(res.status(), `Unexpected login status for ${userId}`).toBe(expectedStatus);
+  return res;
+}
+
+async function setCheckboxValue(page: Page, key: string, checked: boolean) {
+  const toggle = field(page, key).getByRole("switch");
+  await expect(toggle).toBeVisible();
+  const current = await toggle.getAttribute("aria-checked");
+  const isChecked = current === "true";
+  if (isChecked !== checked) await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-checked", checked ? "true" : "false");
+}
+
+async function setPreloadedLookupValue(page: Page, key: string, value: string) {
+  const container = field(page, key);
+  const input = container.locator('input[type="text"]').first();
+  await expect(input).toBeVisible();
+  await input.click();
+  await input.fill(value);
+  await page.waitForTimeout(300);
+  await input.press("ArrowDown");
+  await input.press("Enter");
+  await expect(container.locator('input[type="hidden"]')).toHaveValue(value);
+}
+
+async function createUser(page: Page, user: TempUser) {
+  await gotoUsers(page);
+  await page.getByTestId("panel-toolbar-new").click();
+  await field(page, "user_id").locator("input").first().fill(user.userId);
+  await field(page, "full_name").locator("input").first().fill(user.fullName);
+  await field(page, "email").locator("input").first().fill(user.email);
+  await setCheckboxValue(page, "is_active", true);
+  await openSettingsTab(page);
+  await setPreloadedLookupValue(page, "locale", "en-us");
+  await page.getByRole("button", { name: "Details", exact: true }).click();
+  await savePanel(page);
+}
+
+async function deleteSelectedUser(page: Page) {
+  const responsePromise = page.waitForResponse((response) => {
+    return response.url().includes("/api/users?") && response.request().method() === "DELETE";
+  });
+  await page.getByTestId("panel-toolbar-delete").click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible({ timeout: 10000 });
+  await dialog.getByRole("button", { name: "Delete", exact: true }).click();
+  const response = await responsePromise;
+  expect(response.ok(), `Delete failed with status ${response.status()}`).toBeTruthy();
+}
+
+async function filterUsers(page: Page, value: string) {
+  const search = page.getByTestId("grid-search-users");
+  await expect(search).toBeVisible({ timeout: 15000 });
+  await search.fill(value);
+  await expect(page.getByText(value, { exact: true }).first()).toBeVisible({ timeout: 15000 });
 }
 
 async function gotoUsers(page: Page) {
@@ -19,8 +98,7 @@ async function gotoUsers(page: Page) {
   await page.waitForTimeout(800);
   await page.evaluate(() => sessionStorage.setItem("isolutions.nav", "form:users"));
   await page.reload({ waitUntil: "networkidle" });
-  await expect(page.getByTestId("grid-toolbar-columns")).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText("adriel", { exact: true }).first()).toBeVisible({ timeout: 15000 });
+  await filterUsers(page, "adriel");
 }
 
 async function reopenUsers(page: Page) {
@@ -28,12 +106,13 @@ async function reopenUsers(page: Page) {
   await page.waitForTimeout(500);
   await page.evaluate(() => sessionStorage.setItem("isolutions.nav", "form:users"));
   await page.reload({ waitUntil: "networkidle" });
-  await expect(page.getByText("adriel", { exact: true }).first()).toBeVisible({ timeout: 15000 });
+  await filterUsers(page, "adriel");
 }
 
 async function selectUser(page: Page, userId: string) {
+  await filterUsers(page, userId);
   await page.getByText(userId, { exact: true }).first().click();
-  await expect(page.getByTestId("field-user_id").locator(`input[value="${userId}"]`)).toBeVisible();
+  await expect(page.getByTestId("field-user_id").locator(`input[value="${userId}"]`)).toBeVisible({ timeout: 15000 });
 }
 
 function field(page: Page, key: string) {
@@ -73,7 +152,7 @@ async function setLookupValue(page: Page, fieldKey: string, dialogTitle: string,
   await expect(modal).toBeVisible();
   await expect(modal.getByText(dialogTitle, { exact: true })).toBeVisible();
 
-  const search = modal.getByRole("textbox", { name: /search/i }).or(modal.getByPlaceholder("Search…"));
+  const search = modal.getByRole("textbox", { name: /search/i }).or(modal.getByPlaceholder(/Search(?:\.|…)+/i));
   await search.fill(value);
   await page.waitForTimeout(800);
 
@@ -110,7 +189,7 @@ async function openAdriel(page: Page) {
 
 test.describe.serial("Users page regressions", () => {
   test.beforeEach(async ({ context }) => {
-    await authenticate(context);
+    await authenticate(context, "frank");
   });
 
   test("column picker hides and persists the Company column", async ({ page }) => {
@@ -208,4 +287,61 @@ test.describe.serial("Users page regressions", () => {
       await expect(field(page, "supervisor_id").locator('input[type="hidden"]')).toHaveValue(originalSupervisor);
     }
   });
+  test("can create a temp user, log in, and delete it", async ({ page, context }) => {
+    const user = makeTempUser();
+    let createdOid = "";
+
+    try {
+      await createUser(page, user);
+
+      const created = await apiFindUser(context.request, user.userId);
+      expect(created, `Created user ${user.userId} was not found via API`).toBeTruthy();
+      createdOid = String(created?.oid ?? "");
+
+      const loginOk = await expectLoginStatus(context.request, user.userId, "", 200);
+      const loginPayload = await loginOk.json();
+      expect(loginPayload.userId).toBe(user.userId);
+
+      await reopenUsers(page);
+      await selectUser(page, user.userId);
+      await deleteSelectedUser(page);
+
+      const deleted = await apiFindUser(context.request, user.userId);
+      expect(deleted).toBeNull();
+      createdOid = "";
+    } finally {
+      if (createdOid) {
+        const existing = await apiFindUser(context.request, user.userId);
+        if (existing?.oid) await apiDeleteUser(context.request, String(existing.oid));
+      }
+    }
+  });
+
+  test("can deactivate a temp user and block login", async ({ page, context }) => {
+    const user = makeTempUser();
+    let createdOid = "";
+
+    try {
+      await createUser(page, user);
+
+      const created = await apiFindUser(context.request, user.userId);
+      expect(created, `Created user ${user.userId} was not found via API`).toBeTruthy();
+      createdOid = String(created?.oid ?? "");
+
+      await expectLoginStatus(context.request, user.userId, "", 200);
+
+      await reopenUsers(page);
+      await selectUser(page, user.userId);
+      await setCheckboxValue(page, "is_active", false);
+      await savePanel(page);
+
+      await expectLoginStatus(context.request, user.userId, "", 403);
+    } finally {
+      if (createdOid) {
+        const existing = await apiFindUser(context.request, user.userId);
+        if (existing?.oid) await apiDeleteUser(context.request, String(existing.oid));
+      }
+    }
+  });
+
 });

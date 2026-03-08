@@ -19,6 +19,14 @@ interface AppShellProps {
 
 const NAV_SECTIONS: NavSection[] = [
   {
+    key: "ipurchase",
+    label: tx("shell.sections.ipurchase", "iPurchase"),
+    icon: "briefcase",
+    items: [
+      { key: "form:requisition", label: tx("shell.items.requisition", "PO Reqs"), icon: "fileText" },
+    ],
+  },
+  {
     key: "admin",
     label: tx("shell.sections.admin", "Administration"),
     icon: "settings",
@@ -36,12 +44,6 @@ const NAV_SECTIONS: NavSection[] = [
     key: "i18n",
     label: tx("shell.sections.i18n", "Internationalization"),
     icon: "globe",
-    items: [],
-  },
-  {
-    key: "ipurchase",
-    label: tx("shell.sections.ipurchase", "iPurchase"),
-    icon: "briefcase",
     items: [],
   },
   {

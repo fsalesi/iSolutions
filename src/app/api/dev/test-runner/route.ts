@@ -20,8 +20,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await req.json().catch(() => ({} as { specPath?: string | null }));
-  const run = await startRun(body.specPath ?? null);
+  const body = await req.json().catch(() => ({} as { specPath?: string | null; target?: "spec" | "suite" | "last-failed" }));
+  const target = body.target === "last-failed" ? "last-failed" : body.target === "spec" ? "spec" : body.target === "suite" ? "suite" : (body.specPath ? "spec" : "suite");
+  const run = await startRun(body.specPath ?? null, target);
   return NextResponse.json(run, { status: 202 });
 }
 

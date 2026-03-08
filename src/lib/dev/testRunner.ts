@@ -19,9 +19,12 @@ export interface ArtifactInfo {
   updatedAt: string;
 }
 
+export type RunTarget = "spec" | "suite" | "last-failed";
+
 export interface RunSummary {
   runId: string;
   specPath: string | null;
+  target: RunTarget;
   status: RunStatus;
   startedAt: string;
   finishedAt: string | null;
@@ -227,7 +230,7 @@ export async function writeSpecFile(relativePath: string, content: string): Prom
   await fs.writeFile(absolute, content, "utf8");
 }
 
-export async function startRun(specPath: string | null): Promise<RunSummary> {
+export async function startRun(specPath: string | null, target: RunTarget = specPath ? "spec" : "suite"): Promise<RunSummary> {
   await ensureDir(RUN_ROOT);
   const runId = createRunId();
   const { runDir, metaPath, logPath, outputDir, resultsPath } = buildRunPaths(runId);
@@ -242,7 +245,8 @@ export async function startRun(specPath: string | null): Promise<RunSummary> {
   }
 
   const args = ["playwright", "test"];
-  if (specArg) args.push(specArg);
+  if (target === "last-failed") args.push("--last-failed");
+  else if (specArg) args.push(specArg);
   args.push(`--output=${outputDir}`);
   args.push("--reporter=line,json");
 
@@ -252,6 +256,7 @@ export async function startRun(specPath: string | null): Promise<RunSummary> {
   const meta: RunMeta = {
     runId,
     specPath: safeSpecPath,
+    target,
     status: "running",
     startedAt,
     finishedAt: null,
@@ -326,6 +331,7 @@ export async function listRuns(): Promise<RunSummary[]> {
     runs.push({
       runId: meta.runId,
       specPath: meta.specPath,
+      target: meta.target ?? (meta.specPath ? "spec" : "suite"),
       status: meta.status,
       startedAt: meta.startedAt,
       finishedAt: meta.finishedAt,
@@ -351,6 +357,7 @@ export async function getRunDetails(runId: string): Promise<RunDetails | null> {
   return {
     runId: meta.runId,
     specPath: meta.specPath,
+    target: meta.target ?? (meta.specPath ? "spec" : "suite"),
     status: meta.status,
     startedAt: meta.startedAt,
     finishedAt: meta.finishedAt,

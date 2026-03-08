@@ -10,6 +10,9 @@ function mimeFor(path: string): string {
   if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
   if (lower.endsWith(".gif")) return "image/gif";
   if (lower.endsWith(".webp")) return "image/webp";
+  if (lower.endsWith(".webm")) return "video/webm";
+  if (lower.endsWith(".mp4") || lower.endsWith(".m4v")) return "video/mp4";
+  if (lower.endsWith(".mov")) return "video/quicktime";
   if (lower.endsWith(".json")) return "application/json; charset=utf-8";
   if (lower.endsWith(".md") || lower.endsWith(".log") || lower.endsWith(".txt")) return "text/plain; charset=utf-8";
   if (lower.endsWith(".zip")) return "application/zip";
