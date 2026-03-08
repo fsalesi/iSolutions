@@ -54,7 +54,7 @@ export function ConditionRow({ cond, columns, colTypes, selected, onToggle, onUp
           onKeyDown={e => e.key === "Enter" && onApply()} />
       )}
       <button onClick={onRemove} style={{ padding: 4, borderRadius: 4, background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", flexShrink: 0 }}
-        onMouseEnter={e => { e.currentTarget.style.color = "#ef4444"; }}
+        onMouseEnter={e => { e.currentTarget.style.color = "var(--danger-text)"; }}
         onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; }}>
         <Icon name="x" size={14} />
       </button>

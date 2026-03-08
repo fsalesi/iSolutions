@@ -131,7 +131,7 @@ export function serializeFilters(tree: FilterTree): string {
   return JSON.stringify(tree);
 }
 
-export const RAIL = ["var(--accent)", "#f59e0b", "#8b5cf6", "#10b981", "#ef4444", "#ec4899"];
+export const RAIL = ["var(--rail-1)", "var(--rail-2)", "var(--rail-3)", "var(--rail-4)", "var(--rail-5)", "var(--rail-6)"];
 export const rc = (d: number) => RAIL[d % RAIL.length];
 export const SEL: React.CSSProperties = {
   background: "var(--bg-surface)", border: "1px solid var(--border)",

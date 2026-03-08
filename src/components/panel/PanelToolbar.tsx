@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Icon } from "@/components/icons/Icon";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { AuditPanel } from "@/components/audit-panel/AuditPanel";
 import { NotesPanel } from "@/components/notes-panel/NotesPanel";
 import type { ToolbarDef, ButtonDef } from "@/platform/core/ToolbarDef";
@@ -24,6 +25,7 @@ interface ToolBtn {
 }
 
 export function PanelToolbar({ toolbar, isNew, isDirty, readOnly }: PanelToolbarProps) {
+  const isMobile = useIsMobile();
   const [auditOpen, setAuditOpen] = useState(false);
   const [, setTick] = useState(0);
 
@@ -55,11 +57,11 @@ export function PanelToolbar({ toolbar, isNew, isDirty, readOnly }: PanelToolbar
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 8px", borderBottom: "1px solid var(--border)", background: "var(--bg-surface)", flexShrink: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", flexWrap: isMobile ? "wrap" : "nowrap", gap: 4, padding: "5px 8px", borderBottom: "1px solid var(--border)", background: "var(--bg-surface)", flexShrink: 0 }}>
         {visible.map((btn, i) => {
           const divider = btn.key === "delete" && i > 0;
           return (
-            <span key={btn.key} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span key={btn.key} style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0, maxWidth: isMobile ? "100%" : undefined }}>
               {divider && <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 2px" }} />}
               <button
                 data-testid={`panel-toolbar-${btn.key}`}
@@ -69,6 +71,8 @@ export function PanelToolbar({ toolbar, isNew, isDirty, readOnly }: PanelToolbar
                 style={{
                   display: "flex", alignItems: "center", gap: 5,
                   padding: "4px 10px", borderRadius: 5,
+                  minWidth: 0,
+                  maxWidth: isMobile ? "100%" : undefined,
                   border:      btn.danger ? "1px solid var(--danger-border, #fc8181)" : "1px solid var(--border)",
                   background:  btn.danger ? "transparent" : "var(--bg-surface-alt)",
                   color:       btn.danger ? "var(--danger, #e53e3e)" : btn.disabled ? "var(--text-muted)" : "var(--text-primary)",
@@ -80,7 +84,7 @@ export function PanelToolbar({ toolbar, isNew, isDirty, readOnly }: PanelToolbar
                 onMouseLeave={e => { e.currentTarget.style.background = btn.danger ? "transparent" : "var(--bg-surface-alt)"; }}
               >
                 <Icon name={btn.icon} size={13} />
-                {btn.label}
+                {!isMobile && btn.label}
               </button>
             </span>
           );

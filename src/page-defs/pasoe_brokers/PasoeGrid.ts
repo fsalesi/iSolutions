@@ -14,6 +14,6 @@ export class PasoeGrid extends DataGridDef {
     await super.loadColumns();
 
     // Hide technical fields in the browse — visible in edit panel
-    this.getColumn("proxy_connect").hidden = true;
+    this.getColumn("proxy_connect")?.applyOptions({ hidden: true });
   }
 }

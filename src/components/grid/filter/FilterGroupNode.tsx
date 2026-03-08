@@ -27,7 +27,7 @@ export function GroupNode({ group, columns, colTypes, depth, selection, onSelect
           style={{ width: 15, height: 15, marginBottom: 4, accentColor: "var(--accent)" }} />
         <button
           onClick={() => onChange({ ...group, logic: group.logic === "and" ? "or" : "and" })}
-          style={{ background: color, color: "#fff", padding: "3px 7px", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", lineHeight: 1, marginBottom: 4 }}
+          style={{ background: color, color: "var(--accent-text)", padding: "3px 7px", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", lineHeight: 1, marginBottom: 4 }}
           title={group.logic === "and" ? "Switch to OR" : "Switch to AND"}>
           {group.logic === "and" ? "AND" : "OR"}
         </button>
@@ -35,7 +35,7 @@ export function GroupNode({ group, columns, colTypes, depth, selection, onSelect
         <button
           onClick={() => onChange({ ...group, children: [...group.children, mkCondition(defaultField, colTypes)] })}
           title="Add condition"
-          style={{ width: 18, height: 18, borderRadius: "50%", background: color, color: "#fff", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 4, opacity: 0.7 }}
+          style={{ width: 18, height: 18, borderRadius: "50%", background: color, color: "var(--accent-text)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 4, opacity: 0.7 }}
           onMouseEnter={e => { e.currentTarget.style.opacity = "1"; }}
           onMouseLeave={e => { e.currentTarget.style.opacity = "0.7"; }}>
           <Icon name="plus" size={10} />
@@ -86,7 +86,7 @@ export function GroupNode({ group, columns, colTypes, depth, selection, onSelect
           {onRemove && (
             <button onClick={onRemove}
               style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, border: "none", color: "var(--text-muted)", background: "none", cursor: "pointer", marginLeft: "auto" }}
-              onMouseEnter={e => { e.currentTarget.style.color = "#ef4444"; }}
+              onMouseEnter={e => { e.currentTarget.style.color = "var(--danger-text)"; }}
               onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; }}>
               Remove group
             </button>

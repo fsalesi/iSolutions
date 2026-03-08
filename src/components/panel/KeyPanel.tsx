@@ -1,5 +1,6 @@
 "use client";
 
+import { useIsMobile } from "@/hooks/useIsMobile";
 import type { Row } from "@/platform/core/types";
 
 interface KeyPanelProps {
@@ -9,6 +10,8 @@ interface KeyPanelProps {
 }
 
 export function KeyPanel({ panel, currentRecord, isNew }: KeyPanelProps) {
+  const isMobile = useIsMobile();
+  if (isMobile) return null;
   if (!currentRecord && !isNew) return null;
 
   const keyFields = ((panel.fields as any[]) ?? []).filter((f: any) => f.keyField);

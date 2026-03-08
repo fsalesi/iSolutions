@@ -8,70 +8,83 @@
 :root {
   color-scheme: light;
 
-  /* ── Surface / Background ── */
-  --bg-body:        #f5f5f5;
+  /* -- Surface / Background -- */
+  --bg-body:        #eef3f7;
   --bg-surface:     #ffffff;
-  --bg-surface-alt: #f0f0f2;
-  --bg-hover:       #f0f0f2;
-  --bg-selected:    #eef3f9;
-  --bg-overlay:     rgba(0,0,0,0.4);
+  --bg-surface-alt: #e5edf4;
+  --bg-hover:       #dfe8f0;
+  --bg-selected:    #dbeaf4;
+  --bg-overlay:     rgba(30, 41, 59, 0.30);
 
-  /* ── Sidebar (ISS dark navy) ── */
-  --sidebar-bg:         #141937;
-  --sidebar-text:       #8b92b3;
-  --sidebar-text-hover: #ffffff;
-  --sidebar-active-bg:  rgba(230,57,70,0.18);
-  --sidebar-active-text:#ff6b7a;
-  --sidebar-border:     rgba(60,65,100,0.5);
-  --sidebar-section:    #5c6280;
+  /* -- Sidebar -- */
+  --sidebar-bg:          #284d73;
+  --sidebar-text:        rgba(255,255,255,0.82);
+  --sidebar-text-hover:  #ffffff;
+  --sidebar-active-bg:   rgba(255,255,255,0.16);
+  --sidebar-active-text: #ffffff;
+  --sidebar-border:      rgba(255,255,255,0.14);
+  --sidebar-section:     rgba(255,255,255,0.68);
+  --sidebar-item-hover:  rgba(255,255,255,0.10);
+  --sidebar-shadow:      0 14px 30px rgba(29, 52, 79, 0.18);
 
-  /* ── Header (ISS navy bar) ── */
-  --header-bg:          #1b2159;
-  --header-text:        #ffffff;
-  --header-text-muted:  #a0a8c8;
-  --header-border:      rgba(255,255,255,0.08);
+  /* -- Header -- */
+  --header-bg:            #f7fbfe;
+  --header-text:          #223244;
+  --header-text-muted:    #667789;
+  --header-border:        rgba(34, 50, 68, 0.10);
+  --header-shadow:        0 1px 0 rgba(34, 50, 68, 0.04);
+  --header-control-bg:    rgba(34, 50, 68, 0.06);
+  --header-control-hover: rgba(34, 50, 68, 0.10);
+  --header-control-border: rgba(34, 50, 68, 0.12);
 
-  /* ── Text ── */
-  --text-primary:   #1b2159;
-  --text-secondary: #4a4f6e;
-  --text-muted:     #8b92b3;
+  /* -- Text -- */
+  --text-primary:   #223244;
+  --text-secondary: #4f6275;
+  --text-muted:     #78889a;
   --text-inverse:   #ffffff;
 
-  /* ── Borders ── */
-  --border:         #dfe1e8;
-  --border-light:   #eeeff3;
-  --border-focus:   #3a86c4;
+  /* -- Borders -- */
+  --border:         #cad7e3;
+  --border-light:   #dde7ef;
+  --border-focus:   #357daa;
 
-  /* ── Accent (ISS blue) ── */
-  --accent:         #0e86ca;
-  --accent-hover:   #0b6fa8;
-  --accent-light:   #e6f3fb;
+  /* -- Accent -- */
+  --accent:         #357daa;
+  --accent-hover:   #28658d;
+  --accent-light:   #dbeaf4;
   --accent-text:    #ffffff;
 
-  /* ── Status ── */
-  --success-bg:     #dcfce7;
-  --success-text:   #15803d;
-  --danger-bg:      #fef2f2;
-  --danger-text:    #dc2626;
-  --danger-border:  #fecaca;
-  --warning-bg:     #fffbeb;
-  --warning-text:   #d97706;
+  /* -- Status -- */
+  --success-bg:     #e1f3e8;
+  --success-text:   #2d7b53;
+  --danger-bg:      #f8e7e5;
+  --danger-text:    #b74f45;
+  --danger-border:  #ebc7c2;
+  --warning-bg:     #fbf0db;
+  --warning-text:   #a86f1f;
 
-  /* ── Form ── */
-  --input-bg:       #ffffff;
-  --input-border:   #c8cad4;
-  --input-bg-ro:    #f5f5f7;
-  --input-border-ro:#dfe1e8;
+  /* -- Form -- */
+  --input-bg:        #ffffff;
+  --input-border:    #bccbda;
+  --input-bg-ro:     #edf3f8;
+  --input-border-ro: #d4e0ea;
 
-  /* ── Section Headers (ISS teal-blue) ── */
-  --section-title:  #0e86ca;
+  /* -- Section Headers -- */
+  --section-title:  #357daa;
+  --rail-1:         var(--accent);
+  --rail-2:         #b58b3f;
+  --rail-3:         #7d6bc2;
+  --rail-4:         #429277;
+  --rail-5:         var(--danger-text);
+  --rail-6:         #b96691;
 
-  /* ── Misc ── */
-  --ring-focus:     rgba(58,134,196,0.25);
-  --shadow-sm:      0 1px 2px rgba(0,0,0,0.06);
-  --shadow-md:      0 4px 6px -1px rgba(0,0,0,0.1);
+  /* -- Misc -- */
+  --ring-focus:     rgba(53,125,170,0.22);
+  --shadow-sm:      0 1px 2px rgba(34,50,68,0.05);
+  --shadow-md:      0 10px 24px rgba(34,50,68,0.10);
+  --danger-hover:   rgba(183,79,69,0.08);
 
-  /* ── Layout ── */
+  /* -- Layout -- */
   --sidebar-width:  240px;
   --header-height:  52px;
 }
@@ -79,75 +92,86 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  /* ── Surface / Background ── */
-  --bg-body:        #0c0f1a;
-  --bg-surface:     #151927;
-  --bg-surface-alt: #1c2235;
-  --bg-hover:       #1c2235;
-  --bg-selected:    #172044;
-  --bg-overlay:     rgba(0,0,0,0.6);
+  /* -- Surface / Background -- */
+  --bg-body:        #10151d;
+  --bg-surface:     #171d26;
+  --bg-surface-alt: #202836;
+  --bg-hover:       #253042;
+  --bg-selected:    #1d3142;
+  --bg-overlay:     rgba(7, 10, 16, 0.72);
 
-  /* ── Sidebar ── */
-  --sidebar-bg:         #090c16;
-  --sidebar-text:       #64748b;
-  --sidebar-text-hover: #e2e8f0;
-  --sidebar-active-bg:  rgba(37,99,235,0.2);
-  --sidebar-active-text:#60a5fa;
-  --sidebar-border:     rgba(30,41,59,0.8);
-  --sidebar-section:    #475569;
+  /* -- Sidebar -- */
+  --sidebar-bg:          #131a24;
+  --sidebar-text:        #9fb0c2;
+  --sidebar-text-hover:  #f5f9ff;
+  --sidebar-active-bg:   rgba(91, 163, 208, 0.18);
+  --sidebar-active-text: #f5f9ff;
+  --sidebar-border:      rgba(255,255,255,0.08);
+  --sidebar-section:     #7f93a8;
+  --sidebar-item-hover:  rgba(255,255,255,0.06);
+  --sidebar-shadow:      0 18px 40px rgba(0,0,0,0.42);
 
-  /* ── Header ── */
-  --header-bg:          #0d1020;
-  --header-text:        #e2e8f0;
-  --header-text-muted:  #64748b;
-  --header-border:      rgba(255,255,255,0.06);
+  /* -- Header -- */
+  --header-bg:            #141b25;
+  --header-text:          #e8eff7;
+  --header-text-muted:    #8a9caf;
+  --header-border:        rgba(255,255,255,0.07);
+  --header-shadow:        0 1px 0 rgba(255,255,255,0.03);
+  --header-control-bg:    rgba(255,255,255,0.06);
+  --header-control-hover: rgba(255,255,255,0.10);
+  --header-control-border: rgba(255,255,255,0.08);
 
-  /* ── Text ── */
-  --text-primary:   #e2e8f0;
-  --text-secondary: #94a3b8;
-  --text-muted:     #475569;
-  --text-inverse:   #0f172a;
+  /* -- Text -- */
+  --text-primary:   #e6edf5;
+  --text-secondary: #a7b6c6;
+  --text-muted:     #6f8092;
+  --text-inverse:   #111821;
 
-  /* ── Borders ── */
-  --border:         #1e293b;
-  --border-light:   #1c2235;
-  --border-focus:   #3b82f6;
+  /* -- Borders -- */
+  --border:         #2a3444;
+  --border-light:   #222b38;
+  --border-focus:   #5ba3d0;
 
-  /* ── Accent ── */
-  --accent:         #3b82f6;
-  --accent-hover:   #2563eb;
-  --accent-light:   #172044;
-  --accent-text:    #ffffff;
+  /* -- Accent -- */
+  --accent:         #5ba3d0;
+  --accent-hover:   #4a90bc;
+  --accent-light:   #22384a;
+  --accent-text:    #f7fbff;
 
-  /* ── Status ── */
-  --success-bg:     #052e16;
-  --success-text:   #4ade80;
-  --danger-bg:      #2c0b0e;
-  --danger-text:    #f87171;
-  --danger-border:  #7f1d1d;
-  --warning-bg:     #2c1f08;
-  --warning-text:   #fbbf24;
+  /* -- Status -- */
+  --success-bg:     #173127;
+  --success-text:   #7fd6a5;
+  --danger-bg:      #341c20;
+  --danger-text:    #ef8d86;
+  --danger-border:  #6b363b;
+  --warning-bg:     #382b17;
+  --warning-text:   #f1c36a;
 
-  /* ── Form ── */
-  --input-bg:       #1c2235;
-  --input-border:   #2d3754;
-  --input-bg-ro:    #151927;
-  --input-border-ro:#1e293b;
+  /* -- Form -- */
+  --input-bg:        #202836;
+  --input-border:    #334055;
+  --input-bg-ro:     #181f29;
+  --input-border-ro: #293547;
 
-  /* ── Section Headers ── */
-  --section-title:  #38bdf8;
+  /* -- Section Headers -- */
+  --section-title:  #78b8de;
+  --rail-1:         var(--accent);
+  --rail-2:         #d3a65d;
+  --rail-3:         #9c88df;
+  --rail-4:         #59b999;
+  --rail-5:         var(--danger-text);
+  --rail-6:         #d07aa7;
 
-  /* ── Misc ── */
-  --ring-focus:     rgba(59,130,246,0.3);
-  --shadow-sm:      0 1px 2px rgba(0,0,0,0.3);
-  --shadow-md:      0 4px 6px -1px rgba(0,0,0,0.4);
+  /* -- Misc -- */
+  --ring-focus:     rgba(91,163,208,0.28);
+  --shadow-sm:      0 1px 2px rgba(0,0,0,0.26);
+  --shadow-md:      0 14px 28px rgba(0,0,0,0.34);
+  --danger-hover:   rgba(239,141,134,0.12);
 }
 
-/* ═══════════════════════════════════════════════════════════════════
+/* ════════════════════════════════════════════════════════════════════
    Base Styles
-   ═══════════════════════════════════════════════════════════════════ */
-* { box-sizing: border-box; }
-
+   ════════════════════════════════════════════════════════════════════ */
 html, body {
   height: 100%;
   overflow: hidden;

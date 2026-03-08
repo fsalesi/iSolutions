@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input, Select } from "@/components/ui";
 import { Toggle } from "@/components/ui/Toggle";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -10,7 +10,7 @@ import { Lookup } from "@/components/lookup/Lookup";
 
 interface FieldRendererProps {
   field: FieldDef;
-  onChange?: (value: any) => void;
+  onChange?: (value: unknown) => void;
 }
 
 export function FieldRenderer({ field, onChange }: FieldRendererProps) {
@@ -22,9 +22,13 @@ export function FieldRenderer({ field, onChange }: FieldRendererProps) {
   const effectiveReadOnly = field.keyField ? !isNew : (field.readOnly ?? false);
 
   // Local React state — initialized from field.value (set by display() cascade)
-  const [value, setValue] = useState<any>(field.value);
+  const [value, setValue] = useState(field.value);
 
-  const handleChange = (v: any) => {
+  useEffect(() => {
+    setValue(field.value);
+  }, [field.value, field.panel?.displayNonce]);
+
+  const handleChange = (v: unknown) => {
     setValue(v);
     field.setValue(v);   // marks panel dirty
     onChange?.(v);
@@ -87,6 +91,7 @@ export function FieldRenderer({ field, onChange }: FieldRendererProps) {
           onChange={handleChange}
           config={field.lookupConfig}
           label={field.label}
+          hydrateNonce={field.panel?.displayNonce !== undefined ? String(field.panel.displayNonce) : undefined}
         />
       ) : (
         <span style={{ color: "var(--text-muted)", fontSize: "0.75rem", fontStyle: "italic" }}>
@@ -94,6 +99,27 @@ export function FieldRenderer({ field, onChange }: FieldRendererProps) {
         </span>
       );
       break;
+
+    case "svg": {
+      const raw = String(value ?? "");
+      input = (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <Input value={raw} onChange={effectiveReadOnly ? undefined : handleChange} readOnly={effectiveReadOnly} />
+          {raw && (
+            <span
+              dangerouslySetInnerHTML={{ __html: raw }}
+              style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                padding: "0.5rem", border: "1px solid var(--border)", borderRadius: 6,
+                background: "var(--bg-subtle, #f9f9f9)", width: "fit-content",
+                minWidth: 64, minHeight: 40,
+              }}
+            />
+          )}
+        </div>
+      );
+      break;
+    }
 
     case "text":
     default:

@@ -40,6 +40,12 @@ export interface DataGridDefOptions {
   parentLink?: { parentField: string; myField: string };
 }
 
+export interface GridFilterState {
+  search: string;
+  filterTree: FilterTree;
+  columnFilters: Record<string, string>;
+}
+
 export class DataGridDef implements ChildElement, Renderable {
   readonly type = "grid" as const;
 
@@ -195,7 +201,7 @@ export class DataGridDef implements ChildElement, Renderable {
   getSelectedRows():        Row[] { return []; } // stub
 
   // Column management
-  getColumn(key: string): ColumnDef    { const col = this.columns.find(c => c.key === key); if (!col) throw new Error(`Column "${key}" not found`); return col; }
+  getColumn(key: string): ColumnDef | undefined { return this.columns.find(c => c.key === key); }
   addColumn(col: ColumnDef): this      { return this; } // stub
   removeColumn(key: string): this      { return this; } // stub
 
@@ -216,8 +222,17 @@ export class DataGridDef implements ChildElement, Renderable {
   /** localStorage key for persisting column prefs for this grid. */
   private get _colPrefKey(): string | null {
     const fk = this.form?.formKey;
+    const mode = this.mode || "browse";
     if (!fk || !this.key) return null;
-    return `isolutions.cols.${fk}.${this.key}`;
+    return `isolutions.cols.${fk}.${this.key}.${mode}`;
+  }
+
+  /** localStorage key for persisting filter/search state for this grid. */
+  private get _filterStateKey(): string | null {
+    const fk = this.form?.formKey;
+    const mode = this.mode || "browse";
+    if (!fk || !this.key) return null;
+    return `isolutions.filters.${fk}.${this.key}.${mode}.v${this.stateVersion}`;
   }
 
   /** Persist current column hidden/width state to localStorage. */
@@ -226,6 +241,49 @@ export class DataGridDef implements ChildElement, Renderable {
     if (!k || typeof localStorage === "undefined") return;
     const prefs = this.columns.map(c => ({ key: c.key, hidden: c.hidden ?? false, width: c.width }));
     localStorage.setItem(k, JSON.stringify(prefs));
+  }
+
+  loadFilterState(): GridFilterState | null {
+    const k = this._filterStateKey;
+    if (!k || typeof localStorage === "undefined") return null;
+    const raw = localStorage.getItem(k);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw) as Partial<GridFilterState>;
+      return {
+        search: typeof parsed.search === "string" ? parsed.search : "",
+        filterTree: parsed.filterTree ?? null,
+        columnFilters: parsed.columnFilters && typeof parsed.columnFilters === "object"
+          ? Object.fromEntries(
+              Object.entries(parsed.columnFilters).filter(
+                ([key, value]) => key && typeof value === "string" && value.trim() !== ""
+              )
+            )
+          : {},
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  saveFilterState(state: GridFilterState): void {
+    const k = this._filterStateKey;
+    if (!k || typeof localStorage === "undefined") return;
+    localStorage.setItem(k, JSON.stringify({
+      search: state.search ?? "",
+      filterTree: state.filterTree ?? null,
+      columnFilters: Object.fromEntries(
+        Object.entries(state.columnFilters ?? {}).filter(
+          ([key, value]) => key && typeof value === "string" && value.trim() !== ""
+        )
+      ),
+    }));
+  }
+
+  clearFilterState(): void {
+    const k = this._filterStateKey;
+    if (!k || typeof localStorage === "undefined") return;
+    localStorage.removeItem(k);
   }
 
   /** Apply saved column prefs (hidden, width, order) from localStorage. */
@@ -268,8 +326,17 @@ export class DataGridDef implements ChildElement, Renderable {
     this._applyColumnPrefs();
   }
 
+  /**
+   * Override in a subclass to provide a custom mobile card layout.
+   * Return null to use the default card renderer.
+   */
+  renderCard(_row: import("./types").Row, _isSelected: boolean): import("react").ReactNode {
+    return null;
+  }
+
   render(): import("react").ReactNode {
-    return <DataGridRenderer grid={this} />;
+    const renderKey = `${this.form?.formKey ?? "form"}:${this.key}:${this.mode}`;
+    return <DataGridRenderer key={renderKey} grid={this} />;
   }
 
   // ChildElement — called when this is a child grid inside a panel

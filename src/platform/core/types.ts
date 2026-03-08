@@ -40,7 +40,7 @@ export type RendererType =
   | "text" | "number" | "date" | "datetime" | "checkbox"
   | "select" | "lookup" | "textarea" | "password" | "readonly" | "image"
   // Column renderers
-  | "badge" | "currency" | "boolean" | "dateDisplay";
+  | "badge" | "currency" | "boolean" | "dateDisplay" | "svg";
 
 export type DisplayMode = "inline" | "slide-in-right" | "modal-centered";
 

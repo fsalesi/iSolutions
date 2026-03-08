@@ -4,13 +4,14 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Icon } from "@/components/icons/Icon";
 import { GridToolbar } from "./GridToolbar";
 import { AdvancedSearch } from "./filter/AdvancedSearch";
-import type { DataGridDef } from "@/platform/core/DataGridDef";
+import type { DataGridDef, GridFilterState } from "@/platform/core/DataGridDef";
 import type { ColumnDef } from "@/platform/core/ColumnDef";
 import type { Row } from "@/platform/core/types";
 import type { FilterTree, ColType } from "./filter/filter-types";
 import { countConditions } from "./filter/filter-types";
 import type { FilterCondition, FilterGroup } from "./filter/filter-types";
 import { CellRenderer } from "./CellRenderer";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 const CHUNK = 50;
 
@@ -58,6 +59,7 @@ function mergeFilters(a: FilterTree, b: FilterTree): FilterTree {
 
 export function DataGridRenderer({ grid }: DataGridRendererProps) {
   const isInfinite = grid.pageSize === 0;
+  const isMobile   = useIsMobile();
 
   // ── Shared state ──────────────────────────────────────────────────────────
   const [columns,       setColumns]       = useState<ColumnDef[]>([]);
@@ -207,6 +209,10 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
   const loadChunkRef = useRef(loadChunk);
   useEffect(() => { loadChunkRef.current = loadChunk; });
 
+  const persistFilterState = useCallback((state: GridFilterState) => {
+    grid.saveFilterState(state);
+  }, [grid]);
+
   // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (initialized.current) return;
@@ -214,11 +220,22 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
     (async () => {
       if (grid.columns.length === 0) await grid.loadColumns();
       setColumns([...grid.columns]);
+
+      const savedState = grid.loadFilterState();
+      const savedSearch = savedState?.search ?? "";
+      const savedFilterTree = savedState?.filterTree ?? null;
+      const savedColumnFilters = savedState?.columnFilters ?? {};
+      const savedEffectiveFilter = mergeFilters(savedFilterTree, buildColFilterTree(savedColumnFilters, grid.columns));
+
+      setSearch(savedSearch);
+      setFilterTree(savedFilterTree);
+      setColumnFilters(savedColumnFilters);
+
       if (isInfinite) {
         nextOffsetRef.current = 0;
-        await loadChunk(0, "", null, "", "ASC", { replace: true });
+        await loadChunk(0, savedSearch, savedEffectiveFilter, "", "ASC", { replace: true });
       } else {
-        await doFetch({ page: 0 });
+        await doFetch({ page: 0, search: savedSearch, filter: savedEffectiveFilter });
       }
     })();
   }, [grid]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -294,6 +311,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
 
   const handleSearch = (val: string) => {
     setSearch(val);
+    persistFilterState({ search: val, filterTree, columnFilters });
     const eft = mergeFilters(filterTree, buildColFilterTree(columnFilters, columns));
     if (isInfinite) {
       infiniteReset(val, eft, sortKey, sortDir);
@@ -306,6 +324,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
   const handleApplyFilter = (tree: FilterTree) => {
     const t = tree ?? null;
     setFilterTree(t);
+    persistFilterState({ search, filterTree: t, columnFilters });
     const eft = mergeFilters(t, buildColFilterTree(columnFilters, columns));
     if (isInfinite) {
       infiniteReset(search, eft, sortKey, sortDir);
@@ -319,6 +338,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
     const next = { ...columnFilters };
     if (val.trim()) next[key] = val; else delete next[key];
     setColumnFilters(next);
+    persistFilterState({ search, filterTree, columnFilters: next });
     const eft = mergeFilters(filterTree, buildColFilterTree(next, columns));
     if (isInfinite) {
       infiniteReset(search, eft, sortKey, sortDir);
@@ -388,12 +408,13 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
         onClearFilter={() => {
           setColumnFilters({});
           setActiveColFilter(null);
+          persistFilterState({ search, filterTree: null, columnFilters: {} });
           handleApplyFilter(null);
         }}
       />
 
-      {/* Column headers */}
-      <div style={{ display: "flex", flexShrink: 0, background: "var(--bg-surface-alt)", borderBottom: activeColFilter ? "none" : "1px solid var(--border)", overflowX: "hidden" }}>
+      {/* Column headers — desktop only */}
+      {!isMobile && <div style={{ display: "flex", flexShrink: 0, background: "var(--bg-surface-alt)", borderBottom: activeColFilter ? "none" : "1px solid var(--border)", overflowX: "hidden" }}>
         {visibleCols.length === 0
           ? <div style={{ padding: "7px 10px", fontSize: "0.72rem", color: "var(--text-muted)" }}>Loading…</div>
           : visibleCols.map(col => {
@@ -432,7 +453,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
             );
           })
         }
-      </div>
+      </div>}
 
       {/* Column filter input row */}
       {activeColFilter && (
@@ -481,6 +502,17 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
             <Icon name="list" size={28} />
             <span style={{ fontSize: "0.82rem" }}>No records</span>
           </div>
+        ) : isMobile ? (
+          rows.map(row => {
+            const oid = row.oid as string;
+            const isSel = oid === selectedOid;
+            const custom = grid.renderCard(row, isSel);
+            return (
+              <div key={oid} onClick={() => { setSelectedOid(oid); if (grid.mode === "lookup") { grid.onSelect?.(row); } else if (grid.panel) { grid.panel.display(row); } }}>
+                {custom ?? <DefaultCard row={row} columns={visibleCols} isSelected={isSel} />}
+              </div>
+            );
+          })
         ) : (
           rows.map(renderRow)
         )}
@@ -540,5 +572,43 @@ function SpinnerIcon() {
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="22 8" />
     </svg>
+  );
+}
+
+// ─── DefaultCard ──────────────────────────────────────────────────────────────
+
+function DefaultCard({ row, columns, isSelected }: {
+  row: Row;
+  columns: ColumnDef[];
+  isSelected: boolean;
+}) {
+  const cardCols = columns.filter(c => !c.hideOnMobile);
+  const primary   = cardCols[0];
+  const secondary = cardCols.slice(1);
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10,
+      padding: "12px 14px",
+      borderBottom: "1px solid var(--border-light, var(--border))",
+      background: isSelected ? "var(--bg-selected, rgba(14,134,202,0.08))" : "transparent",
+      cursor: "pointer",
+    }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {primary && (
+          <div style={{ fontSize: "0.875rem", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-primary)" }}>
+            <CellRenderer col={primary} row={row} />
+          </div>
+        )}
+        {secondary.length > 0 && (
+          <div style={{ fontSize: "0.75rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-muted)", marginTop: 2 }}>
+            {secondary.map((col, i) => (
+              <span key={col.key}>{i > 0 && " · "}<CellRenderer col={col} row={row} /></span>
+            ))}
+          </div>
+        )}
+      </div>
+      <Icon name="chevRight" size={14} style={{ color: "var(--text-muted)", flexShrink: 0 } as any} />
+    </div>
   );
 }

@@ -31,6 +31,7 @@ export class EditPanel extends PanelDef implements Renderable {
 
   render(): import("react").ReactNode {
     const { EditPanelRenderer } = require("@/components/panel/EditPanelRenderer");
-    return <EditPanelRenderer panel={this} />;
+    const renderKey = `${this.form?.key ?? "form"}:${this.constructor.name}`;
+    return <EditPanelRenderer key={renderKey} panel={this} />;
   }
 }

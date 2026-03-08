@@ -9,9 +9,9 @@ function InlineConfirm({ message, onConfirm, onCancel }: {
   message: string; onConfirm: () => void; onCancel: () => void;
 }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 6, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", fontSize: 12 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 6, background: "var(--danger-hover)", border: "1px solid var(--danger-border)", fontSize: 12 }}>
       <span style={{ color: "var(--text-primary)" }}>{message}</span>
-      <button onClick={onConfirm} style={{ padding: "2px 8px", borderRadius: 4, background: "#ef4444", color: "#fff", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>Delete</button>
+      <button onClick={onConfirm} style={{ padding: "2px 8px", borderRadius: 4, background: "var(--danger-text)", color: "var(--accent-text)", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>Delete</button>
       <button onClick={onCancel} style={{ padding: "2px 8px", borderRadius: 4, color: "var(--text-muted)", border: "none", background: "none", cursor: "pointer", fontSize: 11 }}>Cancel</button>
     </div>
   );
@@ -28,7 +28,7 @@ function InlineSaveName({ onSave, onCancel }: { onSave: (name: string) => void; 
         style={{ ...SEL, flex: "0 1 160px", fontSize: 12 }}
         onKeyDown={e => { if (e.key === "Enter" && name.trim()) onSave(name.trim()); if (e.key === "Escape") onCancel(); }} />
       <button onClick={() => name.trim() && onSave(name.trim())} disabled={!name.trim()}
-        style={{ padding: "3px 10px", borderRadius: 4, background: "var(--accent)", color: "#fff", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, opacity: name.trim() ? 1 : 0.4 }}>
+        style={{ padding: "3px 10px", borderRadius: 4, background: "var(--accent)", color: "var(--accent-text)", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, opacity: name.trim() ? 1 : 0.4 }}>
         Save
       </button>
       <button onClick={onCancel} style={{ padding: "3px 8px", borderRadius: 4, color: "var(--text-muted)", border: "none", background: "none", cursor: "pointer", fontSize: 12 }}>
@@ -70,7 +70,7 @@ export function SavedFiltersBar({ saved, activeName, onLoad, onSave, onSaveAs, o
           <Icon name="chevDown" size={12} />
         </button>
         {open && (
-          <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 300, background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", minWidth: 240, overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 300, background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-md)", minWidth: 240, overflow: "hidden" }}>
             {saved.length === 0 && (
               <div style={{ padding: "10px 14px", fontSize: 12, color: "var(--text-muted)" }}>No saved filters yet</div>
             )}
@@ -92,7 +92,7 @@ export function SavedFiltersBar({ saved, activeName, onLoad, onSave, onSaveAs, o
                     <span style={{ flex: 1, fontSize: 12, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {s.name}
                       {s.is_default && (
-                        <span style={{ marginLeft: 6, fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "var(--accent)", color: "#fff" }}>default</span>
+                        <span style={{ marginLeft: 6, fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "var(--accent)", color: "var(--accent-text)" }}>default</span>
                       )}
                     </span>
                     <button onClick={e => { e.stopPropagation(); onSetDefault(s); }}
@@ -105,7 +105,7 @@ export function SavedFiltersBar({ saved, activeName, onLoad, onSave, onSaveAs, o
                     <button onClick={e => { e.stopPropagation(); setConfirmDelete(s); }}
                       title="Delete"
                       style={{ padding: 3, borderRadius: 3, background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", opacity: 0.6 }}
-                      onMouseEnter={e => { e.currentTarget.style.color = "#ef4444"; e.currentTarget.style.opacity = "1"; }}
+                      onMouseEnter={e => { e.currentTarget.style.color = "var(--danger-text)"; e.currentTarget.style.opacity = "1"; }}
                       onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.opacity = "0.6"; }}>
                       <Icon name="trash" size={12} />
                     </button>

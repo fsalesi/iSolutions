@@ -20,17 +20,18 @@ export function EditPanelRenderer({ panel }: EditPanelRendererProps) {
 
   // Wire direct callbacks — no pub/sub needed
   useEffect(() => {
-    panel.onDisplay = (row) => {
+    const handleDisplay = (row: Row | null) => {
       setCurrentRecord(row);
       setIsNew(panel.isNew);
       setIsDirty(panel.isDirty);
       setTick(t => t + 1);
     };
+    panel.addDisplayListener(handleDisplay);
     panel.onDirtyChanged = (dirty) => {
       setIsDirty(dirty);
     };
     return () => {
-      panel.onDisplay      = null;
+      panel.removeDisplayListener(handleDisplay);
       panel.onDirtyChanged = null;
     };
   }, [panel]);
@@ -56,7 +57,7 @@ export function EditPanelRenderer({ panel }: EditPanelRendererProps) {
             Select a record to edit
           </div>
         ) : (
-          <TabRenderer key={tick} tabs={panel.tabs} panel={panel} />
+          <TabRenderer key="stable" tabs={panel.tabs} panel={panel} />
         )}
       </div>
 

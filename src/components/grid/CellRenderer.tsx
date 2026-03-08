@@ -20,7 +20,7 @@ export function CellRenderer({ col, row }: CellRendererProps) {
           width: 16, height: 16, borderRadius: 3,
           background: val ? "var(--accent, #0e86ca)" : "transparent",
           border: `1.5px solid ${val ? "var(--accent, #0e86ca)" : "var(--border)"}`,
-          color: "#fff", fontSize: "0.65rem", fontWeight: 700,
+          color: "var(--accent-text)", fontSize: "0.65rem", fontWeight: 700,
         }}>
           {val ? "✓" : ""}
         </span>
@@ -58,6 +58,16 @@ export function CellRenderer({ col, row }: CellRendererProps) {
         }}>
           {label}
         </span>
+      );
+    }
+
+    case "svg": {
+      if (!val) return <span style={{ color: "var(--text-muted)" }}>—</span>;
+      return (
+        <span
+          dangerouslySetInnerHTML={{ __html: String(val) }}
+          style={{ display: "inline-flex", width: 32, height: 22, alignItems: "center", justifyContent: "center" }}
+        />
       );
     }
 

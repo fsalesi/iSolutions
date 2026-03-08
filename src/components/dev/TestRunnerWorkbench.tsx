@@ -77,7 +77,8 @@ export function TestRunnerWorkbench() {
   const pollingRef = useRef<number | null>(null);
 
   const isDirty = selectedSpec !== "" && specContent !== savedContent;
-  const selectedArtifactInfo = runDetails?.artifacts.find((artifact) => artifact.relativePath === selectedArtifact) ?? null;
+  const artifacts = runDetails?.artifacts ?? [];
+  const selectedArtifactInfo = artifacts.find((artifact) => artifact.relativePath === selectedArtifact) ?? null;
   const artifactUrl = selectedRunId && selectedArtifact
     ? `/api/dev/test-runner/artifact?runId=${encodeURIComponent(selectedRunId)}&path=${encodeURIComponent(selectedArtifact)}`
     : "";
@@ -110,13 +111,14 @@ export function TestRunnerWorkbench() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? "Unable to load run");
     setRunDetails(data);
-    if (!selectedArtifact && data.artifacts?.length) {
-      setSelectedArtifact(data.artifacts[0].relativePath);
+    const nextArtifacts = data.artifacts ?? [];
+    if (!selectedArtifact && nextArtifacts.length) {
+      setSelectedArtifact(nextArtifacts[0].relativePath);
     }
   }
 
   async function loadArtifactPreview(runId: string, artifactPath: string) {
-    const artifact = runDetails?.artifacts.find((item) => item.relativePath === artifactPath);
+    const artifact = (runDetails?.artifacts ?? []).find((item) => item.relativePath === artifactPath);
     if (!artifact || !["text", "json"].includes(artifact.kind)) {
       setArtifactText("");
       return;
@@ -352,7 +354,7 @@ export function TestRunnerWorkbench() {
           <div style={{ borderRight: "1px solid #e5e7eb", background: "#ffffff", overflow: "auto" }}>
             <div style={{ padding: 16, borderBottom: "1px solid #e5e7eb", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#6b7280" }}>Artifacts</div>
             <div style={{ padding: 12, display: "grid", gap: 8 }}>
-              {runDetails?.artifacts.map((artifact) => (
+              {artifacts.map((artifact) => (
                 <button
                   key={artifact.relativePath}
                   onClick={() => setSelectedArtifact(artifact.relativePath)}

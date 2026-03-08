@@ -49,8 +49,8 @@ export function UserMenu({ onNavigate }: UserMenuProps) {
       <button
         onClick={() => setOpen(o => !o)}
         className="flex items-center gap-2 px-2 py-1 rounded-md transition-colors"
-        style={{ color: "var(--header-text)", background: open ? "rgba(255,255,255,0.1)" : "transparent" }}
-        onMouseEnter={e => { if (!open) e.currentTarget.style.background = "rgba(255,255,255,0.1)"; }}
+        style={{ color: "var(--header-text)", background: open ? "var(--header-control-bg)" : "transparent" }}
+        onMouseEnter={e => { if (!open) e.currentTarget.style.background = "var(--header-control-hover)"; }}
         onMouseLeave={e => { if (!open) e.currentTarget.style.background = "transparent"; }}
       >
         <span className="hidden md:inline text-xs">{user.fullName || user.userId}</span>
@@ -65,7 +65,7 @@ export function UserMenu({ onNavigate }: UserMenuProps) {
           style={{
             background:  "var(--bg-surface)",
             border:      "1px solid var(--border)",
-            boxShadow:   "0 10px 25px rgba(0,0,0,.15)",
+            boxShadow:   "var(--shadow-md)",
           }}
         >
           {/* User header */}

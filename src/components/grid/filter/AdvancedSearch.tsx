@@ -124,7 +124,7 @@ export function AdvancedSearch({ columns, colTypes, filters, gridKey, onChange, 
 
   const tbtn = (label: string, icon: string, onClick: () => void, disabled: boolean, danger?: boolean) => (
     <button onClick={onClick} disabled={disabled}
-      style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 6, border: "1px solid var(--border)", color: danger ? "#ef4444" : "var(--text-primary)", background: "var(--bg-surface)", fontSize: 12, fontWeight: 500, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.3 : 1 }}>
+      style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 6, border: "1px solid var(--border)", color: danger ? "var(--danger-text)" : "var(--text-primary)", background: "var(--bg-surface)", fontSize: 12, fontWeight: 500, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.3 : 1 }}>
       <Icon name={icon} size={13} />{label}
     </button>
   );
@@ -137,7 +137,7 @@ export function AdvancedSearch({ columns, colTypes, filters, gridKey, onChange, 
           <Icon name="filter" size={18} />
           <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 15 }}>Advanced Search</span>
           {activeCount > 0 && (
-            <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 10, fontWeight: 600, background: "var(--accent)", color: "#fff" }}>
+            <span style={{ fontSize: 11, padding: "2px 7px", borderRadius: 10, fontWeight: 600, background: "var(--accent)", color: "var(--accent-text)" }}>
               {activeCount} filter{activeCount !== 1 ? "s" : ""}
             </span>
           )}
@@ -193,9 +193,9 @@ export function AdvancedSearch({ columns, colTypes, filters, gridKey, onChange, 
         <div>
           {activeCount > 0 && (
             <button onClick={clearAll}
-              style={{ fontSize: 13, padding: "6px 14px", borderRadius: 6, color: "#ef4444", border: "1px solid rgba(239,68,68,0.25)", background: "none", cursor: "pointer" }}
-              onMouseEnter={e => { e.currentTarget.style.background = "rgba(239,68,68,0.08)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "none"; }}>
+              style={{ fontSize: 13, padding: "6px 14px", borderRadius: 6, color: "var(--danger-text)", border: "1px solid var(--danger-border)", background: "transparent", cursor: "pointer" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "var(--danger-hover)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
               Clear All
             </button>
           )}
@@ -206,7 +206,7 @@ export function AdvancedSearch({ columns, colTypes, filters, gridKey, onChange, 
             Close
           </button>
           <button onClick={handleApply}
-            style={{ padding: "7px 20px", borderRadius: 6, background: "var(--accent)", color: "#fff", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+            style={{ padding: "7px 20px", borderRadius: 6, background: "var(--accent)", color: "var(--accent-text)", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
             Show Results
           </button>
         </div>

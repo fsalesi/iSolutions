@@ -23,6 +23,8 @@ const NAV_SECTIONS: NavSection[] = [
     icon: "settings",
     items: [
       { key: "form:groups",        label: "Groups",           icon: "fileText" },
+      { key: "form:locales",       label: "Locales",          icon: "fileText" },
+      { key: "form:translations",  label: "Translations",     icon: "fileText" },
       { key: "form:pasoe_brokers", label: "PASOE Brokers",    icon: "fileText" },
       { key: "form:sso_config",    label: "SSO Configuration",icon: "fileText" },
       { key: "form:settings", label: "System Settings", icon: "fileText" },
@@ -88,17 +90,18 @@ export function AppShell({ children, title, subtitle, activeNav: controlledNav, 
             height:       "var(--header-height, 52px)",
             display:      "flex",
             alignItems:   "center",
-            padding:      "0 12px",
+            padding:      "0 14px",
             gap:          8,
             flexShrink:   0,
             background:   "var(--header-bg)",
             borderBottom: "1px solid var(--header-border)",
+            boxShadow:    "var(--header-shadow)",
           }}
         >
           {/* Hamburger */}
           <button
             onClick={() => setSidebarOpen(o => !o)}
-            style={{ color: "var(--header-text-muted)", padding: 6, display: "flex" }}
+            style={{ color: "var(--header-text-muted)", padding: 8, display: "flex", borderRadius: 10, background: "transparent" }}
           >
             <Icon name="menu" size={20} />
           </button>
@@ -113,8 +116,8 @@ export function AppShell({ children, title, subtitle, activeNav: controlledNav, 
                 fontWeight: 600,
                 borderRadius: 6,
                 padding: "4px 8px",
-                background: "rgba(255,255,255,0.1)",
-                border: "1px solid rgba(255,255,255,0.15)",
+                background: "var(--header-control-bg)",
+                border: "1px solid var(--header-control-border)",
                 color: "var(--header-text)",
                 cursor: "pointer",
               }}

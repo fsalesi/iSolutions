@@ -16,6 +16,7 @@ export interface ColumnDefOptions {
   precision?: number;
   alwaysRetrieve?: boolean;
   rendererOptions?: Record<string, any>;
+  hideOnMobile?: boolean;
 }
 
 export class ColumnDef {
@@ -40,6 +41,9 @@ export class ColumnDef {
   // Badge colors, format strings, etc.
   rendererOptions?: Record<string, any>;
 
+  // Hide this column in mobile card view
+  hideOnMobile: boolean = false;
+
   constructor(options: ColumnDefOptions) {
     this.key   = options.key;
     this.label = options.label;
@@ -54,6 +58,7 @@ export class ColumnDef {
     if (options.precision        !== undefined) this.precision        = options.precision;
     if (options.alwaysRetrieve   !== undefined) this.alwaysRetrieve   = options.alwaysRetrieve;
     if (options.rendererOptions  !== undefined) this.rendererOptions  = options.rendererOptions;
+    if (options.hideOnMobile       !== undefined) this.hideOnMobile      = options.hideOnMobile;
   }
 
   /** Apply a partial set of options — used by DataSourceDef to set canonical labels/renderers. */
@@ -70,6 +75,7 @@ export class ColumnDef {
     if (options.precision       !== undefined) this.precision       = options.precision;
     if (options.alwaysRetrieve  !== undefined) this.alwaysRetrieve  = options.alwaysRetrieve;
     if (options.rendererOptions !== undefined) this.rendererOptions = options.rendererOptions;
+    if (options.hideOnMobile     !== undefined) this.hideOnMobile     = options.hideOnMobile;
     return this;
   }
 }

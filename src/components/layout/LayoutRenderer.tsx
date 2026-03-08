@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { LeafNode, SplitNode } from "@/platform/core/LayoutNode";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 type LayoutChild = LeafNode | SplitNode;
 
@@ -21,11 +22,74 @@ export function LayoutRenderer({ node }: LayoutRendererProps) {
   return <SplitRenderer node={node} />;
 }
 
-// ─── SplitRenderer ───────────────────────────────────────────────────────────
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+/** Walk a layout subtree and return the first LeafNode content that has onDisplay. */
+function findPanelContent(node: LeafNode | SplitNode): any | null {
+  if (node instanceof LeafNode) {
+    return node.content && "onDisplay" in node.content ? node.content : null;
+  }
+  return findPanelContent(node.children[0]) ?? findPanelContent(node.children[1]);
+}
+
+// ─── SplitRenderer ────────────────────────────────────────────────────────────
 
 const DIVIDER_PX = 5;
 
 function SplitRenderer({ node }: { node: SplitNode }) {
+  const isMobile = useIsMobile();
+
+  return isMobile
+    ? <MobileSplitRenderer node={node} />
+    : <DesktopSplitRenderer node={node} />;
+}
+
+// ─── Mobile: one pane at a time ───────────────────────────────────────────────
+
+function MobileSplitRenderer({ node }: { node: SplitNode }) {
+  const [activePane, setActivePane] = useState(0);
+
+  // Switch to the detail pane whenever the secondary panel displays a record.
+  useEffect(() => {
+    const panel = findPanelContent(node.children[1]);
+    if (!panel) return;
+
+    const handleDisplay = (row: any) => {
+      if (row) setActivePane(1);
+    };
+    panel.addDisplayListener(handleDisplay);
+    return () => {
+      panel.removeDisplayListener(handleDisplay);
+    };
+  }, [node]);
+
+  return (
+    <div style={{ width: "100%", height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      {activePane === 1 && (
+        <button
+          onClick={() => setActivePane(0)}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "8px 12px", flexShrink: 0,
+            background: "var(--bg-surface-alt)", border: "none",
+            borderBottom: "1px solid var(--border)",
+            color: "var(--accent)", fontSize: "0.875rem",
+            cursor: "pointer", textAlign: "left",
+          }}
+        >
+          ← Back
+        </button>
+      )}
+      <div style={{ flex: 1, overflow: "hidden" }}>
+        <LayoutRenderer node={node.children[activePane]} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Desktop: draggable split ─────────────────────────────────────────────────
+
+function DesktopSplitRenderer({ node }: { node: SplitNode }) {
   const [sizes, setSizes] = useState<[number, number]>(node.sizes);
   const containerRef      = useRef<HTMLDivElement>(null);
   const dragging          = useRef(false);
@@ -53,7 +117,6 @@ function SplitRenderer({ node }: { node: SplitNode }) {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
 
-      // Fire onChange with final sizes so the preset can persist them
       if (containerRef.current) {
         const rect   = containerRef.current.getBoundingClientRect();
         const total  = isHoriz ? rect.width  : rect.height;

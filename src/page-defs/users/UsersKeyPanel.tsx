@@ -1,5 +1,6 @@
 "use client";
 
+import { useIsMobile } from "@/hooks/useIsMobile";
 import type { Row } from "@/platform/core/types";
 
 interface UsersKeyPanelProps {
@@ -8,6 +9,8 @@ interface UsersKeyPanelProps {
 }
 
 export function UsersKeyPanel({ currentRecord, isNew }: UsersKeyPanelProps) {
+  const isMobile = useIsMobile();
+  if (isMobile) return null;
   if (!currentRecord && !isNew) return null;
 
   const photoUrl = currentRecord?.photo as string | null;

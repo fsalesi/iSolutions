@@ -20,6 +20,12 @@ const registry: Record<string, () => Promise<PageConstructor>> = {
     import("@customer/pages/pasoe_brokers").then(m => m.PasoeBrokersPage),
   users: () =>
     import("@customer/pages/users").then(m => m.UsersPage),
+  groups: () =>
+    import("@customer/pages/groups").then(m => m.GroupsPage),
+  locales: () =>
+    import("@customer/pages/locales").then(m => m.LocalesPage),
+  translations: () =>
+    import("@customer/pages/translations").then(m => m.TranslationsPage),
   settings: () =>
     import("@customer/pages/settings").then(m => m.SystemSettingsPage),
 };

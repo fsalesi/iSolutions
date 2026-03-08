@@ -98,7 +98,11 @@ export function Select({ value, onChange, options, className = "", ...rest }: Se
       }}
       {...rest}
     >
-      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      {options.map((o, index) => (
+        <option key={`${o.value}::${index}`} value={o.value}>
+          {o.label}
+        </option>
+      ))}
     </select>
   );
 }

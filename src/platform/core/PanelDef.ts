@@ -24,6 +24,7 @@ export class PanelDef {
   currentRecord: Row | null = null;
   isDirty:       boolean = false;
   isNew:         boolean = false;
+  displayNonce:  number  = 0;
   isCopyMode:    boolean = false;
 
   displayMode: DisplayMode = "inline";
@@ -33,6 +34,7 @@ export class PanelDef {
 
   // React callbacks — wired by the renderer
   onDisplay:      ((row: Row | null) => void) | null = null;
+  private readonly displayListeners = new Set<(row: Row | null) => void>();
 
   /**
    * Header renderer — renders the panel header strip.
@@ -66,6 +68,19 @@ export class PanelDef {
     return this.tabs.flatMap(tab => tab.children.filter((child): child is SectionDef => child.type === "section"));
   }
 
+  addDisplayListener(listener: (row: Row | null) => void): void {
+    this.displayListeners.add(listener);
+  }
+
+  removeDisplayListener(listener: (row: Row | null) => void): void {
+    this.displayListeners.delete(listener);
+  }
+
+  private notifyDisplay(row: Row | null): void {
+    this.onDisplay?.(row);
+    for (const listener of this.displayListeners) listener(row);
+  }
+
   get fields(): FieldDef[] {
     return this.sections.flatMap(section => section.children.filter((child): child is FieldDef => child.type === "field"));
   }
@@ -88,8 +103,9 @@ export class PanelDef {
     this._init();
     this.currentRecord = row;
     this.isNew = false;
+    this.displayNonce++;
     this.tabs.forEach(tab => tab.display(row));
-    this.onDisplay?.(row);
+    this.notifyDisplay(row);
   }
 
   // ── Dirty tracking ────────────────────────────────────────────────────────
@@ -112,7 +128,7 @@ export class PanelDef {
       field.clearError?.();
     }
     this.setDirty(false);
-    this.onDisplay?.(null);
+    this.notifyDisplay(null);
   }
 
   // ── Validate ──────────────────────────────────────────────────────────────
@@ -218,7 +234,7 @@ export class PanelDef {
     this.currentRecord = null;
     this.isNew = false;
     this.setDirty(false);
-    this.onDisplay?.(null);
+    this.notifyDisplay(null);
   }
 
   // ── Copy ──────────────────────────────────────────────────────────────────
@@ -233,7 +249,7 @@ export class PanelDef {
       field.clearError?.();
     }
     this.setDirty(true);
-    this.onDisplay?.(null);
+    this.notifyDisplay(null);
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────

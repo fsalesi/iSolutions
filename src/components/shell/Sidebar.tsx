@@ -33,7 +33,9 @@ export function Sidebar({ sections, activeItem, onNavigate, open, onClose, isMob
       <aside
         className="fixed inset-y-0 left-0 z-50 flex flex-col flex-shrink-0 transition-all duration-200 overflow-hidden"
         style={{
-          background: "var(--sidebar-bg)",
+          background: "linear-gradient(180deg, color-mix(in srgb, var(--sidebar-bg) 92%, white 8%) 0%, var(--sidebar-bg) 100%)",
+          borderRight: open ? "1px solid var(--sidebar-border)" : "none",
+          boxShadow: open ? "var(--sidebar-shadow)" : "none",
           width: open ? 240 : 0,
         }}
       >
@@ -60,7 +62,7 @@ export function Sidebar({ sections, activeItem, onNavigate, open, onClose, isMob
               <button
                 onClick={() => toggle(section.key)}
                 className="w-full flex items-center gap-2 px-4 py-2 transition-colors"
-                style={{ color: "var(--sidebar-section)" }}
+                style={{ color: "var(--sidebar-section)", paddingTop: 10, paddingBottom: 10 }}
                 onMouseEnter={e => (e.currentTarget.style.color = "var(--sidebar-text-hover)")}
                 onMouseLeave={e => (e.currentTarget.style.color = "var(--sidebar-section)")}
               >
@@ -78,18 +80,22 @@ export function Sidebar({ sections, activeItem, onNavigate, open, onClose, isMob
                   <button
                     key={item.key}
                     onClick={() => { onNavigate(item.key); if (isMobile) onClose(); }}
-                    className="w-full flex items-center gap-2.5 py-1.5 text-[13px] transition-colors"
+                    className="w-full flex items-center gap-2.5 py-2 text-[13px] transition-colors"
                     style={{
-                      paddingLeft: 32,
-                      paddingRight: 16,
+                      marginLeft: 10,
+                      marginRight: 10,
+                      width: "calc(100% - 20px)",
+                      paddingLeft: 14,
+                      paddingRight: 14,
+                      borderRadius: 10,
                       color:      isActive ? "var(--sidebar-active-text)" : "var(--sidebar-text)",
                       background: isActive ? "var(--sidebar-active-bg)"  : "transparent",
-                      borderRight: isActive ? "2px solid var(--sidebar-active-text)" : "2px solid transparent",
+                      border: isActive ? "1px solid rgba(255,255,255,0.16)" : "1px solid transparent",
                     }}
                     onMouseEnter={e => {
                       if (!isActive) {
                         e.currentTarget.style.color      = "var(--sidebar-text-hover)";
-                        e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+                        e.currentTarget.style.background = "var(--sidebar-item-hover)";
                       }
                     }}
                     onMouseLeave={e => {

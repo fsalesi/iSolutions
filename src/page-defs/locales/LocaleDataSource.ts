@@ -15,6 +15,6 @@ export class LocaleDataSource extends DataSourceDef {
     this.getColumn("decimal_char")?.applyOptions ({ label: "Decimal Char" });
     this.getColumn("separator_char")?.applyOptions({ label: "Separator Char" });
     this.getColumn("is_default")?.applyOptions   ({ label: "Default", renderer: "boolean" });
-    this.getColumn("flag_svg")?.applyOptions     ({ label: "Flag" });
+    this.getColumn("flag_svg")?.applyOptions     ({ label: "Flag", renderer: "svg" });
   }
 }

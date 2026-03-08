@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSession } from "@/context/SessionContext";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { Icon } from "@/components/icons/Icon";
 import type { DataGridDef } from "@/platform/core/DataGridDef";
 
@@ -20,6 +21,7 @@ interface GridToolbarProps {
 }
 
 export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filterOpen, onApplyFilter, onClearFilter, onSearchChange, onColumnsChanged, onFilterOpen }: GridToolbarProps) {
+  const isMobile = useIsMobile();
   const [pickerOpen,  setPickerOpen]  = useState(false);
   const [exportOpen,  setExportOpen]  = useState(false);
   const [exportKeys,  setExportKeys]  = useState<string[]>([]);
@@ -141,7 +143,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
     <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", flexShrink: 0, background: "var(--bg-surface)", borderBottom: "1px solid var(--border)" }}>
 
       {grid.allowSearch && (
-        <div style={{ position: "relative", flex: 1, maxWidth: 280 }}>
+        <div style={{ position: "relative", flex: 1, minWidth: 0, maxWidth: isMobile ? "none" : 280 }}>
           <Icon name="search" size={13} style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} />
           <input
             data-testid={`grid-search-${grid.key || grid.dataSource?.table || "grid"}`}
@@ -154,7 +156,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
         </div>
       )}
 
-      <div style={{ flex: 1 }} />
+      {!isMobile && <div style={{ flex: 1 }} />}
 
       {/* Filter — split button: left opens modal, right drops saved filters */}
       {grid.allowAdvancedFilter !== false && (
@@ -169,9 +171,9 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
               onMouseLeave={e => { if (!filterActive) e.currentTarget.style.background = "transparent"; }}
             >
               <Icon name="filter" size={13} />
-              <span>Filter</span>
+              {!isMobile && <span>Filter</span>}
               {filterActive && (
-                <span style={{ marginLeft: 2, fontSize: 10, fontWeight: 700, background: "var(--accent)", color: "#fff", borderRadius: 8, padding: "0 5px", lineHeight: "16px" }}>
+                <span style={{ marginLeft: 2, fontSize: 10, fontWeight: 700, background: "var(--accent)", color: "var(--accent-text)", borderRadius: 8, padding: "0 5px", lineHeight: "16px" }}>
                   ●
                 </span>
               )}
@@ -191,7 +193,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
 
           {/* Saved filters dropdown */}
           {filterDropOpen && (
-            <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 200, background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", minWidth: 200, overflow: "hidden", paddingTop: 4, paddingBottom: 4 }}>
+            <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 200, background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-md)", minWidth: 200, overflow: "hidden", paddingTop: 4, paddingBottom: 4 }}>
               {savedFilters.map(sf => (
                 <button
                   key={sf.id}
@@ -203,7 +205,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
                   <Icon name="filter" size={12} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
                   <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sf.name}</span>
                   {sf.is_default && (
-                    <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "var(--accent)", color: "#fff", flexShrink: 0 }}>default</span>
+                    <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "var(--accent)", color: "var(--accent-text)", flexShrink: 0 }}>default</span>
                   )}
                 </button>
               ))}
@@ -225,10 +227,10 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
       {/* Export */}
       {grid.allowExcelExport && (
         <div ref={exportRef} style={{ position: "relative" }}>
-          <ToolbarButton icon="download" label="Export" active={exportOpen} onClick={handleExportOpen} />
+          <ToolbarButton icon="download" label="Export" active={exportOpen} onClick={handleExportOpen} mobileIconOnly={isMobile} />
 
           {exportOpen && (
-            <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 200, background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", minWidth: 230, maxHeight: 420 }}>
+            <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 200, background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-md)", minWidth: 230, maxHeight: 420 }}>
 
               {/* Header */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px 7px", fontSize: "0.72rem", fontWeight: 600, color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
@@ -253,7 +255,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
                       onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
                     >
                       <div style={{ width: 16, height: 16, borderRadius: 3, border: `2px solid ${checked ? "var(--accent)" : "var(--border)"}`, background: checked ? "var(--accent)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        {checked && <Icon name="check" size={10} style={{ color: "#fff" }} />}
+                        {checked && <Icon name="check" size={10} style={{ color: "var(--accent-text)" }} />}
                       </div>
                       <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{col.label || col.key}</span>
                     </div>
@@ -266,7 +268,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
                 <button
                   onClick={handleExport}
                   disabled={exporting || exportKeys.length === 0}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", padding: "7px 12px", fontSize: "0.82rem", fontWeight: 600, borderRadius: 6, border: "none", background: exportKeys.length === 0 ? "var(--bg-body)" : "var(--accent)", color: exportKeys.length === 0 ? "var(--text-muted)" : "#fff", cursor: exportKeys.length === 0 ? "not-allowed" : "pointer", opacity: exporting ? 0.7 : 1 }}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", padding: "7px 12px", fontSize: "0.82rem", fontWeight: 600, borderRadius: 6, border: "none", background: exportKeys.length === 0 ? "var(--bg-body)" : "var(--accent)", color: exportKeys.length === 0 ? "var(--text-muted)" : "var(--accent-text)", cursor: exportKeys.length === 0 ? "not-allowed" : "pointer", opacity: exporting ? 0.7 : 1 }}
                 >
                   <Icon name="download" size={13} />
                   {exporting ? "Exporting…" : `Export ${exportKeys.length} column${exportKeys.length !== 1 ? "s" : ""}`}
@@ -280,10 +282,10 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
       {/* Column picker */}
       {grid.allowColumnChanger && (
         <div ref={pickerRef} style={{ position: "relative" }}>
-          <ToolbarButton icon="columns" label="Columns" active={pickerOpen} onClick={() => setPickerOpen(o => !o)} />
+          <ToolbarButton icon="columns" label="Columns" active={pickerOpen} onClick={() => setPickerOpen(o => !o)} mobileIconOnly={isMobile} />
 
           {pickerOpen && (
-            <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 200, background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", minWidth: 220, maxHeight: 380, overflowY: "auto" }}>
+            <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 200, background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-md)", minWidth: 220, maxHeight: 380, overflowY: "auto" }}>
               <div style={{ padding: "8px 12px 7px", fontSize: "0.72rem", fontWeight: 600, color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
                 Columns
               </div>
@@ -304,7 +306,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
                       style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: "none", border: "none", padding: 0, cursor: isLastVisible ? "not-allowed" : "pointer", opacity: isLastVisible ? 0.35 : 1 }}
                     >
                       <div style={{ width: 16, height: 16, borderRadius: 3, border: `2px solid ${visible ? "var(--accent)" : "var(--border)"}`, background: visible ? "var(--accent)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        {visible && <Icon name="check" size={10} style={{ color: "#fff" }} />}
+                        {visible && <Icon name="check" size={10} style={{ color: "var(--accent-text)" }} />}
                       </div>
                     </button>
                     <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{col.label || col.key}</span>
@@ -332,12 +334,12 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
         </div>
       )}
 
-      <ToolbarButton icon="edit" label="Design" onClick={() => {}} />
+      <ToolbarButton icon="edit" label="Design" onClick={() => {}} mobileIconOnly={isMobile} />
     </div>
   );
 }
 
-function ToolbarButton({ icon, label, onClick, active }: { icon: string; label: string; onClick: () => void; active?: boolean }) {
+function ToolbarButton({ icon, label, onClick, active, mobileIconOnly = false }: { icon: string; label: string; onClick: () => void; active?: boolean; mobileIconOnly?: boolean }) {
   const testId = `grid-toolbar-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
   return (
     <button
@@ -349,7 +351,7 @@ function ToolbarButton({ icon, label, onClick, active }: { icon: string; label: 
       onMouseLeave={e => (e.currentTarget.style.background = active ? "var(--bg-hover, rgba(0,0,0,0.06))" : "transparent")}
     >
       <Icon name={icon} size={13} />
-      <span>{label}</span>
+      {!mobileIconOnly && <span>{label}</span>}
     </button>
   );
 }

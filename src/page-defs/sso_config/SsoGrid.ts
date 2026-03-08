@@ -16,6 +16,6 @@ export class SsoGrid extends DataGridDef {
     await super.loadColumns();  // delegates to SsoDataSource.loadColumns()
 
     // scope is a technical detail — hide in the grid, still available in the edit panel
-    this.getColumn("scope").hidden = true;
+    this.getColumn("scope")?.applyOptions({ hidden: true });
   }
 }
