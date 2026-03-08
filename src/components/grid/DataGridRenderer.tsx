@@ -355,6 +355,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
     const isSel = oid === selectedOid;
     return (
       <div key={oid}
+        data-testid={`grid-row-${grid.key || "grid"}-${oid}`}
         onClick={() => { setSelectedOid(oid); if (grid.mode === "lookup") { grid.onSelect?.(row); } else if (grid.panel) { grid.panel.display(row); } }}
         style={{ display: "flex", borderBottom: "1px solid var(--border-light, var(--border))", borderLeft: isSel ? "2px solid var(--accent)" : "2px solid transparent", background: isSel ? "var(--bg-selected, rgba(14,134,202,0.08))" : "transparent", cursor: "pointer" }}
         onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = "var(--bg-hover, rgba(0,0,0,0.03))"; }}
@@ -399,6 +400,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
             const hasColFilter = !!columnFilters[col.key];
             return (
               <div key={col.key}
+                data-testid={`grid-header-${grid.key || "grid"}-${col.key}`}
                 onClick={() => handleSort(col)}
                 style={{ flex: col.width ? `0 0 ${col.width}px` : 1, minWidth: col.width ?? 80, padding: "7px 10px", display: "flex", alignItems: "center", gap: 4, fontSize: "0.72rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--text-muted)", cursor: col.sortable ? "pointer" : "default", userSelect: "none", whiteSpace: "nowrap" }}
                 onMouseEnter={e => { if (col.sortable) e.currentTarget.style.color = "var(--text-primary)"; }}

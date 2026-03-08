@@ -421,13 +421,13 @@ export class CrudRoute {
       let pi = 1;
 
       const domain = url.searchParams.get("domain") || "";
-      if (domain) { conditions.push(`"domain" = $${pi}`); params.push(domain); pi++; }
+      if (domain && meta.allColumns.includes("domain")) { conditions.push(`"domain" = $${pi}`); params.push(domain); pi++; }
 
       const oidFilter = parseOidFilter(url, pi);
       if (oidFilter) { conditions.push(oidFilter.sql); params.push(...oidFilter.params); pi = oidFilter.nextIdx; }
 
       if (search && meta.searchColumns.length) {
-        const searchClauses = meta.searchColumns.map(c => `"${c}"::text ILIKE $${pi}`).join(" OR ");
+        const searchClauses = meta.searchColumns.map(c => `"${tableName}"."${c}"::text ILIKE $${pi}`).join(" OR ");
         conditions.push(`(${searchClauses})`); params.push(`%${search}%`); pi++;
       }
 

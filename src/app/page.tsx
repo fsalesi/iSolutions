@@ -5,6 +5,7 @@ import { useSession } from "@/context/SessionContext";
 import LoginScreen from "@/components/LoginScreen";
 import { AppShell } from "@/components/shell/AppShell";
 import { resolvePage, type PageInstance } from "@/page-defs/registry";
+import { TestRunnerWorkbench } from "@/components/dev/TestRunnerWorkbench";
 
 export default function Home() {
   const { loggedIn, ready } = useSession();
@@ -14,6 +15,12 @@ export default function Home() {
 
   // Resolve page whenever activeNav changes
   useEffect(() => {
+    if (activeNav === "tool:test-runner") {
+      setPage(null);
+      setContent(<TestRunnerWorkbench />);
+      return;
+    }
+
     if (!activeNav.startsWith("form:")) {
       setPage(null);
       setContent(null);
@@ -33,7 +40,7 @@ export default function Home() {
   if (!ready)    return null;
   if (!loggedIn) return <LoginScreen />;
 
-  const title = page?.title ?? "iSolutions";
+  const title = activeNav === "tool:test-runner" ? "Test Runner" : (page?.title ?? "iSolutions");
 
   return (
     <AppShell title={title} activeNav={activeNav} onNavigate={nav => {

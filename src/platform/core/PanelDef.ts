@@ -2,12 +2,23 @@
 // Owns tabs, toolbar, and the current record.
 // Cascades display(row) through the entire child tree.
 
+import type { ReactNode } from "react";
+import type { DataGridDef } from "./DataGridDef";
+import type { FieldDef } from "./FieldDef";
+import type { PageDef } from "./PageDef";
+import type { SectionDef } from "./SectionDef";
+import type { TabDef } from "./TabDef";
 import type { Row, DisplayMode } from "./types";
 import { AlertDialogService } from "./AlertDialogService";
 import { ToolbarDef } from "./ToolbarDef";
 
+type PanelForm = PageDef & {
+  panels: PanelDef[];
+  alertDialog: typeof AlertDialogService;
+};
+
 export class PanelDef {
-  tabs: any[] = [];  // TabDef[]
+  tabs: TabDef[] = [];
   toolbar: ToolbarDef = new ToolbarDef();
 
   currentRecord: Row | null = null;
@@ -18,7 +29,7 @@ export class PanelDef {
   displayMode: DisplayMode = "inline";
   readOnly:    boolean = false;
 
-  grid: any = null;  // DataGridDef back-reference
+  grid: DataGridDef | null = null;
 
   // React callbacks — wired by the renderer
   onDisplay:      ((row: Row | null) => void) | null = null;
@@ -28,7 +39,7 @@ export class PanelDef {
    * Default: KeyPanel (shows keyField=true fields).
    * Override in subclass constructor to customise.
    */
-  headerRenderer: (props: { currentRecord: Row | null; isNew: boolean }) => import("react").ReactNode =
+  headerRenderer: (props: { currentRecord: Row | null; isNew: boolean }) => ReactNode =
     ({ currentRecord, isNew }) => {
       const { KeyPanel } = require("@/components/panel/KeyPanel");
       return KeyPanel({ panel: this, currentRecord, isNew });
@@ -37,18 +48,26 @@ export class PanelDef {
   activeTabKey:   string = "";
   onDirtyChanged: ((dirty: boolean) => void) | null = null;
 
-  private _form: any = null;
-  get form(): any { return this._form; }
-  set form(f: any) {
+  private _form: PanelForm | null = null;
+  get form(): PanelForm | null { return this._form; }
+  set form(f: PanelForm | null) {
     this._form = f;
     if (f && !f.panels.includes(this)) f.panels.push(this);
   }
 
   private _initialized = false;
 
-  constructor(form?: any) {
+  constructor(form?: PanelForm) {
     this.toolbar.panel = this;
     if (form) this.form = form;
+  }
+
+  private get sections(): SectionDef[] {
+    return this.tabs.flatMap(tab => tab.children.filter((child): child is SectionDef => child.type === "section"));
+  }
+
+  get fields(): FieldDef[] {
+    return this.sections.flatMap(section => section.children.filter((child): child is FieldDef => child.type === "field"));
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
@@ -58,14 +77,8 @@ export class PanelDef {
   _init(): void {
     if (this._initialized) return;
     this._initialized = true;
-    for (const tab of this.tabs) {
-      for (const child of tab.children ?? []) {
-        if (child.type === "section") {
-          for (const field of child.children ?? []) {
-            if (field.type === "field") field.panel = this;
-          }
-        }
-      }
+    for (const field of this.fields) {
+      field.panel = this;
     }
   }
 
@@ -94,17 +107,9 @@ export class PanelDef {
     this.currentRecord = null;
     this.isNew = true;
     // Walk fields — apply defaultValues, clear everything else
-    for (const tab of this.tabs) {
-      for (const child of tab.children ?? []) {
-        if (child.type === "section") {
-          for (const field of child.children ?? []) {
-            if (field.type === "field") {
-              field.value = field.defaultValue ?? null;
-              field.clearError?.();
-            }
-          }
-        }
-      }
+    for (const field of this.fields) {
+      field.value = field.defaultValue ?? null;
+      field.clearError?.();
     }
     this.setDirty(false);
     this.onDisplay?.(null);
@@ -120,17 +125,14 @@ export class PanelDef {
     for (let ti = 0; ti < this.tabs.length; ti++) {
       const tab = this.tabs[ti];
       tab.hasError = false;
-      for (const child of tab.children ?? []) {
-        if (child.type === "section") {
-          for (const field of child.children ?? []) {
-            if (field.type !== "field") continue;
-            field.clearError?.();
-            if (field.required && (field.value === null || field.value === "" || field.value === undefined)) {
-              field.showError?.(`${field.label} is required`);
-              tab.hasError = true;
-              valid = false;
-              if (firstFailingTabIndex === -1) firstFailingTabIndex = ti;
-            }
+      for (const section of tab.children.filter((child): child is SectionDef => child.type === "section")) {
+        for (const field of section.children.filter((child): child is FieldDef => child.type === "field")) {
+          field.clearError?.();
+          if (field.required && (field.value === null || field.value === "" || field.value === undefined)) {
+            field.showError?.(`${field.label} is required`);
+            tab.hasError = true;
+            valid = false;
+            if (firstFailingTabIndex === -1) firstFailingTabIndex = ti;
           }
         }
       }
@@ -147,9 +149,9 @@ export class PanelDef {
   // ── Save ──────────────────────────────────────────────────────────────────
 
   async save(): Promise<void> {
-    const api   = this.grid?.api   ?? this.grid?.dataSource?.api;
-    const table = this.grid?.table ?? this.grid?.dataSource?.table;
-    if (!api || !table) {
+    const api   = this.grid?.dataSource?.api;
+    const table = this.grid?.dataSource?.table;
+    if (!this.grid || !api || !table) {
       console.error("PanelDef.save: no grid.api or grid.table");
       return;
     }
@@ -157,16 +159,8 @@ export class PanelDef {
 
     // Collect field values
     const payload: Record<string, any> = { _table: table };
-    for (const tab of this.tabs) {
-      for (const child of tab.children ?? []) {
-        if (child.type === "section") {
-          for (const field of child.children ?? []) {
-            if (field.type === "field" && !field.readOnly) {
-              payload[field.key] = field.value;
-            }
-          }
-        }
-      }
+    for (const field of this.fields) {
+      if (!field.readOnly) payload[field.key] = field.value;
     }
 
     // Include oid for PUT
@@ -199,7 +193,7 @@ export class PanelDef {
   async deleteRecord(): Promise<void> {
     const api   = this.grid?.dataSource?.api;
     const table = this.grid?.dataSource?.table;
-    if (!api || !table) return;
+    if (!this.grid || !api || !table) return;
     if (!this.currentRecord?.oid) return;
 
     // Build a meaningful record label from key fields
@@ -234,17 +228,9 @@ export class PanelDef {
     this.isCopyMode = true;
     this.isNew = true;
     // Seed fields from current record, skip key fields
-    for (const tab of this.tabs) {
-      for (const child of tab.children ?? []) {
-        if (child.type === "section") {
-          for (const field of child.children ?? []) {
-            if (field.type === "field") {
-              field.value = field.keyField ? (field.defaultValue ?? null) : (this.currentRecord![field.key] ?? null);
-              field.clearError?.();
-            }
-          }
-        }
-      }
+    for (const field of this.fields) {
+      field.value = field.keyField ? (field.defaultValue ?? null) : (this.currentRecord[field.key] ?? null);
+      field.clearError?.();
     }
     this.setDirty(true);
     this.onDisplay?.(null);
@@ -262,42 +248,18 @@ export class PanelDef {
 
   // Flat addressable access — searches entire tree
 
-  /** Flat array of all FieldDef instances in this panel. Computed lazily, cached. */
-  private _fields: any[] | null = null;
-  get fields(): any[] {
-    if (this._fields) return this._fields;
-    const result: any[] = [];
-    for (const tab of this.tabs) {
-      for (const child of tab.children ?? []) {
-        if (child.type === "section") {
-          for (const field of child.children ?? []) {
-            if (field.type === "field") result.push(field);
-          }
-        }
-      }
-    }
-    return (this._fields = result);
+  getField(key: string): FieldDef {
+    const field = this.fields.find(f => f.key === key);
+    if (!field) throw new Error(`Field "${key}" not found`);
+    return field;
   }
 
-  getField(key: string): any {
-    for (const tab of this.tabs) {
-      for (const child of tab.children ?? []) {
-        if (child.type === "section") {
-          for (const field of child.children ?? []) {
-            if (field.type === "field" && field.key === key) return field;
-          }
-        }
-      }
-    }
-    throw new Error(`Field "${key}" not found`);
-  }
-
-  getTab(key: string): any {
-    const tab = this.tabs.find((t: any) => t.key === key);
+  getTab(key: string): TabDef {
+    const tab = this.tabs.find(t => t.key === key);
     if (!tab) throw new Error(`Tab "${key}" not found`);
     return tab;
   }
 
-  getSection(key: string): any { throw new Error("stub"); }
-  getGrid(key: string): any    { throw new Error("stub"); }
+  getSection(key: string): SectionDef { throw new Error("stub"); }
+  getGrid(key: string): DataGridDef { throw new Error("stub"); }
 }

@@ -7,6 +7,7 @@ import { UsersKeyPanel } from "./UsersKeyPanel";
 import { ActiveGroupLookup } from "@/components/lookup/presets/GroupLookup";
 import { LocaleLookup }      from "@/components/lookup/presets/LocaleLookup";
 import { DomainLookup }      from "@/components/lookup/presets/DomainLookup";
+import { VendorLookup }      from "@/components/lookup/presets/VendorLookup";
 
 /**
  * UsersEditPanel — Edit panel for User maintenance.
@@ -107,7 +108,7 @@ export class UsersEditPanel extends EditPanel {
               new FieldDef({ key: "supervisor_id",  label: "Supervisor",       renderer: "lookup", lookupConfig: ActiveUserLookup() }),
               new FieldDef({ key: "delegate_id",    label: "Delegate",         renderer: "lookup", lookupConfig: ActiveUserLookup() }),
               new FieldDef({ key: "approval_limit", label: "Approval Limit",   renderer: "number" }),
-              new FieldDef({ key: "employee_number",label: "Employee Number" }),
+              new FieldDef({ key: "employee_number", label: "Employee #", renderer: "lookup", lookupConfig: VendorLookup({ domain: "" }) }),
               new FieldDef({ key: "expire_date",    label: "Expire Date",      renderer: "date" }),
               new FieldDef({ key: "locale",         label: "Locale",  renderer: "lookup", lookupConfig: LocaleLookup() }),
             ],

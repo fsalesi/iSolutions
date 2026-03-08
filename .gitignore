@@ -14,3 +14,6 @@ out/
 next-env.d.ts
 .env
 *.docx
+playwright-report/
+test-results/
+.test-runner/

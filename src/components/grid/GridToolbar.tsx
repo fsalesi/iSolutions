@@ -144,6 +144,7 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
         <div style={{ position: "relative", flex: 1, maxWidth: 280 }}>
           <Icon name="search" size={13} style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }} />
           <input
+            data-testid={`grid-search-${grid.key || grid.dataSource?.table || "grid"}`}
             type="text"
             value={search}
             onChange={e => onSearchChange(e.target.value)}
@@ -292,11 +293,13 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
                 return (
                   <div
                     key={col.key}
+                    data-testid={`grid-column-option-${grid.key || "grid"}-${col.key}`}
                     style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", color: visible ? "var(--text-primary)" : "var(--text-muted)", fontSize: "0.82rem" }}
                     onMouseEnter={e => { e.currentTarget.style.background = "var(--bg-hover, rgba(0,0,0,0.04))"; }}
                     onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
                   >
                     <button
+                      data-testid={`grid-column-toggle-${grid.key || "grid"}-${col.key}`}
                       onClick={() => !isLastVisible && toggleColumn(col.key)}
                       style={{ display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: "none", border: "none", padding: 0, cursor: isLastVisible ? "not-allowed" : "pointer", opacity: isLastVisible ? 0.35 : 1 }}
                     >
@@ -335,8 +338,10 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
 }
 
 function ToolbarButton({ icon, label, onClick, active }: { icon: string; label: string; onClick: () => void; active?: boolean }) {
+  const testId = `grid-toolbar-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
   return (
     <button
+      data-testid={testId}
       onClick={onClick}
       title={label}
       style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 8px", fontSize: "0.75rem", fontWeight: 500, border: "1px solid var(--border)", borderRadius: 6, background: active ? "var(--bg-hover, rgba(0,0,0,0.06))" : "transparent", color: active ? "var(--text-primary)" : "var(--text-secondary)", cursor: "pointer", whiteSpace: "nowrap" }}

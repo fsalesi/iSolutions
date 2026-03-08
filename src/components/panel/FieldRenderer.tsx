@@ -102,7 +102,7 @@ export function FieldRenderer({ field, onChange }: FieldRendererProps) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+    <div data-testid={`field-${field.key}`} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
       <label style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
         {field.label}
         {field.required && <span style={{ color: "var(--danger-text)", marginLeft: 2 }}>*</span>}

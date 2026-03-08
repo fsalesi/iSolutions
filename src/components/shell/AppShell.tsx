@@ -45,7 +45,9 @@ const NAV_SECTIONS: NavSection[] = [
     key: "platform",
     label: "Platform",
     icon: "edit",
-    items: [],
+    items: [
+      { key: "tool:test-runner", label: "Test Runner", icon: "fileText" },
+    ],
   },
 ];
 

@@ -62,6 +62,7 @@ export function LookupBrowseModal({
 
   return (
     <div
+      data-testid="lookup-browse-modal"
       style={{
         position: "fixed", inset: 0, zIndex: 100,
         background: "rgba(0,0,0,0.4)",

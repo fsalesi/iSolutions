@@ -62,6 +62,7 @@ export function PanelToolbar({ toolbar, isNew, isDirty, readOnly }: PanelToolbar
             <span key={btn.key} style={{ display: "flex", alignItems: "center", gap: 4 }}>
               {divider && <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 2px" }} />}
               <button
+                data-testid={`panel-toolbar-${btn.key}`}
                 onClick={btn.onClick}
                 disabled={btn.disabled}
                 title={btn.label}
