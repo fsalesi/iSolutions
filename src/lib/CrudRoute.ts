@@ -115,7 +115,6 @@ function normalizeComparable(val: any): string {
   return String(val);
 }
 
-class AuthError extends Error { constructor() { super("Authentication required"); } }
 
 /* ── Load metadata from form_tables + live table schema ── */
 
@@ -337,11 +336,6 @@ export class CrudRoute {
 
   /* ── Core CRUD (call hooks at the right points) ── */
 
-  protected requireAuth(req: NextRequest): string {
-    const userId = getCurrentUser(req);
-    if (!userId) throw new AuthError();
-    return userId;
-  }
 
   protected async loadMeta(tableName: string): Promise<TableMeta> {
     return loadMeta(this.formKey, tableName);
@@ -406,7 +400,6 @@ export class CrudRoute {
 
   async handleGET(req: NextRequest): Promise<NextResponse> {
     try {
-      this.requireAuth(req);
       const url = req.nextUrl;
       // If no ?table param, default to the header table for this route
       // (allows /api/users?search=x to work without ?table=users)
@@ -509,7 +502,6 @@ export class CrudRoute {
         searchColumns: meta.searchColumns,
       });
     } catch (err: any) {
-      if (err instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
       console.error(`GET ${this.formKey} error:`, err);
       return NextResponse.json({ error: err.message }, { status: 500 });
     }
@@ -519,7 +511,7 @@ export class CrudRoute {
 
   async handlePOST(req: NextRequest): Promise<NextResponse> {
     try {
-      const userId = this.requireAuth(req);
+      const userId = getCurrentUser(req);
       let body = await req.json();
       const tableName = body._table || req.nextUrl.searchParams.get("table") || "";
       if (!tableName) return NextResponse.json({ error: "Missing _table" }, { status: 400 });
@@ -602,7 +594,6 @@ export class CrudRoute {
 
       return NextResponse.json(saved, { status: 201 });
     } catch (e: any) {
-      if (e instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
       if (e.code === "23505") return NextResponse.json({ error: "Duplicate value — record already exists" }, { status: 409 });
       console.error(`POST ${this.formKey} error:`, e);
       return NextResponse.json({ error: e.message }, { status: 500 });
@@ -613,7 +604,7 @@ export class CrudRoute {
 
   async handlePUT(req: NextRequest): Promise<NextResponse> {
     try {
-      const userId = this.requireAuth(req);
+      const userId = getCurrentUser(req);
       let body = await req.json();
       const oid = body.oid;
       if (!oid) return NextResponse.json({ error: "oid is required" }, { status: 400 });
@@ -720,7 +711,6 @@ export class CrudRoute {
 
       return NextResponse.json(saved);
     } catch (e: any) {
-      if (e instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
       if (e.code === "23505") return NextResponse.json({ error: "Duplicate value — record already exists" }, { status: 409 });
       console.error(`PUT ${this.formKey} error:`, e);
       return NextResponse.json({ error: e.message }, { status: 500 });
@@ -732,7 +722,7 @@ export class CrudRoute {
 
   async handleDELETE(req: NextRequest): Promise<NextResponse> {
     try {
-      const userId = this.requireAuth(req);
+      const userId = getCurrentUser(req);
       const url = req.nextUrl;
       const oid = url.searchParams.get("oid");
       const tableName = url.searchParams.get("table") || "";
@@ -765,7 +755,6 @@ export class CrudRoute {
 
       return NextResponse.json({ ok: true });
     } catch (e: any) {
-      if (e instanceof AuthError) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
       console.error(`DELETE ${this.formKey} error:`, e);
       return NextResponse.json({ error: e.message }, { status: 500 });
     }
