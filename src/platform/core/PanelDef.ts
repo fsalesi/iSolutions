@@ -22,6 +22,7 @@ export class PanelDef {
   // React callbacks — wired by the renderer
   onDisplay:      ((row: Row | null) => void) | null = null;
   onFocusTab:     ((index: number) => void) | null = null;
+  activeTabKey:   string = "";
   onDirtyChanged: ((dirty: boolean) => void) | null = null;
 
   private _form: any = null;

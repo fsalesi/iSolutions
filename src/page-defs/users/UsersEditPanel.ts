@@ -3,6 +3,7 @@ import { TabDef } from "@/platform/core/TabDef";
 import { SectionDef } from "@/platform/core/SectionDef";
 import { FieldDef } from "@/platform/core/FieldDef";
 import { ActiveUserLookup } from "@/components/lookup/presets/UserLookup";
+import { ActiveGroupLookup } from "@/components/lookup/presets/GroupLookup";
 import { LocaleLookup }      from "@/components/lookup/presets/LocaleLookup";
 import { DomainLookup }      from "@/components/lookup/presets/DomainLookup";
 
@@ -119,7 +120,7 @@ export class UsersEditPanel extends EditPanel {
             label:    "Group Memberships",
             columns:  1,
             children: [
-              new FieldDef({ key: "groups", label: "Groups", renderer: "readonly" }),
+              new FieldDef({ key: "groups", label: "Groups", renderer: "lookup", lookupConfig: ActiveGroupLookup({ multiple: true }) }),
             ],
           }),
         ],

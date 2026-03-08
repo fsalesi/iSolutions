@@ -13,7 +13,7 @@ interface TabRendererProps {
 
 export function TabRenderer({ tabs, panel }: TabRendererProps) {
   const visible = tabs.filter(t => !t.hidden);
-  const [activeKey, setActiveKey] = useState(visible[0]?.key ?? "");
+  const [activeKey, setActiveKey] = useState(panel.activeTabKey || visible[0]?.key || "");
   const [, setTick] = useState(0); // force re-render when hasError changes
 
   // Wire panel.onFocusTab — switches to failing tab on validate()
@@ -22,6 +22,7 @@ export function TabRenderer({ tabs, panel }: TabRendererProps) {
       const tab = visible[index];
       if (tab) {
         setActiveKey(tab.key);
+        panel.activeTabKey = tab.key;
         setTick(t => t + 1); // re-render to show error dots
       }
     };
@@ -47,7 +48,7 @@ export function TabRenderer({ tabs, panel }: TabRendererProps) {
           {visible.map(tab => {
             const isActive = tab.key === activeKey;
             return (
-              <button key={tab.key} onClick={() => setActiveKey(tab.key)} style={{
+              <button key={tab.key} onClick={() => { setActiveKey(tab.key); panel.activeTabKey = tab.key; }} style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 5,
