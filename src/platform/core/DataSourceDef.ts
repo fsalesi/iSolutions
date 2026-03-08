@@ -62,7 +62,7 @@ export class DataSourceDef {
     return this;
   }
 
-  /** Fetch column catalogue from /api/table_schema once. Safe to call from multiple consumers. */
+  /** Fetch column catalogue from the route's ?columns=1 endpoint once. Safe to call from multiple consumers. */
   async loadColumns(): Promise<void> {
     if (this._loaded) return;
     // If already in-flight, wait for the same promise
@@ -77,30 +77,28 @@ export class DataSourceDef {
 
     let json: any;
     try {
-      const res = await fetch(`/api/table_schema?tables=${this.table}`);
+      const res = await fetch(`/api/${this.table}?columns=1`);
       if (!res.ok) return;
       json = await res.json();
     } catch {
       return;
     }
-    if (!json?.rows) return;
+    if (!json?.columns) return;
 
     const existingKeys = new Set(this.columns.map(c => c.key));
 
-    for (const row of json.rows) {
-      if (row.table_name !== this.table)      continue;
-      if (SKIP_DEFAULT.has(row.field_name))   continue;
-      if (this._suppressed.has(row.field_name)) continue;
-      if (existingKeys.has(row.field_name))   continue;
+    for (const col of json.columns) {
+      if (this._suppressed.has(col.key)) continue;
+      if (existingKeys.has(col.key))     continue;
 
-      const dt = TYPE_MAP[row.data_type] ?? "string";
+      const dt = col.dataType ?? "string";
       this.columns.push(new ColumnDef({
-        key:      row.field_name,
-        label:    toLabel(row.field_name),
+        key:      col.key,
+        label:    col.label ?? toLabel(col.key),
         dataType: dt,
         renderer: RENDERER_MAP[dt] ?? "text",
         sortable: true,
-        align:    row.data_type === "boolean" ? "center" : "left",
+        align:    dt === "boolean" ? "center" : "left",
       }));
     }
 

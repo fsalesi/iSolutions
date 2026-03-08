@@ -7,11 +7,6 @@ import { CrudRoute, exportRouteHandlers } from "@/lib/CrudRoute";
 import type { TableMeta } from "@/lib/CrudRoute";
 import { db } from "@/lib/db";
 
-type GroupsRow = Record<string, unknown> & {
-  group_id?: unknown;
-  members?: unknown;
-  updated_by?: unknown;
-};
 
 export class GroupsRoute extends CrudRoute {
   protected keyFields = ["group_id"];
@@ -102,7 +97,7 @@ export class GroupsRoute extends CrudRoute {
       return NextResponse.json(payload, { status: base.status });
     }
 
-    const saved = payload as GroupsRow;
+    const saved = payload as Record<string, any>;
     const groupId = this.normalizeId(saved.group_id);
 
     if (membersInput !== undefined && groupId) {
@@ -114,7 +109,7 @@ export class GroupsRoute extends CrudRoute {
     return NextResponse.json(saved, { status: base.status });
   }
 
-  async transformRow(row: GroupsRow): Promise<GroupsRow> {
+  async transformRow(row: Record<string, any>): Promise<Record<string, any>> {
     const groupId = this.normalizeId(row.group_id);
     row.members = groupId ? await this.loadMembersForGroup(groupId) : [];
     return row;
@@ -125,7 +120,7 @@ export class GroupsRoute extends CrudRoute {
 
     if (groupIds.length === 0) {
       for (const row of rows) {
-        (row as GroupsRow).members = [];
+        (row as Record<string, any>).members = [];
       }
       return rows;
     }
@@ -151,7 +146,7 @@ export class GroupsRoute extends CrudRoute {
 
     for (const row of rows) {
       const id = this.normalizeId(row.group_id);
-      (row as GroupsRow).members = byGroup.get(id) || [];
+      (row as Record<string, any>).members = byGroup.get(id) || [];
     }
 
     return rows;

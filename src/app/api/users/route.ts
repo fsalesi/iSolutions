@@ -7,15 +7,6 @@ import { CrudRoute, exportRouteHandlers } from "@/lib/CrudRoute";
 import type { TableMeta } from "@/lib/CrudRoute";
 import { db } from "@/lib/db";
 
-type UsersRow = Record<string, unknown> & {
-  oid?: string;
-  user_id?: unknown;
-  supervisor_id?: unknown;
-  photo?: unknown;
-  password_hash?: unknown;
-  groups?: unknown;
-  updated_by?: unknown;
-};
 
 export class UsersRoute extends CrudRoute {
   protected passwordFields = ["password_hash"];
@@ -25,7 +16,23 @@ export class UsersRoute extends CrudRoute {
     super("users");
   }
 
-  private scrubSensitive(row: UsersRow): UsersRow {
+  protected virtualColumns() {
+    return [
+      { key: "supervisor_name", label: "Supervisor", dataType: "string" },
+      { key: "delegate_name",   label: "Delegate",   dataType: "string" },
+    ];
+  }
+
+  protected buildJoins(_tableName: string): string {
+    return `LEFT JOIN users AS _sup ON _sup.user_id = users.supervisor_id
+            LEFT JOIN users AS _del ON _del.user_id = users.delegate_id`;
+  }
+
+  protected buildSelectExtras(_tableName: string): string {
+    return `, _sup.full_name AS supervisor_name, _del.full_name AS delegate_name`;
+  }
+
+  private scrubSensitive(row: Record<string, any>): Record<string, any> {
     if ("password_hash" in row) delete row.password_hash;
     return row;
   }
@@ -108,7 +115,7 @@ export class UsersRoute extends CrudRoute {
       return NextResponse.json(payload, { status: base.status });
     }
 
-    const saved = payload as UsersRow;
+    const saved = payload as Record<string, any>;
     const userId = this.normalizeId(saved.user_id);
 
     if (groupsInput !== undefined && userId) {
@@ -177,7 +184,7 @@ export class UsersRoute extends CrudRoute {
     }
   }
 
-  async transformRow(row: UsersRow): Promise<UsersRow> {
+  async transformRow(row: Record<string, any>): Promise<Record<string, any>> {
     this.scrubSensitive(row);
 
     const userId = this.normalizeId(row.user_id);
@@ -195,9 +202,7 @@ export class UsersRoute extends CrudRoute {
   async transformList(rows: Record<string, any>[], _meta: TableMeta): Promise<Record<string, any>[]> {
     const userIds = [...new Set(rows.map((r) => this.normalizeId(r.user_id)).filter(Boolean))];
     if (userIds.length === 0) {
-      for (const row of rows) {
-        (row as UsersRow).groups = [];
-      }
+      for (const row of rows) { (row as Record<string, any>).groups = []; }
       return rows;
     }
 
@@ -219,14 +224,13 @@ export class UsersRoute extends CrudRoute {
     }
 
     for (const row of rows) {
-      const id = this.normalizeId(row.user_id);
-      (row as UsersRow).groups = byMember.get(id) || [];
+      (row as Record<string, any>).groups = byMember.get(this.normalizeId(row.user_id)) || [];
     }
 
     return rows;
   }
 
-  async afterSave(saved: UsersRow): Promise<void> {
+  async afterSave(saved: Record<string, any>): Promise<void> {
     this.scrubSensitive(saved);
 
     const hasPhoto =

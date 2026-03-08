@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import { Sidebar, type NavSection } from "./Sidebar";
 import { UserMenu } from "./UserMenu";
 import { Icon } from "@/components/icons/Icon";
@@ -15,38 +15,45 @@ interface AppShellProps {
   onNavigate?: (key: string) => void;
 }
 
-const SECTION_ICON: Record<string, string>  = { admin: "settings", platform: "edit", i18n: "globe", ipurchase: "briefcase", iapprove: "check" };
-const SECTION_LABEL: Record<string, string> = { admin: "Administration", platform: "Platform", i18n: "Internationalization", ipurchase: "iPurchase", iapprove: "iApprove" };
+const NAV_SECTIONS: NavSection[] = [
+  {
+    key: "admin",
+    label: "Administration",
+    icon: "settings",
+    items: [
+      { key: "form:groups",        label: "Groups",           icon: "fileText" },
+      { key: "form:pasoe_brokers", label: "PASOE Brokers",    icon: "fileText" },
+      { key: "form:sso_config",    label: "SSO Configuration",icon: "fileText" },
+      { key: "form:system_settings",label: "System Settings", icon: "fileText" },
+      { key: "form:users",         label: "Users",            icon: "fileText" },
+    ],
+  },
+  {
+    key: "i18n",
+    label: "Internationalization",
+    icon: "globe",
+    items: [],
+  },
+  {
+    key: "ipurchase",
+    label: "iPurchase",
+    icon: "briefcase",
+    items: [],
+  },
+  {
+    key: "platform",
+    label: "Platform",
+    icon: "edit",
+    items: [],
+  },
+];
 
 export function AppShell({ children, title, subtitle, activeNav: controlledNav, onNavigate }: AppShellProps) {
   const isMobile   = useIsMobile();
   const { user, domain, setDomain } = useSession();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [internalNav, setInternalNav] = useState("");
-  const [navForms, setNavForms]       = useState<{ form_key: string; form_name: string; menu_category: string }[]>([]);
-
-  // Fetch nav entries from DB
-  useEffect(() => {
-    fetch("/api/nav").then(r => r.json()).then(setNavForms).catch(() => {});
-  }, []);
-
-  // Build nav sections from DB forms
-  const sections: NavSection[] = useMemo(() => {
-    const byCategory = new Map<string, NavSection>();
-    for (const f of navForms) {
-      const cat = (f.menu_category || "admin").toLowerCase();
-      if (!byCategory.has(cat)) {
-        byCategory.set(cat, {
-          key:   cat,
-          label: SECTION_LABEL[cat] || cat.charAt(0).toUpperCase() + cat.slice(1),
-          icon:  SECTION_ICON[cat]  || "fileText",
-          items: [],
-        });
-      }
-      byCategory.get(cat)!.items.push({ key: `form:${f.form_key}`, label: f.form_name, icon: "fileText" });
-    }
-    return Array.from(byCategory.values());
-  }, [navForms]);
+  const sections = NAV_SECTIONS;
 
   const domainList = useMemo(() => {
     if (!user.domains) return [];

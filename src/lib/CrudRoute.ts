@@ -1,4 +1,3 @@
-/* IMPORTANT: RUNTIME FORMS RULE - DO NOT use form_fields anywhere in runtime forms code. Use table_schema/information_schema (+ form_tables for structure) instead. */
 /**
  * CrudRoute — Base class for metadata-driven CRUD route handlers.
  *
@@ -27,10 +26,6 @@ export type ColType = "text" | "number" | "boolean" | "date" | "datetime" | "ima
 export interface TableMeta {
   formKey: string;
   tableName: string;
-  isHeader: boolean;
-  parentTable: string;
-  hasDomain: boolean;
-  hasApprovals: boolean;
   customFields: FieldMeta[];
   allColumns: string[];
   writableColumns: string[];
@@ -116,22 +111,12 @@ function normalizeComparable(val: any): string {
 }
 
 
-/* ── Load metadata from form_tables + live table schema ── */
+/* ── Load metadata from live table schema ── */
 
 async function loadMeta(formKey: string, tableName: string): Promise<TableMeta> {
   const cacheKey = `${formKey}::${tableName}`;
   const cached = metaCache.get(cacheKey);
   if (cached && Date.now() - cached.loadedAt < CACHE_TTL) return cached.meta;
-
-  const tRes = await db.query(
-    `SELECT t.is_header, t.parent_table, t.has_domain, f.has_approvals
-     FROM form_tables t
-     JOIN forms f ON f.form_key = t.form_key
-     WHERE t.form_key = $1 AND t.table_name = $2`,
-    [formKey, tableName]
-  );
-  if (!tRes.rows.length) throw new Error(`Table "${tableName}" not found in form "${formKey}"`);
-  const tRow = tRes.rows[0];
 
   const sRes = await db.query(
     `SELECT
@@ -173,14 +158,8 @@ async function loadMeta(formKey: string, tableName: string): Promise<TableMeta> 
 
   // Only include system columns that actually exist on this table
   const actualCols = new Set(sRes.rows.map((r: any) => r.field_name));
-  const baseCols = (tRow.has_domain
-    ? ["oid", "domain", "created_at", "created_by", "updated_at", "updated_by", "custom_fields"]
-    : ["oid", "created_at", "created_by", "updated_at", "updated_by"]).filter((c) => actualCols.has(c));
-  const systemCols = [...baseCols];
-  if (tRow.is_header) {
-    if (actualCols.has("copied_from")) systemCols.push("copied_from");
-    if (tRow.has_approvals) systemCols.push(...APPROVAL_COLS.filter((c) => actualCols.has(c)));
-  }
+  const systemCols = ["oid", "domain", "created_at", "created_by", "updated_at", "updated_by", "custom_fields"]
+    .filter((c) => actualCols.has(c));
   const excluded = new Set(systemCols);
 
   const customFields: FieldMeta[] = sRes.rows
@@ -200,28 +179,13 @@ async function loadMeta(formKey: string, tableName: string): Promise<TableMeta> 
 
   const customColNames = customFields.map((f) => f.fieldName);
   const allColumns = [...systemCols, ...customColNames];
-  const writableColumns = customColNames.filter((c) => c !== `oid_${tRow.parent_table}`);
-  if (tRow.is_header && tRow.has_approvals) {
-    writableColumns.push("status", "submitted_by", "submitted_at", "approved_at", "approved_by", "is_change_order");
-  }
+  const writableColumns = customColNames;
 
   const colTypes: Record<string, ColType> = {
     oid: "text", domain: "text", created_at: "datetime", created_by: "text",
     updated_at: "datetime", updated_by: "text", custom_fields: "text",
   };
   const colScales: Record<string, number> = {};
-
-  if (tRow.is_header) {
-    colTypes.copied_from = "text";
-    if (tRow.has_approvals) {
-      colTypes.status = "text";
-      colTypes.submitted_by = "text";
-      colTypes.submitted_at = "datetime";
-      colTypes.approved_at = "datetime";
-      colTypes.approved_by = "text";
-      colTypes.is_change_order = "boolean";
-    }
-  }
 
   for (const f of customFields) {
     colTypes[f.fieldName] = mapColType(f.dataType);
@@ -253,10 +217,6 @@ async function loadMeta(formKey: string, tableName: string): Promise<TableMeta> 
   const meta: TableMeta = {
     formKey,
     tableName,
-    isHeader: tRow.is_header,
-    parentTable: tRow.parent_table || "",
-    hasDomain: tRow.has_domain ?? true,
-    hasApprovals: tRow.has_approvals,
     customFields,
     allColumns,
     writableColumns,
@@ -396,25 +356,45 @@ export class CrudRoute {
     return row;
   }
 
+  /* ── Column catalogue (override in subclass to inject virtual columns) ── */
+
+  /** Return extra columns not in the DB schema (e.g. resolved FK names). */
+  protected virtualColumns(): { key: string; label: string; dataType: string }[] {
+    return [];
+  }
+
+  /* ── Query extension hooks ── */
+
+  /** Extra JOIN clauses to append to the main SELECT. Override in subclass. */
+  protected buildJoins(_tableName: string): string {
+    return "";
+  }
+
+  /** Extra SELECT expressions (must be comma-prefixed). Override in subclass. */
+  protected buildSelectExtras(_tableName: string): string {
+    return "";
+  }
+
   /* ── GET ── */
 
   async handleGET(req: NextRequest): Promise<NextResponse> {
     try {
       const url = req.nextUrl;
+
+      // ?columns=1 → return column catalogue for this route
+      if (url.searchParams.get("columns") === "1") {
+        const tableName = url.searchParams.get("table") || this.formKey;
+        const meta = await this.loadMeta(tableName);
+        const toLabel = (c: string) => c.replace(/_/g, " ").replace(/\b\w+/g, w => w === "id" ? "ID" : w.charAt(0).toUpperCase() + w.slice(1));
+        const cols = meta.allColumns
+          .filter(c => !["oid","domain","created_at","created_by","updated_at","updated_by","custom_fields","password_hash"].includes(c))
+          .map(c => ({ key: c, label: toLabel(c), dataType: meta.colTypes[c] ?? "string" }));
+        return NextResponse.json({ columns: [...cols, ...this.virtualColumns()] });
+      }
+
       // If no ?table param, default to the header table for this route
       // (allows /api/users?search=x to work without ?table=users)
-      let tableName = url.searchParams.get("table") || "";
-      if (!tableName) {
-        const tRes = await db.query(
-          `SELECT table_name, is_header, parent_table, tab_label, sort_order
-           FROM form_tables WHERE form_key = $1 AND is_generated = true AND to_be_deleted = false ORDER BY sort_order`,
-          [this.formKey]
-        );
-        const headerTable = tRes.rows.find((r: any) => r.is_header)?.table_name || "";
-        // If the caller genuinely wants the form structure (no table found either), return it
-        if (!headerTable) return NextResponse.json({ tables: tRes.rows, headerTable });
-        tableName = headerTable;
-      }
+      const tableName = url.searchParams.get("table") || this.formKey;
 
       const meta = await this.loadMeta(tableName);
       const allowedCols = new Set(meta.allColumns);
@@ -432,13 +412,7 @@ export class CrudRoute {
       let pi = 1;
 
       const domain = url.searchParams.get("domain") || "";
-      if (meta.hasDomain && domain) { conditions.push(`"domain" = $${pi}`); params.push(domain); pi++; }
-
-      const parentOid = url.searchParams.get("parentOid") || "";
-      if (!meta.isHeader && meta.parentTable && parentOid) {
-        const fkCol = `oid_${meta.parentTable}`;
-        conditions.push(`"${fkCol}" = $${pi}::uuid`); params.push(parentOid); pi++;
-      }
+      if (domain) { conditions.push(`"domain" = $${pi}`); params.push(domain); pi++; }
 
       const oidFilter = parseOidFilter(url, pi);
       if (oidFilter) { conditions.push(oidFilter.sql); params.push(...oidFilter.params); pi = oidFilter.nextIdx; }
@@ -473,15 +447,18 @@ export class CrudRoute {
       const selectCols = meta.allColumns
         .filter(c => !restricted.has(c))
         .map(c => imageFields.has(c)
-          ? `(CASE WHEN "${c}" IS NOT NULL AND octet_length("${c}") > 0 THEN true ELSE NULL END) AS "${c}"`
-          : `"${c}"`)
+          ? `(CASE WHEN "${tableName}"."${c}" IS NOT NULL AND octet_length("${tableName}"."${c}") > 0 THEN true ELSE NULL END) AS "${c}"`
+          : `"${tableName}"."${c}"`)
         .join(", ");
 
-      const countR = await db.query(`SELECT COUNT(*)::int AS total FROM "${tableName}" ${where}`, params);
+      const joins = this.buildJoins(tableName);
+      const selectExtras = this.buildSelectExtras(tableName);
+
+      const countR = await db.query(`SELECT COUNT(*)::int AS total FROM "${tableName}" ${joins} ${where}`, params);
       const total = countR.rows[0].total;
 
       const dataR = await db.query(
-        `SELECT ${selectCols} FROM "${tableName}" ${where}
+        `SELECT ${selectCols}${selectExtras} FROM "${tableName}" ${joins} ${where}
          ORDER BY "${safeSort}" ${sortDir}
          LIMIT $${pi} OFFSET $${pi + 1}`,
         [...params, limit, offset]
@@ -545,7 +522,7 @@ export class CrudRoute {
       const values: any[] = [];
       const customFieldsMerged = this.mergeCustomFieldsForSave(body, meta);
 
-      if (meta.hasDomain) { fields.push("domain"); values.push(body.domain || ""); }
+      if (meta.allColumns.includes("domain")) { fields.push("domain"); values.push(body.domain || ""); }
 
       for (const col of meta.writableColumns) {
         if (this.restrictedFields.includes(col)) continue;
@@ -568,11 +545,6 @@ export class CrudRoute {
       if (customFieldsMerged !== null) {
         fields.push("custom_fields");
         values.push(customFieldsMerged);
-      }
-
-      if (!meta.isHeader && meta.parentTable && body[`oid_${meta.parentTable}`]) {
-        const fkCol = `oid_${meta.parentTable}`;
-        if (!fields.includes(fkCol)) { fields.push(fkCol); values.push(body[fkCol]); }
       }
 
       fields.push("created_by", "updated_by");
@@ -733,20 +705,6 @@ export class CrudRoute {
 
       // Hook: beforeDelete
       await this.beforeDelete(oid, meta, userId);
-
-      // Cascade delete children if header
-      if (meta.isHeader) {
-        const childTables = await db.query(
-          `SELECT table_name FROM form_tables WHERE form_key = $1 AND NOT is_header AND is_generated = true AND to_be_deleted = false`,
-          [this.formKey]
-        );
-        for (const child of childTables.rows) {
-          await db.query(
-            `DELETE FROM "${child.table_name}" WHERE "oid_${tableName}" = $1::uuid`,
-            [oid]
-          );
-        }
-      }
 
       await db.query(`DELETE FROM "${tableName}" WHERE oid = $1::uuid`, [oid]);
 

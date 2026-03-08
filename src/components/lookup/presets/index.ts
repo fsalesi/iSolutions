@@ -4,4 +4,3 @@ export { DomainLookup } from "./DomainLookup";
 export { GroupLookup, ActiveGroupLookup } from "./GroupLookup";
 export { VendorAPI } from "./VendorAPI";
 export { VendorLookup } from "./VendorLookup";
-export { ParentTableLookup } from "./ParentTableLookup";
