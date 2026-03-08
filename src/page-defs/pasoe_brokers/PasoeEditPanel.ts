@@ -28,7 +28,7 @@ export class PasoeEditPanel extends EditPanel {
         const record = this.toolbar.panel?.currentRecord;
         const domain = record?.domain as string | undefined;
         const name   = record?.name   as string | undefined;
-        if (!domain || !name) { alert("No broker record selected."); return; }
+        if (!domain || !name) { this.form?.alertDialog.error("No broker record selected."); return; }
 
         const btn = this.toolbar.getButton("test_connection");
         btn.disabled = true;
@@ -42,9 +42,10 @@ export class PasoeEditPanel extends EditPanel {
             body:    JSON.stringify({ domain, name }),
           });
           const data = await res.json();
-          alert(data.ok ? `✅ ${data.message}` : `❌ ${data.message}`);
+          if (data.ok) this.form?.alertDialog.info(data.message, "Broker Test");
+          else this.form?.alertDialog.error(data.message, "Broker Test Failed");
         } catch (e) {
-          alert(`❌ Request failed: ${e}`);
+          this.form?.alertDialog.error(`Request failed: ${e}`, "Broker Test Failed");
         } finally {
           btn.disabled = false;
           btn.label    = "Test Connection";

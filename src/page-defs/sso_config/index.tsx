@@ -42,7 +42,7 @@ export class SsoConfigPage extends PageDef implements Renderable {
       key:     "franksButton",
       label:   "Frank's Button",
       icon:    "star",
-      onClick: () => alert("You've clicked Frank's button"),
+      onClick: () => this.alertDialog.info("You've clicked Frank's button", "Test"),
     });
   }
 

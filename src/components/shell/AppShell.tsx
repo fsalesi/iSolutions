@@ -25,7 +25,7 @@ const NAV_SECTIONS: NavSection[] = [
       { key: "form:groups",        label: "Groups",           icon: "fileText" },
       { key: "form:pasoe_brokers", label: "PASOE Brokers",    icon: "fileText" },
       { key: "form:sso_config",    label: "SSO Configuration",icon: "fileText" },
-      { key: "form:system_settings",label: "System Settings", icon: "fileText" },
+      { key: "form:settings", label: "System Settings", icon: "fileText" },
       { key: "form:users",         label: "Users",            icon: "fileText" },
     ],
   },

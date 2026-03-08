@@ -3,6 +3,7 @@
 // Cascades display(row) through the entire child tree.
 
 import type { Row, DisplayMode } from "./types";
+import { AlertDialogService } from "./AlertDialogService";
 import { ToolbarDef } from "./ToolbarDef";
 
 export class PanelDef {
@@ -206,7 +207,7 @@ export class PanelDef {
     const label = keyFields.map(f => this.currentRecord?.[f.key]).filter(Boolean).join(" / ")
                   || "this record";
 
-    const confirmed = await (this.form?.alertDialog ?? { danger: () => Promise.resolve(window.confirm("Delete this record?")) })
+    const confirmed = await (this.form?.alertDialog ?? AlertDialogService)
       .danger({ title: "Delete Record", message: `Delete ${label}? This cannot be undone.`, confirmLabel: "Delete" });
     if (!confirmed) return;
 
@@ -252,10 +253,9 @@ export class PanelDef {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   showMessage(message: string, type: "info" | "error" | "warning" = "info"): void {
-    // TODO: proper toast system — console for now
-    if (type === "error") console.error(message);
-    else console.log(message);
-    alert(message);
+    if (type === "error") this.form?.alertDialog.error(message);
+    else if (type === "warning") this.form?.alertDialog.warning({ title: "Warning", message });
+    else this.form?.alertDialog.info(message);
   }
 
   canNavigateAway(): Promise<boolean> { return Promise.resolve(true); }

@@ -2,6 +2,7 @@ import { EditPanel } from "@/platform/core/EditPanel";
 import { TabDef } from "@/platform/core/TabDef";
 import { SectionDef } from "@/platform/core/SectionDef";
 import { FieldDef } from "@/platform/core/FieldDef";
+import { DomainLookup } from "@/components/lookup/presets/DomainLookup";
 
 /**
  * SettingsEditPanel — Edit panel for System Settings.
@@ -34,9 +35,9 @@ export class SettingsEditPanel extends EditPanel {
             columns:  2,
             children: [
               new FieldDef({ key: "setting_name", label: "Setting Name", keyField: true, required: true }),
-              new FieldDef({ key: "owner",        label: "Owner",        required: true }),
-              new FieldDef({ key: "domain",       label: "Domain",       required: true }),
-              new FieldDef({ key: "form",         label: "Form" }),
+              new FieldDef({ key: "owner",        label: "Owner",        hidden: true, defaultValue: "SYSTEM" }),
+              new FieldDef({ key: "domain", label: "Domain", required: true, renderer: "lookup", lookupConfig: DomainLookup({ allOption: { value: "*", label: "All Domains" } }) }),
+              new FieldDef({ key: "form",         label: "Form",         hidden: true, defaultValue: "*" }),
             ],
           }),
           new SectionDef({

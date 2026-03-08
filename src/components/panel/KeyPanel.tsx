@@ -11,7 +11,7 @@ interface KeyPanelProps {
 export function KeyPanel({ panel, currentRecord, isNew }: KeyPanelProps) {
   if (!currentRecord && !isNew) return null;
 
-  const keyFields = (panel.fields as any[]).filter((f: any) => f.keyField);
+  const keyFields = ((panel.fields as any[]) ?? []).filter((f: any) => f.keyField);
   if (!keyFields.length) return null;
 
   return (

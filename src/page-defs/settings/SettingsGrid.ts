@@ -7,9 +7,4 @@ export class SettingsGrid extends DataGridDef {
     this.dataSource = new SettingsDataSource();
   }
 
-  async loadColumns() {
-    await super.loadColumns();
-    // oid is internal — hide it
-    this.getColumn("oid").hidden = true;
-  }
 }
