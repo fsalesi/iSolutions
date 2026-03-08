@@ -106,6 +106,15 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
     return map;
   };
 
+  // ── Effective filter (includes parent binding filter for child grids) ──
+  // grid.filter is set by display() when this grid is a child inside a parent panel.
+  // Infinite scroll mode does its own fetching via fetchChunkDirect, which bypasses
+  // grid.filter. So we must always merge grid.filter into the effective filter.
+  const buildEft = (uiFilter: FilterTree, colFilters: Record<string, string>, cols: ColumnDef[] = columns) => {
+    const uiEft = mergeFilters(uiFilter, buildColFilterTree(colFilters, cols));
+    return grid.filter ? mergeFilters(grid.filter, uiEft) : uiEft;
+  };
+
   // ── Paged fetch ───────────────────────────────────────────────────────────
   const doFetch = useCallback(async (opts: {
     page?: number; sort?: string; dir?: "ASC" | "DESC";
@@ -213,7 +222,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
     grid.saveFilterState(state);
   }, [grid]);
 
-  // ── Init ──────────────────────────────────────────────────────────────────
+  // ── Init ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
@@ -221,6 +230,20 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
       if (grid.columns.length === 0) await grid.loadColumns();
       setColumns([...grid.columns]);
 
+      // If grid.filter is already set (e.g. by display() for child grids),
+      // use it instead of loading from localStorage
+      if (grid.filter) {
+        setFilterTree(grid.filter);
+        if (isInfinite) {
+          nextOffsetRef.current = 0;
+          await loadChunk(0, "", grid.filter, "", "ASC", { replace: true });
+        } else {
+          await doFetch({ page: 0, filter: grid.filter });
+        }
+        return;
+      }
+
+      // Normal case: load filter state from localStorage
       const savedState = grid.loadFilterState();
       const savedSearch = savedState?.search ?? "";
       const savedFilterTree = savedState?.filterTree ?? null;
@@ -245,7 +268,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
     grid.onFetch = () => {
       if (isInfinite) {
         const { search: sv, filterTree: ft, sortKey: sk, sortDir: sd, columnFilters: cf } = stateRef.current;
-        const eft = mergeFilters(ft, buildColFilterTree(cf, grid.columns));
+        const eft = buildEft(ft, cf, grid.columns);
         prefetchRef.current = null;
         nextOffsetRef.current = 0;
         scrollRef.current?.scrollTo(0, 0);
@@ -262,7 +285,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
   useEffect(() => {
     if (!isInfinite || isLoading || loadingMore || !hasMore) return;
     const { search: sv, filterTree: ft, sortKey: sk, sortDir: sd, columnFilters: cf } = stateRef.current;
-    const eft = mergeFilters(ft, buildColFilterTree(cf, grid.columns));
+    const eft = buildEft(ft, cf, grid.columns);
     const timer = setTimeout(() => {
       loadChunkRef.current(nextOffsetRef.current, sv, eft, sk, sd, { preload: true });
     }, 150);
@@ -278,7 +301,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
       if (isLoading || loadingMore || !hasMore) return;
       if (el.scrollHeight - el.scrollTop - el.clientHeight < 200) {
         const { search: sv, filterTree: ft, sortKey: sk, sortDir: sd, columnFilters: cf } = stateRef.current;
-        const eft = mergeFilters(ft, buildColFilterTree(cf, grid.columns));
+        const eft = buildEft(ft, cf, grid.columns);
         loadChunkRef.current(nextOffsetRef.current, sv, eft, sk, sd);
       }
     };
@@ -300,7 +323,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
     const newDir: "ASC" | "DESC" = sortKey === col.key && sortDir === "ASC" ? "DESC" : "ASC";
     setSortKey(col.key);
     setSortDir(newDir);
-    const eft = mergeFilters(filterTree, buildColFilterTree(columnFilters, columns));
+    const eft = buildEft(filterTree, columnFilters);
     if (isInfinite) {
       infiniteReset(search, eft, col.key, newDir);
     } else {
@@ -312,7 +335,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
   const handleSearch = (val: string) => {
     setSearch(val);
     persistFilterState({ search: val, filterTree, columnFilters });
-    const eft = mergeFilters(filterTree, buildColFilterTree(columnFilters, columns));
+    const eft = buildEft(filterTree, columnFilters);
     if (isInfinite) {
       infiniteReset(val, eft, sortKey, sortDir);
     } else {
@@ -325,7 +348,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
     const t = tree ?? null;
     setFilterTree(t);
     persistFilterState({ search, filterTree: t, columnFilters });
-    const eft = mergeFilters(t, buildColFilterTree(columnFilters, columns));
+    const eft = buildEft(t, columnFilters);
     if (isInfinite) {
       infiniteReset(search, eft, sortKey, sortDir);
     } else {
@@ -339,7 +362,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
     if (val.trim()) next[key] = val; else delete next[key];
     setColumnFilters(next);
     persistFilterState({ search, filterTree, columnFilters: next });
-    const eft = mergeFilters(filterTree, buildColFilterTree(next, columns));
+    const eft = buildEft(filterTree, next);
     if (isInfinite) {
       infiniteReset(search, eft, sortKey, sortDir);
     } else {
@@ -353,7 +376,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
     delete next[key];
     setColumnFilters(next);
     if (activeColFilter === key) setActiveColFilter(null);
-    const eft = mergeFilters(filterTree, buildColFilterTree(next, columns));
+    const eft = buildEft(filterTree, next);
     if (isInfinite) {
       infiniteReset(search, eft, sortKey, sortDir);
     } else {

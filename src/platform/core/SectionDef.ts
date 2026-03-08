@@ -1,6 +1,8 @@
 // SectionDef.ts — A grouped block of child elements
 // Pass-through: forwards display(row) to all children.
 
+import React from "react";
+import type { ReactNode } from "react";
 import { resolveClientText } from "@/lib/i18n/runtime";
 import { tx, type TranslatableText } from "@/lib/i18n/types";
 import type { ChildElement } from "./ChildElement";
@@ -45,14 +47,30 @@ export class SectionDef implements ChildElement {
   getLabel(): string {
     const fallback = typeof this.label === "string" && this.label.length > 0
       ? this.label
-      : this.key.replace(/_/g, " ").replace(/\w/g, c => c.toUpperCase());
+      : this.key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
     const formKey = this.panel?.form?.formKey ?? this.panel?.form?.key;
     return formKey
       ? resolveClientText(tx(`${formKey}.sections.${this.key}`, fallback))
       : resolveClientText(this.label || fallback);
   }
 
-  display(row: Row | null): void                    { this.children.forEach(c => c.display(row)); }
+  // === LIFECYCLE METHODS ===
+
+  show(): ReactNode {
+    if (this.hidden) return null;
+    // Lazy import to avoid circular dependency
+    const { SectionRenderer } = require("@/components/panel/SectionRenderer");
+    return React.createElement(SectionRenderer, { section: this, key: this.key });
+  }
+
+  display(row: Row | null): void { this.children.forEach(c => c.display(row)); }
+
+  hide(): void { /* stub */ }
+
+  destroy(): void { /* stub */ }
+
+  // === OTHER METHODS ===
+
   getField(key: string): any                        { throw new Error("stub"); }
   getGrid(key: string): any                         { throw new Error("stub"); }
   addChild(element: ChildElement): this             { return this; } // stub

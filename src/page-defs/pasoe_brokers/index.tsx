@@ -3,13 +3,12 @@ import { PageDef }         from "@/platform/core/PageDef";
 import { HorizontalLayout } from "@/platform/core/layouts";
 import { PasoeGrid }       from "./PasoeGrid";
 import { PasoeEditPanel }  from "./PasoeEditPanel";
-import type { Renderable } from "@/platform/core/LayoutNode";
 
 /**
  * PasoeBrokersPage — Product layer.
  * Layout: HorizontalLayout (left = grid, right = edit panel)
  */
-export class PasoeBrokersPage extends PageDef implements Renderable {
+export class PasoeBrokersPage extends PageDef {
   readonly title   = "PASOE Brokers";
   readonly formKey = "pasoe_brokers";
 
@@ -30,7 +29,7 @@ export class PasoeBrokersPage extends PageDef implements Renderable {
     this.layout.right.content = this.editPanel;
   }
 
-  render() {
+  show() {
     return (
       <div style={{ width: "100%", height: "100%" }}>
         <LayoutRenderer node={this.layout.root} />

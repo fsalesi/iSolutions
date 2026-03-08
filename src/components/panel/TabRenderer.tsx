@@ -3,8 +3,6 @@
 import { useState, useEffect } from "react";
 import type { TabDef } from "@/platform/core/TabDef";
 import type { PanelDef } from "@/platform/core/PanelDef";
-import type { SectionDef } from "@/platform/core/SectionDef";
-import { SectionRenderer } from "./SectionRenderer";
 
 interface TabRendererProps {
   tabs: TabDef[];
@@ -81,11 +79,11 @@ export function TabRenderer({ tabs, panel }: TabRendererProps) {
         </div>
       )}
 
-      {/* Active tab sections */}
+      {/* Active tab content — polymorphic: each child renders itself */}
       <div style={{ flex: 1, overflow: "auto" }}>
         {activeTab?.children
-          .filter(c => c.type === "section")
-          .map(s => <SectionRenderer key={(s as SectionDef).key} section={s as SectionDef} />)
+          .filter(c => !c.hidden)
+          .map(child => child.show())
         }
       </div>
 

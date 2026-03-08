@@ -1,6 +1,8 @@
 // FieldDef.ts — A single field inside a section
 // Implements ChildElement.
 
+import React from "react";
+import type { ReactNode } from "react";
 import type { ChildElement } from "./ChildElement";
 import { resolveClientText } from "@/lib/i18n/runtime";
 import { tx, type TranslatableText } from "@/lib/i18n/types";
@@ -71,7 +73,7 @@ export class FieldDef implements ChildElement {
 
 
   getLabel(): string {
-    const generated = this.key.replace(/_/g, " ").replace(/\w/g, c => c.toUpperCase());
+    const generated = this.key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
     if (this.label !== undefined) {
       const fallback = typeof this.label === "string" && this.label.length > 0 ? this.label : generated;
@@ -96,7 +98,22 @@ export class FieldDef implements ChildElement {
     return this.valMessage ? resolveClientText(this.valMessage) : fallback;
   }
 
+  // === LIFECYCLE METHODS ===
+
+  show(): ReactNode {
+    if (this.hidden) return null;
+    // Lazy import to avoid circular dependency
+    const { FieldRenderer } = require("@/components/panel/FieldRenderer");
+    return React.createElement(FieldRenderer, { field: this, key: this.key });
+  }
+
   display(row: Row | null): void  { this.value = row ? (row[this.key] ?? null) : null; }
+
+  hide(): void { /* stub */ }
+
+  destroy(): void { /* stub */ }
+
+  // === OTHER METHODS ===
 
   setValue(value: any): void {
     this.value = value;

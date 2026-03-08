@@ -1,9 +1,9 @@
 // EditPanel.tsx — Standard CRUD edit panel.
-// Extends PanelDef with Renderable so it can be dropped into any layout node.
+// Extends PanelDef with show() so it can be dropped into any layout node.
 // Subclass this for every edit panel in the system.
 
+import type { ReactNode } from "react";
 import { PanelDef } from "./PanelDef";
-import type { Renderable } from "./LayoutNode";
 
 export interface EditPanelOptions {
   readOnly?:  boolean;
@@ -16,7 +16,7 @@ export interface EditPanelOptions {
   usePrint?:  boolean;
 }
 
-export class EditPanel extends PanelDef implements Renderable {
+export class EditPanel extends PanelDef {
   constructor(options: EditPanelOptions = {}, form?: any) {
     super(form);
     if (options.readOnly  !== undefined) this.readOnly             = options.readOnly;
@@ -29,9 +29,15 @@ export class EditPanel extends PanelDef implements Renderable {
     if (options.usePrint  !== undefined) this.toolbar.usePrint     = options.usePrint;
   }
 
-  render(): import("react").ReactNode {
+  // === LIFECYCLE METHODS ===
+
+  show(): ReactNode {
     const { EditPanelRenderer } = require("@/components/panel/EditPanelRenderer");
     const renderKey = `${this.form?.key ?? "form"}:${this.constructor.name}`;
     return <EditPanelRenderer key={renderKey} panel={this} />;
   }
+
+  hide(): void { /* stub */ }
+
+  destroy(): void { /* stub */ }
 }

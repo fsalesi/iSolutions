@@ -59,7 +59,7 @@ export default function Home() {
     ? resolveClientText(tx("shell.items.test_runner", "Test Runner"))
     : (page?.getTitle?.() ?? page?.title ?? resolveClientText(tx("shell.title", "iSolutions")));
   const content = toolContent ?? (page
-    ? page.render()
+    ? page.show()
     : (activeNav.startsWith("form:")
       ? <div style={{ padding: "2rem", color: "var(--text-muted)", fontSize: "0.875rem" }}>Loading...</div>
       : null));

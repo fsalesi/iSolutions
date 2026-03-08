@@ -38,6 +38,15 @@ export interface TableMeta {
   defaultSort: string;
   customLayoutFields: Record<string, { transient: boolean; type: ColType }>;
 }
+export interface ParentBinding {
+  name: string;           // Usually the parent table name
+  parentTable: string;    // Parent table name
+  columns: {              // Supports compound keys
+    parentColumn: string; // Column on parent table (e.g., "oid")
+    childColumn: string;  // Column on this table (e.g., "oid_requisition")
+  }[];
+}
+
 
 export interface FieldMeta {
   fieldName: string;
@@ -369,6 +378,56 @@ export class CrudRoute {
   }
 
   /**
+   * Return parent bindings for this table.
+   * Override in subclass to provide static bindings (skips schema query).
+   * Return null to use auto-discovery from information_schema.
+   */
+  protected getParentBindings(): ParentBinding[] | null {
+    return null; // Default: auto-discover from schema
+  }
+
+  /**
+   * Query foreign key relationships from information_schema.
+   * Returns bindings discovered from actual FK constraints.
+   */
+  private async discoverParentBindings(tableName: string): Promise<ParentBinding[]> {
+    const res = await db.query(`
+      SELECT
+        ccu.table_name AS parent_table,
+        kcu.column_name AS child_column,
+        ccu.column_name AS parent_column
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.key_column_usage kcu
+        ON tc.constraint_name = kcu.constraint_name
+        AND tc.table_schema = kcu.table_schema
+      JOIN information_schema.constraint_column_usage ccu
+        ON tc.constraint_name = ccu.constraint_name
+        AND tc.table_schema = ccu.table_schema
+      WHERE tc.constraint_type = 'FOREIGN KEY'
+        AND tc.table_schema = 'public'
+        AND tc.table_name = $1
+      ORDER BY ccu.table_name, kcu.ordinal_position
+    `, [tableName]);
+
+    // Group by parent table to handle compound keys
+    const byParent = new Map<string, { parentColumn: string; childColumn: string }[]>();
+    for (const row of res.rows) {
+      const pt = row.parent_table as string;
+      if (!byParent.has(pt)) byParent.set(pt, []);
+      byParent.get(pt)!.push({
+        parentColumn: row.parent_column as string,
+        childColumn: row.child_column as string,
+      });
+    }
+
+    const bindings: ParentBinding[] = [];
+    for (const [parentTable, columns] of byParent) {
+      bindings.push({ name: parentTable, parentTable, columns });
+    }
+    return bindings;
+  }
+
+  /**
    * SQL expressions for virtual (joined) columns, used in WHERE clauses.
    * Override in subclasses to allow filtering on joined columns.
    * Key = column key, value = SQL expression (e.g. '_sup.full_name')
@@ -403,7 +462,17 @@ export class CrudRoute {
         const cols = meta.allColumns
           .filter(c => !["oid","domain","created_at","created_by","updated_at","updated_by","custom_fields","password_hash"].includes(c))
           .map(c => ({ key: c, label: toLabel(c), dataType: meta.colTypes[c] ?? "string" }));
-        return NextResponse.json({ columns: [...cols, ...this.virtualColumns()] });
+
+        // Get parent bindings - static override or auto-discover
+        const staticBindings = this.getParentBindings();
+        const parentBindings = staticBindings !== null
+          ? staticBindings
+          : await this.discoverParentBindings(tableName);
+
+        return NextResponse.json({
+          columns: [...cols, ...this.virtualColumns()],
+          parentBindings,
+        });
       }
 
       // If no ?table param, default to the header table for this route

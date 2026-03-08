@@ -4,7 +4,6 @@ import { ThreePanelLayout } from "@/platform/core/layouts";
 import { SsoGrid } from "./SsoGrid";
 import { SsoEditPanel } from "./SsoEditPanel";
 import { UsersGrid } from "@/page-defs/users/UsersGrid";
-import type { Renderable } from "@/platform/core/LayoutNode";
 import { resolveClientText } from "@/lib/i18n/runtime";
 import { tx } from "@/lib/i18n/types";
 
@@ -17,7 +16,7 @@ import { tx } from "@/lib/i18n/types";
  *   bottomLeft → (reserved)
  *   right      → SsoEditPanel
  */
-export class SsoConfigPage extends PageDef implements Renderable {
+export class SsoConfigPage extends PageDef {
   readonly title   = "SSO Configuration";
   readonly formKey = "sso_config";
 
@@ -48,7 +47,7 @@ export class SsoConfigPage extends PageDef implements Renderable {
     });
   }
 
-  render() {
+  show() {
     return (
       <div style={{ width: "100%", height: "100%" }}>
         <LayoutRenderer node={this.layout.root} />
@@ -57,9 +56,9 @@ export class SsoConfigPage extends PageDef implements Renderable {
   }
 }
 
-class Placeholder implements Renderable {
+class Placeholder {
   constructor(private label: string) {}
-  render() {
+  show() {
     return (
       <div style={{
         width: "100%", height: "100%",

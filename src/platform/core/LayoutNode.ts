@@ -1,29 +1,29 @@
 import type { ReactNode } from "react";
 
 /**
- * Renderable — the contract every node in the page tree must satisfy.
- * DataGridDef, PanelDef, layout presets, custom classes — all implement this.
+ * Showable — the contract for any content that can be placed in a LeafNode.
+ * DataGridDef, EditPanel, custom classes — all implement show().
  */
-export interface Renderable {
-  render(): ReactNode;
+export interface Showable {
+  show(): ReactNode;
 }
 
-// ─── LeafNode ────────────────────────────────────────────────────────────────
+// ——— LeafNode ————————————————————————————————————————————————————————
 
 /**
  * LeafNode — a terminal node in the layout tree.
- * Holds one Renderable (grid, panel, custom component, etc).
+ * Holds one Showable (grid, panel, custom component, etc).
  * The preset creates the leaf; the page drops content into it.
  */
-export class LeafNode implements Renderable {
-  content: Renderable | null = null;
+export class LeafNode implements Showable {
+  content: Showable | null = null;
 
-  render(): ReactNode {
-    return this.content?.render() ?? null;
+  show(): ReactNode {
+    return this.content?.show() ?? null;
   }
 }
 
-// ─── SplitNode ───────────────────────────────────────────────────────────────
+// ——— SplitNode ———————————————————————————————————————————————————————
 
 export interface SplitNodeOptions {
   direction: "horizontal" | "vertical";
@@ -54,7 +54,7 @@ export class SplitNode {
   }
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ——— Helpers —————————————————————————————————————————————————————————
 
 const LS_PREFIX = "isolutions.layout.";
 

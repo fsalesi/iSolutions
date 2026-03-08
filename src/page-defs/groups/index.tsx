@@ -3,13 +3,12 @@ import { PageDef } from "@/platform/core/PageDef";
 import { HorizontalLayout } from "@/platform/core/layouts";
 import { GroupGrid } from "./GroupGrid";
 import { GroupEditPanel } from "./GroupEditPanel";
-import type { Renderable } from "@/platform/core/LayoutNode";
 import ExcelJS from "exceljs";
 import { AlertDialogService } from "@/platform/core/AlertDialogService";
 import { resolveClientText } from "@/lib/i18n/runtime";
 import { tx } from "@/lib/i18n/types";
 
-export class GroupsPage extends PageDef implements Renderable {
+export class GroupsPage extends PageDef {
   readonly title   = "Groups";
   readonly formKey = "groups";
 
@@ -78,7 +77,7 @@ export class GroupsPage extends PageDef implements Renderable {
     }
   }
 
-  render() {
+  show() {
     return (
       <div style={{ width: "100%", height: "100%" }}>
         <LayoutRenderer node={this.layout.root} />

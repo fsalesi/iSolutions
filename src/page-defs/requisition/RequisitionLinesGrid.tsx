@@ -1,5 +1,6 @@
 import { DataGridDef } from "@/platform/core/DataGridDef";
 import { RequisitionLinesDataSource } from "./RequisitionLinesDataSource";
+import { RequisitionLinesEditPanel } from "./RequisitionLinesEditPanel";
 
 export class RequisitionLinesGrid extends DataGridDef {
   constructor(form?: any) {
@@ -9,12 +10,10 @@ export class RequisitionLinesGrid extends DataGridDef {
       mode: "browse",
       allowSearch: false,
       showTitle: false,
-      parentLink: {
-        parentField: "oid",
-        myField: "oid_requisition",
-      },
     }, form);
     this.dataSource = new RequisitionLinesDataSource();
+    this.panel = new RequisitionLinesEditPanel();
+    this.panel.grid = this;  // Bidirectional reference
   }
 
   async loadColumns() {

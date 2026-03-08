@@ -3,9 +3,8 @@ import { PageDef } from "@/platform/core/PageDef";
 import { HorizontalLayout } from "@/platform/core/layouts";
 import { LocaleGrid } from "./LocaleGrid";
 import { LocaleEditPanel } from "./LocaleEditPanel";
-import type { Renderable } from "@/platform/core/LayoutNode";
 
-export class LocalesPage extends PageDef implements Renderable {
+export class LocalesPage extends PageDef {
   readonly title   = "Locales";
   readonly formKey = "locales";
 
@@ -24,7 +23,7 @@ export class LocalesPage extends PageDef implements Renderable {
     this.layout.right.content = this.editPanel;
   }
 
-  render() {
+  show() {
     return (
       <div style={{ width: "100%", height: "100%" }}>
         <LayoutRenderer node={this.layout.root} />

@@ -3,9 +3,8 @@ import { PageDef } from "@/platform/core/PageDef";
 import { HorizontalLayout } from "@/platform/core/layouts";
 import { TranslationGrid } from "./TranslationGrid";
 import { TranslationEditPanel } from "./TranslationEditPanel";
-import type { Renderable } from "@/platform/core/LayoutNode";
 
-export class TranslationsPage extends PageDef implements Renderable {
+export class TranslationsPage extends PageDef {
   readonly title   = "Translations";
   readonly formKey = "translations";
 
@@ -24,7 +23,7 @@ export class TranslationsPage extends PageDef implements Renderable {
     this.layout.right.content = this.editPanel;
   }
 
-  render() {
+  show() {
     return (
       <div style={{ width: "100%", height: "100%" }}>
         <LayoutRenderer node={this.layout.root} />

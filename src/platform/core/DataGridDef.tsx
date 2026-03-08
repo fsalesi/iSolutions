@@ -1,13 +1,13 @@
 // DataGridDef.ts — Owns data, drives the panel
 // Also implements ChildElement — can live inside a tab as a child grid.
 
-import type { Renderable } from "./LayoutNode";
+import type { Showable } from "./LayoutNode";
 import { DataGridRenderer } from "@/components/grid/DataGridRenderer";
 import type { ChildElement } from "./ChildElement";
 import type { Row, GridMode, FetchParams } from "./types";
-import type { FilterTree } from "@/components/grid/filter/filter-types";
+import type { FilterTree, FilterCondition } from "@/components/grid/filter/filter-types";
 import type { ColumnDef } from "./ColumnDef";
-import type { DataSourceDef } from "./DataSourceDef";
+import type { DataSourceDef, ParentBinding } from "./DataSourceDef";
 
 export interface DataGridDefOptions {
   key?: string;
@@ -46,7 +46,7 @@ export interface GridFilterState {
   columnFilters: Record<string, string>;
 }
 
-export class DataGridDef implements ChildElement, Renderable {
+export class DataGridDef implements ChildElement, Showable {
   readonly type = "grid" as const;
 
   key: string = "";
@@ -62,8 +62,36 @@ export class DataGridDef implements ChildElement, Renderable {
     if (f && !f.grids.includes(this)) f.grids.push(this);
   }
 
-  // Child grid config
-  dataSource?: DataSourceDef;  // column catalogue + data origin
+  // ─────────────────────────────────────────────────────────────────────────────
+  // dataSource with auto-loading
+  // ─────────────────────────────────────────────────────────────────────────────
+  // When dataSource is assigned, we immediately fire loadColumns() (fire-and-forget).
+  // This ensures parentBindings are loaded BEFORE display() needs them.
+  // The load is async but we don't block the constructor — it runs in background.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  private _dataSource?: DataSourceDef;
+
+  get dataSource(): DataSourceDef | undefined {
+    return this._dataSource;
+  }
+
+  set dataSource(ds: DataSourceDef | undefined) {
+    this._dataSource = ds;
+    // Fire column/binding loading immediately when dataSource is assigned.
+    // This is fire-and-forget — we don't await here.
+    // display() will await loadColumns() to ensure it's complete before using bindings.
+    ds?.loadColumns();
+  }
+
+  /**
+   * The active parent binding for this child grid.
+   *
+   * Set automatically on first display() by matching parent row fields,
+   * OR set manually by the page to force a specific relationship.
+   */
+  parentBinding: ParentBinding | null = null;
+
   _panelSource?: any;      // PanelDef — drives this child grid when set
   parentLink?: { parentField: string; myField: string; };
 
@@ -211,14 +239,6 @@ export class DataGridDef implements ChildElement, Renderable {
 
   persistState(): void {} // stub
 
-  /**
-   * Renderable — renders this grid into its leaf.
-   * Returns a DataGridRenderer once implemented; red placeholder for now.
-   */
-  /**
-   * Load column catalogue from the attached DataSourceDef.
-   * Falls back gracefully if no dataSource is set.
-   */
   /** localStorage key for persisting column prefs for this grid. */
   private get _colPrefKey(): string | null {
     const fk = this.form?.formKey;
@@ -339,6 +359,85 @@ export class DataGridDef implements ChildElement, Renderable {
     return <DataGridRenderer key={renderKey} grid={this} />;
   }
 
-  // ChildElement — called when this is a child grid inside a panel
-  display(parentRow: Row | null): void {} // stub
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // display() — Child Grid Parent Binding
+  // ═══════════════════════════════════════════════════════════════════════════════
+  //
+  // Called when this grid is a child element inside a panel (e.g., RequisitionLinesGrid
+  // inside RequisitionEditPanel). The parent panel calls display(row) when a record
+  // is selected.
+  //
+  // This method:
+  //   1. Clears data if parentRow is null (no parent selected)
+  //   2. Auto-detects the correct parent binding (only on first call)
+  //   3. Builds a filter from the binding and parent row values
+  //   4. Fetches filtered data for this child grid
+  //
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  async display(parentRow: Row | null): Promise<void> {
+    // CASE 1: No parent row — clear the grid
+    if (!parentRow) {
+      this.rows = [];
+      this.totalRows = 0;
+      this.filter = undefined;
+      this.onFetch?.();
+      return;
+    }
+
+    // Ensure dataSource columns and bindings are loaded
+    if (this.dataSource) {
+      await this.dataSource.loadColumns();
+    }
+
+    // CASE 2: Check if parent binding is already set (cached or page-forced)
+    if (!this.parentBinding) {
+      // CASE 3: Auto-detect from dataSource.parentBindings
+      const bindings = this.dataSource?.parentBindings ?? {};
+      for (const binding of Object.values(bindings)) {
+        // Check if ALL parentColumn fields exist in the parent row
+        const allFieldsPresent = binding.columns.every(
+          col => col.parentColumn in parentRow
+        );
+        if (allFieldsPresent) {
+          // Found a match — cache it for future display() calls
+          this.parentBinding = binding;
+          break;
+        }
+      }
+    }
+
+    // CASE 4: Build filter from binding
+    if (!this.parentBinding) {
+      console.warn(`[DataGridDef.display] No parent binding found for grid "${this.key}"`);
+      return;
+    }
+
+    // Build filter conditions from the binding columns
+    const conditions: FilterCondition[] = this.parentBinding.columns.map((col, idx) => ({
+      type: "condition" as const,
+      id: `parent-bind-${idx}`,
+      field: col.childColumn,
+      operator: "eq",
+      value: String(parentRow[col.parentColumn] ?? ""),
+      value2: "",
+    }));
+
+    // Wrap in an AND group
+    const filterTree: FilterTree = {
+      type: "group",
+      id: "parent-bind-group",
+      logic: "and",
+      children: conditions,
+    };
+
+    // Store the filter and fetch data
+    this.filter = filterTree;
+    this.fetch();
+  }
+
+  // ChildElement stubs
+  show(): import("react").ReactNode { return this.render(); }
+  hide(): void {}
+  destroy(): void {}
 }

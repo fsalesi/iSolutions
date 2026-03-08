@@ -3,6 +3,7 @@
 // what they are (fields, sections, grids, anything).
 // Pass-through: forwards display(row) to all children.
 
+import type { ReactNode } from "react";
 import { resolveClientText } from "@/lib/i18n/runtime";
 import { tx, type TranslatableText } from "@/lib/i18n/types";
 import type { ChildElement } from "./ChildElement";
@@ -45,14 +46,27 @@ export class TabDef implements ChildElement {
   getLabel(): string {
     const fallback = typeof this.label === "string" && this.label.length > 0
       ? this.label
-      : this.key.replace(/_/g, " ").replace(/\w/g, c => c.toUpperCase());
+      : this.key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
     const formKey = this.panel?.form?.formKey ?? this.panel?.form?.key;
     return formKey
       ? resolveClientText(tx(`${formKey}.tabs.${this.key}`, fallback))
       : resolveClientText(this.label || fallback);
   }
 
-  display(row: Row | null): void        { this.children.forEach(c => c.display(row)); }
+  // === LIFECYCLE METHODS ===
+
+  // Tabs don't render themselves — TabRenderer renders tab headers
+  // and calls show() on the active tab's children.
+  show(): ReactNode { return null; }
+
+  display(row: Row | null): void { this.children.forEach(c => c.display(row)); }
+
+  hide(): void { /* stub */ }
+
+  destroy(): void { /* stub */ }
+
+  // === OTHER METHODS ===
+
   getField(key: string): any            { throw new Error("stub"); }
   getSection(key: string): any          { throw new Error("stub"); }
   getGrid(key: string): any             { throw new Error("stub"); }

@@ -11,6 +11,19 @@ export interface DataSourceDefOptions {
   baseFilters?: Record<string, string | number | boolean>;
 }
 
+/**
+ * Describes a parent-child FK relationship.
+ * Used by child grids to auto-filter when displayed inside a parent panel.
+ */
+export interface ParentBinding {
+  name: string;           // Usually the parent table name
+  parentTable: string;    // Parent table name
+  columns: {              // Supports compound keys
+    parentColumn: string; // Column on parent table (e.g., "oid")
+    childColumn: string;  // Column on this table (e.g., "oid_requisition")
+  }[];
+}
+
 const SKIP_DEFAULT = new Set(["oid", "created_at", "updated_at", "created_by", "updated_by"]);
 
 const TYPE_MAP: Record<string, ColumnDefOptions["dataType"]> = {
@@ -34,7 +47,7 @@ const RENDERER_MAP: Record<string, import("./types").RendererType> = {
 };
 
 const toLabel = (key: string) =>
-  key.replace(/_/g, " ").replace(/\w/g, c => c.toUpperCase());
+  key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
 export class DataSourceDef {
   api:         string;
@@ -42,6 +55,12 @@ export class DataSourceDef {
   baseFilters: Record<string, string | number | boolean> = {};
 
   columns: ColumnDef[] = [];
+
+  /**
+   * Parent bindings loaded from API (FK relationships).
+   * Keyed by parent table name for easy lookup.
+   */
+  parentBindings: Record<string, ParentBinding> = {};
 
   private _suppressed = new Set<string>();
   private _loaded     = false;
@@ -107,10 +126,27 @@ export class DataSourceDef {
       this.columns.push(column);
     }
 
+    // Load parent bindings from API response
+    if (Array.isArray(json.parentBindings)) {
+      for (const binding of json.parentBindings) {
+        if (binding.name && binding.parentTable && Array.isArray(binding.columns)) {
+          this.parentBindings[binding.name] = binding as ParentBinding;
+        }
+      }
+    }
+
     this._loaded = true;
   }
 
   getColumn(key: string): ColumnDef | undefined {
     return this.columns.find(c => c.key === key);
+  }
+
+  /**
+   * Get a parent binding by name (usually the parent table name).
+   * Returns undefined if no binding exists for that parent.
+   */
+  getParentBinding(name: string): ParentBinding | undefined {
+    return this.parentBindings[name];
   }
 }

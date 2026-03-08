@@ -1,5 +1,4 @@
 import { LayoutRenderer } from "@/components/layout/LayoutRenderer";
-import type { Renderable } from "@/platform/core/LayoutNode";
 import { PageDef } from "@/platform/core/PageDef";
 import { HorizontalLayout } from "@/platform/core/layouts";
 import { RequisitionEditPanel } from "./RequisitionEditPanel";
@@ -9,7 +8,7 @@ import { RequisitionGrid } from "./RequisitionGrid";
  * RequisitionPage — Product layer.
  * Layout: HorizontalLayout (left = grid, right = edit panel)
  */
-export class RequisitionPage extends PageDef implements Renderable {
+export class RequisitionPage extends PageDef {
   readonly formKey = "requisition";
   readonly title = "PO Reqs";
 
@@ -30,7 +29,7 @@ export class RequisitionPage extends PageDef implements Renderable {
     this.layout.right.content = this.editPanel;
   }
 
-  render() {
+  show() {
     return (
       <div style={{ width: "100%", height: "100%" }}>
         <LayoutRenderer node={this.layout.root} />

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 export interface PageInstance {
   title?: string;
   formKey: string;
-  render(): ReactNode;
+  show(): ReactNode;
   getTitle?(): string;
 }
 
