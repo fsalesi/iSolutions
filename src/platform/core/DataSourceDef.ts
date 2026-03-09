@@ -99,7 +99,12 @@ export class DataSourceDef {
 
     let json: any;
     try {
-      const res = await fetch(`/api/${this.table}?columns=1`);
+      const hasQuery = this.api.includes("?");
+      const qs = new URLSearchParams();
+      qs.set("columns", "1");
+      if (this.table) qs.set("table", this.table);
+      const url = `${this.api}${hasQuery ? "&" : "?"}${qs.toString()}`;
+      const res = await fetch(url);
       if (!res.ok) return;
       json = await res.json();
     } catch {
