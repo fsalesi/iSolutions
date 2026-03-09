@@ -37,7 +37,7 @@ export function FieldRenderer({ field, onChange }: FieldRendererProps) {
   let input: React.ReactNode;
 
   switch (field.renderer) {
-    case "checkbox":
+    case "boolean":
       input = <Toggle value={!!value} onChange={handleChange} />;
       break;
 

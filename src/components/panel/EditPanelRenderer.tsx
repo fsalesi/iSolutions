@@ -5,7 +5,6 @@ import { PanelToolbar } from "./PanelToolbar";
 import { TabRenderer } from "./TabRenderer";
 import type { EditPanel } from "@/platform/core/EditPanel";
 import type { Row } from "@/platform/core/types";
-import { KeyPanel } from "./KeyPanel";
 
 interface EditPanelRendererProps {
   panel: EditPanel;
@@ -13,22 +12,18 @@ interface EditPanelRendererProps {
 
 export function EditPanelRenderer({ panel }: EditPanelRendererProps) {
   const [currentRecord, setCurrentRecord] = useState<Row | null>(panel.currentRecord);
-  const [isDirty,       setIsDirty]       = useState(panel.isDirty);
-  const [isNew,         setIsNew]         = useState(panel.isNew);
-  // tick forces re-render of field values after display()/newRecord()/copyRecord()
-  const [tick,          setTick]          = useState(0);
+  const [isNew, setIsNew] = useState(panel.isNew);
+  const [, setRenderTick] = useState(0);
 
   // Wire direct callbacks — no pub/sub needed
   useEffect(() => {
     const handleDisplay = (row: Row | null) => {
       setCurrentRecord(row);
       setIsNew(panel.isNew);
-      setIsDirty(panel.isDirty);
-      setTick(t => t + 1);
     };
     panel.addDisplayListener(handleDisplay);
-    panel.onDirtyChanged = (dirty) => {
-      setIsDirty(dirty);
+    panel.onDirtyChanged = () => {
+      setRenderTick(t => t + 1);
     };
     return () => {
       panel.removeDisplayListener(handleDisplay);
@@ -44,12 +39,9 @@ export function EditPanelRenderer({ panel }: EditPanelRendererProps) {
 
       <PanelToolbar
         toolbar={panel.toolbar}
-        isNew={isNew}
-        isDirty={isDirty}
-        readOnly={panel.readOnly}
       />
 
-      {panel.headerRenderer({ currentRecord, isNew })}
+      {panel.headerRenderer()}
 
       <div style={{ flex: 1, overflow: "auto", padding: "1rem" }}>
         {!showForm ? (

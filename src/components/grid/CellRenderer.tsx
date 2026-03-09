@@ -14,15 +14,16 @@ export function CellRenderer({ col, row }: CellRendererProps) {
   switch (col.renderer) {
 
     case "boolean":
+      if (!val) return null;
       return (
         <span style={{
           display: "inline-flex", alignItems: "center", justifyContent: "center",
           width: 16, height: 16, borderRadius: 3,
-          background: val ? "var(--accent, #0e86ca)" : "transparent",
-          border: `1.5px solid ${val ? "var(--accent, #0e86ca)" : "var(--border)"}`,
+          background: "var(--accent, #0e86ca)",
+          border: "1.5px solid var(--accent, #0e86ca)",
           color: "var(--accent-text)", fontSize: "0.65rem", fontWeight: 700,
         }}>
-          {val ? "✓" : ""}
+          ✓
         </span>
       );
 

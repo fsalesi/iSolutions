@@ -11,10 +11,7 @@ import { NotesPanel } from "@/components/notes-panel/NotesPanel";
 import type { ToolbarDef, ButtonDef } from "@/platform/core/ToolbarDef";
 
 interface PanelToolbarProps {
-  toolbar:  ToolbarDef;
-  isNew:    boolean;
-  isDirty:  boolean;
-  readOnly: boolean;
+  toolbar: ToolbarDef;
 }
 
 interface ToolBtn {
@@ -27,7 +24,7 @@ interface ToolBtn {
   danger?:   boolean;
 }
 
-export function PanelToolbar({ toolbar, isNew, isDirty, readOnly }: PanelToolbarProps) {
+export function PanelToolbar({ toolbar }: PanelToolbarProps) {
   const { locale } = useTranslation();
   const isMobile = useIsMobile();
   const [auditOpen, setAuditOpen] = useState(false);
@@ -39,9 +36,13 @@ export function PanelToolbar({ toolbar, isNew, isDirty, readOnly }: PanelToolbar
   }, [toolbar]);
   const [notesOpen, setNotesOpen] = useState(false);
 
-  const hasRecord = !isNew && !!toolbar.panel?.currentRecord;
-  const table     = toolbar.panel?.grid?.dataSource?.table  ?? "";
-  const recordOid = toolbar.panel?.currentRecord?.oid ?? "";
+  const panel = toolbar.panel;
+  const isNew = panel?.isNew ?? false;
+  const isDirty = panel?.isDirty ?? false;
+  const readOnly = panel?.readOnly ?? false;
+  const hasRecord = !isNew && !!panel?.currentRecord;
+  const table = panel?.grid?.dataSource?.table ?? "";
+  const recordOid = panel?.currentRecord?.oid ?? "";
 
   const builtins: ToolBtn[] = [
     { key: "new",    label: resolveClientText(tx("panel.actions.new", "New")),    icon: "plus",   hidden: !toolbar.useNew    || readOnly, onClick: () => toolbar.onNew()    },

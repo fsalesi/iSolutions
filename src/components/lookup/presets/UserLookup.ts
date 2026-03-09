@@ -1,5 +1,5 @@
 import type { LookupConfig } from "../LookupTypes";
-import { UserDataSource } from "@/page-defs/users/UserDataSource";
+import { UserDataSource } from "@/platform/pages/users/UserDataSource";
 
 export const UserLookup = (overrides?: Partial<LookupConfig>): LookupConfig => ({
   dataSource:     new UserDataSource(),

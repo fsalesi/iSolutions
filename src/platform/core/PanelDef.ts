@@ -47,10 +47,10 @@ export class PanelDef {
    * Default: KeyPanel (shows keyField=true fields).
    * Override in subclass constructor to customise.
    */
-  headerRenderer: (props: { currentRecord: Row | null; isNew: boolean }) => ReactNode =
-    ({ currentRecord, isNew }) => {
+  headerRenderer: () => ReactNode =
+    () => {
       const { KeyPanel } = require("@/components/panel/KeyPanel");
-      return KeyPanel({ panel: this, currentRecord, isNew });
+      return KeyPanel({ panel: this, currentRecord: this.currentRecord, isNew: this.isNew });
     };
   onFocusTab:     ((index: number) => void) | null = null;
   activeTabKey:   string = "";

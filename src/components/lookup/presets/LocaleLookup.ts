@@ -1,4 +1,4 @@
-import { LocaleDataSource } from "@/page-defs/locales/LocaleDataSource";
+import { LocaleDataSource } from "@/platform/pages/locales/LocaleDataSource";
 import type { LookupConfig } from "../LookupTypes";
 
 export const LocaleLookup = (overrides?: Partial<LookupConfig>): LookupConfig => ({

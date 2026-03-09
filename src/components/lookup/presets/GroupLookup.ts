@@ -1,4 +1,4 @@
-import { GroupDataSource } from "@/page-defs/groups/GroupDataSource";
+import { GroupDataSource } from "@/platform/pages/groups/GroupDataSource";
 import type { LookupConfig } from "../LookupTypes";
 
 export const GroupLookup = (overrides?: Partial<LookupConfig>): LookupConfig => ({

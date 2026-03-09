@@ -2,27 +2,12 @@ import { resolveClientText } from "@/lib/i18n/runtime";
 import { tx } from "@/lib/i18n/types";
 import { DataGridDef } from "@/platform/core/DataGridDef";
 import type { Row } from "@/platform/core/types";
-import { RequisitionDataSource } from "./RequisitionDataSource";
+import { RequisitionDataSource } from "@customer/pages/requisition/RequisitionDataSource";
 
 export class RequisitionGrid extends DataGridDef {
   constructor(form?: any) {
     super({ key: "requisition", pageSize: 0 }, form);
     this.dataSource = new RequisitionDataSource();
-  }
-
-  async loadColumns() {
-    await super.loadColumns();
-
-    // Hide columns we don't want in the grid but need for the panel
-    this.getColumn("justification_note")?.applyOptions({ hidden: true });
-    this.getColumn("submitted_by")?.applyOptions({ hidden: true });
-    this.getColumn("submitted_at")?.applyOptions({ hidden: true });
-    this.getColumn("approved_by")?.applyOptions({ hidden: true });
-    this.getColumn("approved_at")?.applyOptions({ hidden: true });
-    this.getColumn("is_change_order")?.applyOptions({ hidden: true });
-    this.getColumn("created_by")?.applyOptions({ hidden: true });
-    this.getColumn("vendor_code")?.applyOptions({ hidden: true });
-    this.getColumn("buyer")?.applyOptions({ hidden: true });
   }
 
   renderCard(row: Row, isSelected: boolean) {

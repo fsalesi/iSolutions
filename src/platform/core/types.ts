@@ -37,10 +37,10 @@ export interface FetchParams {
 
 export type RendererType =
   // Field renderers
-  | "text" | "number" | "date" | "datetime" | "checkbox"
+  | "text" | "number" | "date" | "datetime" | "boolean"
   | "select" | "lookup" | "textarea" | "password" | "readonly" | "image"
-  // Column renderers
-  | "badge" | "currency" | "boolean" | "dateDisplay" | "svg";
+  // Column-only renderers
+  | "badge" | "currency" | "dateDisplay" | "svg";
 
 export type DisplayMode = "inline" | "slide-in-right" | "modal-centered";
 

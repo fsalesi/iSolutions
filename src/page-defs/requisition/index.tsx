@@ -1,8 +1,7 @@
-import { LayoutRenderer } from "@/components/layout/LayoutRenderer";
 import { PageDef } from "@/platform/core/PageDef";
 import { HorizontalLayout } from "@/platform/core/layouts";
-import { RequisitionEditPanel } from "./RequisitionEditPanel";
-import { RequisitionGrid } from "./RequisitionGrid";
+import { RequisitionEditPanel } from "@customer/pages/requisition/RequisitionEditPanel";
+import { RequisitionGrid } from "@customer/pages/requisition/RequisitionGrid";
 
 /**
  * RequisitionPage — Product layer.
@@ -14,7 +13,7 @@ export class RequisitionPage extends PageDef {
 
   protected grid      = new RequisitionGrid(this);
   protected editPanel = new RequisitionEditPanel(this);
-  private   layout    = new HorizontalLayout("requisition", {
+  protected layout    = new HorizontalLayout("requisition", {
     sizes:    [45, 55],
     minSizes: [280, 320],
   });
@@ -27,13 +26,5 @@ export class RequisitionPage extends PageDef {
 
     this.layout.left.content  = this.grid;
     this.layout.right.content = this.editPanel;
-  }
-
-  show() {
-    return (
-      <div style={{ width: "100%", height: "100%" }}>
-        <LayoutRenderer node={this.layout.root} />
-      </div>
-    );
   }
 }

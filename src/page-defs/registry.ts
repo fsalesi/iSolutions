@@ -11,26 +11,23 @@ export interface PageInstance {
 type PageConstructor = new () => PageInstance;
 
 /**
- * Registry — maps nav form keys to their customer page class.
- * Always import from @customer/pages/* so the customer layer gets priority.
+ * Registry — maps nav form keys to page classes.
+ *
+ * Platform pages:  import directly from @/platform/pages/* (no customer override chain).
+ * Enduser pages:   import from @customer/pages/* so the customer layer can override at every level.
  */
 const registry: Record<string, () => Promise<PageConstructor>> = {
-  sso_config: () =>
-    import("@customer/pages/sso_config").then(m => m.SsoConfigPage),
-  pasoe_brokers: () =>
-    import("@customer/pages/pasoe_brokers").then(m => m.PasoeBrokersPage),
-  users: () =>
-    import("@customer/pages/users").then(m => m.UsersPage),
-  groups: () =>
-    import("@customer/pages/groups").then(m => m.GroupsPage),
-  locales: () =>
-    import("@customer/pages/locales").then(m => m.LocalesPage),
-  translations: () =>
-    import("@customer/pages/translations").then(m => m.TranslationsPage),
-  settings: () =>
-    import("@customer/pages/settings").then(m => m.SystemSettingsPage),
-  requisition: () =>
-    import("@customer/pages/requisition").then(m => m.RequisitionPage),
+  // ── Platform pages ─────────────────────────────────────────────────
+  sso_config:    () => import("@/platform/pages/sso_config").then(m => m.SsoConfigPage),
+  pasoe_brokers: () => import("@/platform/pages/pasoe_brokers").then(m => m.PasoeBrokersPage),
+  users:         () => import("@/platform/pages/users").then(m => m.UsersPage),
+  groups:        () => import("@/platform/pages/groups").then(m => m.GroupsPage),
+  locales:       () => import("@/platform/pages/locales").then(m => m.LocalesPage),
+  translations:  () => import("@/platform/pages/translations").then(m => m.TranslationsPage),
+  settings:      () => import("@/platform/pages/settings").then(m => m.SystemSettingsPage),
+
+  // ── Enduser pages (customer-overridable) ───────────────────────────
+  requisition:   () => import("@customer/pages/requisition").then(m => m.RequisitionPage),
 };
 
 /** Resolve and instantiate a page by form key. Returns null if not registered. */
