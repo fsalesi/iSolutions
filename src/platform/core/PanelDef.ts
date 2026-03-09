@@ -112,6 +112,7 @@ export class PanelDef {
       for (const child of children) {
         if (!child) continue;
         if (child.type === "grid") {
+          child.ownerPanel = this;
           child._panelSource = this;
           if (!child.form && this.form) child.form = this.form;
         }

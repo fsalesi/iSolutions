@@ -95,8 +95,13 @@ export class DataGridDef implements ChildElement, Showable {
    */
   parentBinding: ParentBinding | null = null;
 
-  _panelSource?: any;      // PanelDef — drives this child grid when set
+  ownerPanel: any = null;    // PanelDef — non-null only when this grid is mounted inside a panel tree
+  _panelSource?: any;        // Legacy alias used by older persistence call-sites
   parentLink?: { parentField: string; myField: string; };
+
+  get isChildGrid(): boolean {
+    return !!this.ownerPanel;
+  }
 
   mode: GridMode = "browse";
 
@@ -295,7 +300,7 @@ export class DataGridDef implements ChildElement, Showable {
   persistState(): void {} // stub
 
   private get _storageScope(): { formKey: string; gridKey: string; mode: string } | null {
-    const formKey = this.form?.formKey ?? this._panelSource?.form?.formKey;
+    const formKey = this.form?.formKey ?? this.ownerPanel?.form?.formKey ?? this._panelSource?.form?.formKey;
     const mode = this.mode || "browse";
     if (!formKey || !this.key) return null;
     return { formKey, gridKey: this.key, mode };

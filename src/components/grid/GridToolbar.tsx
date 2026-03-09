@@ -24,9 +24,7 @@ interface GridToolbarProps {
 
 export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filterOpen, onApplyFilter, onClearFilter, onSearchChange, onColumnsChanged, onFilterOpen }: GridToolbarProps) {
   const isMobile = useIsMobile();
-  const hasParentBindings = Object.keys(grid.dataSource?.parentBindings ?? {}).length > 0;
-  const isChildGrid = !!grid.parentBinding || hasParentBindings;
-  const showChildAdd = isChildGrid && grid.mode === "browse" && !!grid.panel;
+  const showChildAdd = grid.isChildGrid && grid.mode === "browse" && !!grid.panel;
   const [pickerOpen,  setPickerOpen]  = useState(false);
   const [exportOpen,  setExportOpen]  = useState(false);
   const [exportKeys,  setExportKeys]  = useState<string[]>([]);
