@@ -230,35 +230,44 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
       if (grid.columns.length === 0) await grid.loadColumns();
       setColumns([...grid.columns]);
 
+      // Load persisted state (search/sort/filter) from localStorage
+      const savedState = grid.loadFilterState();
+      const savedSortKey = savedState?.sortKey ?? "";
+      const savedSortDir = savedState?.sortDir ?? "ASC";
+
       // If grid.parentFilter is already set (e.g. by display() for child grids),
-      // use it instead of loading from localStorage
+      // use it instead of loading UI filters from localStorage, but keep saved sort.
       if (grid.parentFilter) {
+        setSortKey(savedSortKey);
+        setSortDir(savedSortDir);
         setFilterTree(null);  // Don't store parent filter in React state - buildEft reads it fresh
         if (isInfinite) {
           nextOffsetRef.current = 0;
-          await loadChunk(0, "", grid.parentFilter, "", "ASC", { replace: true });
+          await loadChunk(0, "", grid.parentFilter, savedSortKey, savedSortDir, { replace: true });
         } else {
-          await doFetch({ page: 0, filter: grid.parentFilter });
+          await doFetch({ page: 0, sort: savedSortKey, dir: savedSortDir, filter: grid.parentFilter });
         }
         return;
       }
 
-      // Normal case: load filter state from localStorage
-      const savedState = grid.loadFilterState();
+      // Normal case: restore persisted state
+
       const savedSearch = savedState?.search ?? "";
       const savedFilterTree = savedState?.filterTree ?? null;
       const savedColumnFilters = savedState?.columnFilters ?? {};
       const savedEffectiveFilter = mergeFilters(savedFilterTree, buildColFilterTree(savedColumnFilters, grid.columns));
 
       setSearch(savedSearch);
+      setSortKey(savedSortKey);
+      setSortDir(savedSortDir);
       setFilterTree(savedFilterTree);
       setColumnFilters(savedColumnFilters);
 
       if (isInfinite) {
         nextOffsetRef.current = 0;
-        await loadChunk(0, savedSearch, savedEffectiveFilter, "", "ASC", { replace: true });
+        await loadChunk(0, savedSearch, savedEffectiveFilter, savedSortKey, savedSortDir, { replace: true });
       } else {
-        await doFetch({ page: 0, search: savedSearch, filter: savedEffectiveFilter });
+        await doFetch({ page: 0, search: savedSearch, sort: savedSortKey, dir: savedSortDir, filter: savedEffectiveFilter });
       }
     })();
   }, [grid]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -323,6 +332,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
     const newDir: "ASC" | "DESC" = sortKey === col.key && sortDir === "ASC" ? "DESC" : "ASC";
     setSortKey(col.key);
     setSortDir(newDir);
+    persistFilterState({ search, sortKey: col.key, sortDir: newDir, filterTree, columnFilters });
     const eft = buildEft(filterTree, columnFilters);
     if (isInfinite) {
       infiniteReset(search, eft, col.key, newDir);
@@ -334,7 +344,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
 
   const handleSearch = (val: string) => {
     setSearch(val);
-    persistFilterState({ search: val, filterTree, columnFilters });
+    persistFilterState({ search: val, sortKey, sortDir, filterTree, columnFilters });
     const eft = buildEft(filterTree, columnFilters);
     if (isInfinite) {
       infiniteReset(val, eft, sortKey, sortDir);
@@ -347,7 +357,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
   const handleApplyFilter = (tree: FilterTree) => {
     const t = tree ?? null;
     setFilterTree(t);
-    persistFilterState({ search, filterTree: t, columnFilters });
+    persistFilterState({ search, sortKey, sortDir, filterTree: t, columnFilters });
     const eft = buildEft(t, columnFilters);
     if (isInfinite) {
       infiniteReset(search, eft, sortKey, sortDir);
@@ -361,7 +371,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
     const next = { ...columnFilters };
     if (val.trim()) next[key] = val; else delete next[key];
     setColumnFilters(next);
-    persistFilterState({ search, filterTree, columnFilters: next });
+    persistFilterState({ search, sortKey, sortDir, filterTree, columnFilters: next });
     const eft = buildEft(filterTree, next);
     if (isInfinite) {
       infiniteReset(search, eft, sortKey, sortDir);
@@ -431,7 +441,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
         onClearFilter={() => {
           setColumnFilters({});
           setActiveColFilter(null);
-          persistFilterState({ search, filterTree: null, columnFilters: {} });
+          persistFilterState({ search, sortKey, sortDir, filterTree: null, columnFilters: {} });
           handleApplyFilter(null);
         }}
       />

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { getLayoutSizes, setLayoutSizes } from "./FormsStorage";
 
 /**
  * Showable — the contract for any content that can be placed in a LeafNode.
@@ -56,22 +57,15 @@ export class SplitNode {
 
 // ——— Helpers —————————————————————————————————————————————————————————
 
-const LS_PREFIX = "isolutions.layout.";
-
 export function loadSizes(key: string, defaults: [number, number]): [number, number] {
   if (typeof window === "undefined") return defaults;
-  try {
-    const raw = localStorage.getItem(`${LS_PREFIX}${key}`);
-    if (!raw) return defaults;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length === 2) return parsed as [number, number];
-  } catch { /* ignore */ }
-  return defaults;
+  const formKey = key.split(".")[0] || key;
+  const sizes = getLayoutSizes(formKey, key);
+  return sizes ?? defaults;
 }
 
 export function saveSizes(key: string, sizes: [number, number]): void {
   if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(`${LS_PREFIX}${key}`, JSON.stringify(sizes));
-  } catch { /* ignore */ }
+  const formKey = key.split(".")[0] || key;
+  setLayoutSizes(formKey, key, sizes);
 }

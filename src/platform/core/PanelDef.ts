@@ -107,6 +107,25 @@ export class PanelDef {
     for (const field of this.fields) {
       field.panel = this;
     }
+
+    const stampChildren = (children: any[]) => {
+      for (const child of children) {
+        if (!child) continue;
+        if (child.type === "grid") {
+          child._panelSource = this;
+          if (!child.form && this.form) child.form = this.form;
+        }
+        if (Array.isArray(child.children)) {
+          stampChildren(child.children);
+        }
+      }
+    };
+
+    for (const tab of this.tabs) {
+      if (Array.isArray((tab as any).children)) {
+        stampChildren((tab as any).children);
+      }
+    }
   }
 
   // —— Display ———————————————————————————————————————————————————————

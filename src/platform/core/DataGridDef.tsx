@@ -8,6 +8,7 @@ import type { Row, GridMode, FetchParams } from "./types";
 import type { FilterTree, FilterCondition } from "@/components/grid/filter/filter-types";
 import type { ColumnDef } from "./ColumnDef";
 import type { DataSourceDef, ParentBinding } from "./DataSourceDef";
+import { clearGridState, getGridColumns, getGridState, setGridColumns, setGridState } from "./FormsStorage";
 
 export interface DataGridDefOptions {
   key?: string;
@@ -42,6 +43,8 @@ export interface DataGridDefOptions {
 
 export interface GridFilterState {
   search: string;
+  sortKey: string;
+  sortDir: "ASC" | "DESC";
   filterTree: FilterTree;
   columnFilters: Record<string, string>;
 }
@@ -291,99 +294,86 @@ export class DataGridDef implements ChildElement, Showable {
 
   persistState(): void {} // stub
 
-  /** localStorage key for persisting column prefs for this grid. */
-  private get _colPrefKey(): string | null {
-    const fk = this.form?.formKey;
+  private get _storageScope(): { formKey: string; gridKey: string; mode: string } | null {
+    const formKey = this.form?.formKey ?? this._panelSource?.form?.formKey;
     const mode = this.mode || "browse";
-    if (!fk || !this.key) return null;
-    return `isolutions.cols.${fk}.${this.key}.${mode}`;
+    if (!formKey || !this.key) return null;
+    return { formKey, gridKey: this.key, mode };
   }
 
-  /** localStorage key for persisting filter/search state for this grid. */
-  private get _filterStateKey(): string | null {
-    const fk = this.form?.formKey;
-    const mode = this.mode || "browse";
-    if (!fk || !this.key) return null;
-    return `isolutions.filters.${fk}.${this.key}.${mode}.v${this.stateVersion}`;
-  }
-
-  /** Persist current column hidden/width state to localStorage. */
+  /** Persist current column hidden/width state to the Forms tree in localStorage. */
   saveColumnPrefs(): void {
-    const k = this._colPrefKey;
-    if (!k || typeof localStorage === "undefined") return;
+    const scope = this._storageScope;
+    if (!scope || typeof localStorage === "undefined") return;
     const prefs = this.columns.map(c => ({ key: c.key, hidden: c.hidden ?? false, width: c.width }));
-    localStorage.setItem(k, JSON.stringify(prefs));
+    setGridColumns(scope.formKey, scope.gridKey, scope.mode, prefs);
   }
 
   loadFilterState(): GridFilterState | null {
-    const k = this._filterStateKey;
-    if (!k || typeof localStorage === "undefined") return null;
-    const raw = localStorage.getItem(k);
-    if (!raw) return null;
-    try {
-      const parsed = JSON.parse(raw) as Partial<GridFilterState>;
-      return {
-        search: typeof parsed.search === "string" ? parsed.search : "",
-        filterTree: parsed.filterTree ?? null,
-        columnFilters: parsed.columnFilters && typeof parsed.columnFilters === "object"
-          ? Object.fromEntries(
-              Object.entries(parsed.columnFilters).filter(
-                ([key, value]) => key && typeof value === "string" && value.trim() !== ""
-              )
+    const scope = this._storageScope;
+    if (!scope || typeof localStorage === "undefined") return null;
+    const parsed = getGridState(scope.formKey, scope.gridKey, scope.mode, this.stateVersion) as Partial<GridFilterState> | null;
+    if (!parsed || typeof parsed !== "object") return null;
+    return {
+      search: typeof parsed.search === "string" ? parsed.search : "",
+      sortKey: typeof parsed.sortKey === "string" ? parsed.sortKey : "",
+      sortDir: parsed.sortDir === "DESC" ? "DESC" : "ASC",
+      filterTree: parsed.filterTree ?? null,
+      columnFilters: parsed.columnFilters && typeof parsed.columnFilters === "object"
+        ? Object.fromEntries(
+            Object.entries(parsed.columnFilters).filter(
+              ([key, value]) => key && typeof value === "string" && value.trim() !== ""
             )
-          : {},
-      };
-    } catch {
-      return null;
-    }
+          )
+        : {},
+    };
   }
 
   saveFilterState(state: GridFilterState): void {
-    const k = this._filterStateKey;
-    if (!k || typeof localStorage === "undefined") return;
-    localStorage.setItem(k, JSON.stringify({
+    const scope = this._storageScope;
+    if (!scope || typeof localStorage === "undefined") return;
+    setGridState(scope.formKey, scope.gridKey, scope.mode, this.stateVersion, {
       search: state.search ?? "",
+      sortKey: state.sortKey ?? "",
+      sortDir: state.sortDir === "DESC" ? "DESC" : "ASC",
       filterTree: state.filterTree ?? null,
       columnFilters: Object.fromEntries(
         Object.entries(state.columnFilters ?? {}).filter(
           ([key, value]) => key && typeof value === "string" && value.trim() !== ""
         )
       ),
-    }));
+    });
   }
 
   clearFilterState(): void {
-    const k = this._filterStateKey;
-    if (!k || typeof localStorage === "undefined") return;
-    localStorage.removeItem(k);
+    const scope = this._storageScope;
+    if (!scope || typeof localStorage === "undefined") return;
+    clearGridState(scope.formKey, scope.gridKey, scope.mode);
   }
 
-  /** Apply saved column prefs (hidden, width, order) from localStorage. */
+  /** Apply saved column prefs (hidden, width, order) from the Forms tree in localStorage. */
   private _applyColumnPrefs(): void {
-    const k = this._colPrefKey;
-    if (!k || typeof localStorage === "undefined") return;
-    const raw = localStorage.getItem(k);
-    if (!raw) return;
-    try {
-      const prefs: { key: string; hidden: boolean; width?: number }[] = JSON.parse(raw);
-      // Apply hidden + width
-      for (const p of prefs) {
-        const col = this.columns.find(c => c.key === p.key);
-        if (col) {
-          col.hidden = p.hidden;
-          if (p.width !== undefined) col.width = p.width;
-        }
+    const scope = this._storageScope;
+    if (!scope || typeof localStorage === "undefined") return;
+    const prefs = getGridColumns(scope.formKey, scope.gridKey, scope.mode) as { key: string; hidden: boolean; width?: number }[] | null;
+    if (!Array.isArray(prefs)) return;
+
+    // Apply hidden + width
+    for (const p of prefs) {
+      const col = this.columns.find(c => c.key === p.key);
+      if (col) {
+        col.hidden = p.hidden;
+        if (p.width !== undefined) col.width = p.width;
       }
-      // Reorder columns to match saved order (unknown cols stay at end)
-      const savedKeys = prefs.map(p => p.key);
-      const ordered = [
-        ...savedKeys.map(k => this.columns.find(c => c.key === k)).filter(Boolean),
-        ...this.columns.filter(c => !savedKeys.includes(c.key)),
-      ] as typeof this.columns;
-      this.columns = ordered;
-    } catch {
-      // Corrupt prefs — ignore
     }
+
+    // Reorder columns to match saved order (unknown cols stay at end)
+    const savedKeys = prefs.map(p => p.key);
+    const ordered = [
+      ...savedKeys.map(k => this.columns.find(c => c.key === k)).filter(Boolean),
+      ...this.columns.filter(c => !savedKeys.includes(c.key)),
+    ] as typeof this.columns;
+    this.columns = ordered;
   }
 
   async loadColumns(): Promise<void> {
