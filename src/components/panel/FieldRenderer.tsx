@@ -47,7 +47,7 @@ export function FieldRenderer({ field, onChange }: FieldRendererProps) {
       break;
 
     case "number":
-      input = <NumberInput value={String(value ?? "")} onChange={handleChange} scale={field.scale ?? 0} readOnly={field.readOnly} />;
+      input = <NumberInput value={String(value ?? "")} onChange={handleChange} scale={field.scale ?? 0} readOnly={effectiveReadOnly} />;
       break;
 
     case "textarea":

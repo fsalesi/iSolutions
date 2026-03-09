@@ -203,6 +203,10 @@ export class PanelDef {
       if (!field.readOnly) payload[field.key] = field.value;
     }
 
+    // Child-grid saves need parent link fields (e.g., oid_requisition) even when
+    // those fields are suppressed from the edit panel.
+    this.applyParentBindingPayload(payload);
+
     // Include oid for PUT
     if (!this.isNew && this.currentRecord?.oid) {
       payload.oid = this.currentRecord.oid;
@@ -229,6 +233,19 @@ export class PanelDef {
   }
 
   // —— Delete ————————————————————————————————————————————————————————
+
+  private applyParentBindingPayload(payload: Record<string, any>): void {
+    const parentFilter = this.grid?.parentFilter;
+    if (!parentFilter || parentFilter.type !== "group") return;
+
+    for (const node of parentFilter.children) {
+      if (node.type !== "condition") continue;
+      if (node.operator !== "eq") continue;
+      if (!node.field) continue;
+      if (payload[node.field] !== undefined && payload[node.field] !== null && payload[node.field] !== "") continue;
+      payload[node.field] = node.value;
+    }
+  }
 
   async deleteRecord(): Promise<void> {
     const api   = this.grid?.dataSource?.api;

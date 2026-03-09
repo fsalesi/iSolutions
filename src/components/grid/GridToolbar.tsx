@@ -24,6 +24,9 @@ interface GridToolbarProps {
 
 export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filterOpen, onApplyFilter, onClearFilter, onSearchChange, onColumnsChanged, onFilterOpen }: GridToolbarProps) {
   const isMobile = useIsMobile();
+  const hasParentBindings = Object.keys(grid.dataSource?.parentBindings ?? {}).length > 0;
+  const isChildGrid = !!grid.parentBinding || hasParentBindings;
+  const showChildAdd = isChildGrid && grid.mode === "browse" && !!grid.panel;
   const [pickerOpen,  setPickerOpen]  = useState(false);
   const [exportOpen,  setExportOpen]  = useState(false);
   const [exportKeys,  setExportKeys]  = useState<string[]>([]);
@@ -143,6 +146,31 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", flexShrink: 0, background: "var(--bg-surface)", borderBottom: "1px solid var(--border)" }}>
+
+      {showChildAdd && (
+        <button
+          onClick={() => grid.panel?.newRecord()}
+          title={resolveClientText(tx("grid.add", "Add"))}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "5px 8px",
+            fontSize: "0.75rem",
+            fontWeight: 600,
+            border: "none",
+            borderRadius: 6,
+            background: "var(--accent)",
+            color: "var(--accent-text)",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+          }}
+        >
+          <Icon name="plus" size={13} />
+          {!isMobile && <span>{resolveClientText(tx("grid.add", "Add"))}</span>}
+        </button>
+      )}
 
       {grid.allowSearch && (
         <div style={{ position: "relative", flex: 1, minWidth: 0, maxWidth: isMobile ? "none" : 280 }}>
