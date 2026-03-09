@@ -107,12 +107,12 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
   };
 
   // ── Effective filter (includes parent binding filter for child grids) ──
-  // grid.filter is set by display() when this grid is a child inside a parent panel.
+  // grid.parentFilter is set by display() when this grid is a child inside a parent panel.
   // Infinite scroll mode does its own fetching via fetchChunkDirect, which bypasses
-  // grid.filter. So we must always merge grid.filter into the effective filter.
+  // grid.parentFilter. So we must always merge grid.parentFilter into the effective filter.
   const buildEft = (uiFilter: FilterTree, colFilters: Record<string, string>, cols: ColumnDef[] = columns) => {
     const uiEft = mergeFilters(uiFilter, buildColFilterTree(colFilters, cols));
-    return grid.filter ? mergeFilters(grid.filter, uiEft) : uiEft;
+    return grid.parentFilter ? mergeFilters(grid.parentFilter, uiEft) : uiEft;
   };
 
   // ── Paged fetch ───────────────────────────────────────────────────────────
@@ -230,15 +230,15 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
       if (grid.columns.length === 0) await grid.loadColumns();
       setColumns([...grid.columns]);
 
-      // If grid.filter is already set (e.g. by display() for child grids),
+      // If grid.parentFilter is already set (e.g. by display() for child grids),
       // use it instead of loading from localStorage
-      if (grid.filter) {
-        setFilterTree(grid.filter);
+      if (grid.parentFilter) {
+        setFilterTree(null);  // Don't store parent filter in React state - buildEft reads it fresh
         if (isInfinite) {
           nextOffsetRef.current = 0;
-          await loadChunk(0, "", grid.filter, "", "ASC", { replace: true });
+          await loadChunk(0, "", grid.parentFilter, "", "ASC", { replace: true });
         } else {
-          await doFetch({ page: 0, filter: grid.filter });
+          await doFetch({ page: 0, filter: grid.parentFilter });
         }
         return;
       }

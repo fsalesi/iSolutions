@@ -108,6 +108,22 @@ export class DataGridDef implements ChildElement, Showable {
   globalWhereClause: string = "";
   filter?:           FilterTree;
   originalFilter?:   FilterTree;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SINGLE SOURCE OF TRUTH: All filter state lives on the grid
+  // ═══════════════════════════════════════════════════════════════════════════
+  
+  /** Parent binding filter (set by display() for child grids) */
+  parentFilter: FilterTree | null = null;
+  
+  /** UI filter from Advanced Filter modal */
+  uiFilter: FilterTree | null = null;
+  
+  /** Column header filters */
+  columnFilters: Record<string, string> = {};
+  
+  /** Search box text */
+  searchText: string = "";
   sort:              string[] = [];
   sortDirection:     ("ASC" | "DESC")[] = [];
   pageSize:          number = 25;
@@ -195,7 +211,7 @@ export class DataGridDef implements ChildElement, Showable {
     const page   = params?.page     ?? 0;
     const size   = params?.pageSize ?? this.pageSize;
     const search  = params?.search   ?? "";
-    const filters = params?.filter ?? this.filter ?? null;
+    const filters = this.getEffectiveFilter();
 
     const qsObj: Record<string, string> = {
       table:  table,
@@ -236,6 +252,42 @@ export class DataGridDef implements ChildElement, Showable {
   // Filter helpers
   setWhereClause(clause: string): this { return this; } // stub
   setFilter(filter: FilterTree):  this { return this; } // stub
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EFFECTIVE FILTER — Merges all filter sources into one
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Build column filter tree from columnFilters record */
+  private buildColumnFilterTree(): FilterTree | null {
+    const entries = Object.entries(this.columnFilters).filter(([, v]) => v);
+    if (entries.length === 0) return null;
+    const conditions: FilterCondition[] = entries.map(([key, value], idx) => ({
+      type: "condition" as const,
+      id: `col-filter-${idx}`,
+      field: key,
+      operator: "contains",
+      value: value,
+      value2: "",
+    }));
+    if (conditions.length === 1) return conditions[0] as unknown as FilterTree;
+    return { type: "group", id: "col-filter-group", logic: "and", children: conditions } as FilterTree;
+  }
+
+  /** Merge two filter trees with AND logic */
+  private mergeFilters(a: FilterTree | null, b: FilterTree | null): FilterTree | null {
+    if (!a) return b;
+    if (!b) return a;
+    return { type: "group", id: `merged-${Date.now()}`, logic: "and", children: [a as any, b as any] } as FilterTree;
+  }
+
+  /** Get the complete effective filter (all sources merged) */
+  getEffectiveFilter(): FilterTree | null {
+    let result: FilterTree | null = null;
+    result = this.mergeFilters(result, this.parentFilter);
+    result = this.mergeFilters(result, this.uiFilter);
+    result = this.mergeFilters(result, this.buildColumnFilterTree());
+    return result;
+  }
 
   persistState(): void {} // stub
 
@@ -380,7 +432,7 @@ export class DataGridDef implements ChildElement, Showable {
     if (!parentRow) {
       this.rows = [];
       this.totalRows = 0;
-      this.filter = undefined;
+      this.parentFilter = null;
       this.onFetch?.();
       return;
     }
@@ -432,7 +484,7 @@ export class DataGridDef implements ChildElement, Showable {
     };
 
     // Store the filter and fetch data
-    this.filter = filterTree;
+    this.parentFilter = filterTree;
     this.fetch();
   }
 
