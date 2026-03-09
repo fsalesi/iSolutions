@@ -32,8 +32,7 @@ export function SectionRenderer({ section }: SectionRendererProps) {
           <FieldRenderer
             key={field.key}
             field={field}
-            onChange={v => field.setValue(v)}
-/>
+          />
         ))}
       </div>
     </div>
