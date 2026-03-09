@@ -1,7 +1,7 @@
 import { PageDef } from "@/platform/core/PageDef";
 import { HorizontalLayout } from "@/platform/core/layouts";
-import { RequisitionEditPanel } from "@customer/pages/requisition/RequisitionEditPanel";
 import { RequisitionGrid } from "@customer/pages/requisition/RequisitionGrid";
+import { RequisitionEditPanel } from "@customer/pages/requisition/RequisitionEditPanel";
 
 /**
  * RequisitionPage — Product layer.
