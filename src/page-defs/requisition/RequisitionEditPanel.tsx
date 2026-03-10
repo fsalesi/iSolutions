@@ -4,8 +4,7 @@ import { EditPanel } from "@/platform/core/EditPanel";
 import { FieldDef } from "@/platform/core/FieldDef";
 import { SectionDef } from "@/platform/core/SectionDef";
 import { TabDef } from "@/platform/core/TabDef";
-import { RequisitionKeyPanel } from "@customer/pages/requisition/RequisitionKeyPanel";
-import { RequisitionLinesGrid } from "@customer/pages/requisition/RequisitionLinesGrid";
+import { RequisitionKeyPanel, RequisitionLinesGrid } from "@customer/pages/requisition/components";
 
 export class RequisitionEditPanel extends EditPanel {
   linesGrid = new RequisitionLinesGrid();

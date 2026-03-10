@@ -3,6 +3,7 @@
 
 import type { Showable } from "./LayoutNode";
 import { DataGridRenderer } from "@/components/grid/DataGridRenderer";
+import { applyGridDefaults } from "./GridDesigner";
 import type { ChildElement } from "./ChildElement";
 import type { Row, GridMode, FetchParams } from "./types";
 import type { FilterTree, FilterCondition } from "@/components/grid/filter/filter-types";
@@ -34,6 +35,7 @@ export interface DataGridDefOptions {
   allowColumnChanger?: boolean;
   allowNavigation?: boolean;
   allowPageSizeSelector?: boolean;
+  showToolbar?: boolean;
   showTitle?: boolean;
   showFooter?: boolean;
   hidden?: boolean;
@@ -159,6 +161,7 @@ export class DataGridDef implements ChildElement, Showable {
   allowColumnChanger:    boolean = true;
   allowNavigation:       boolean = true;
   allowPageSizeSelector: boolean = true;
+  showToolbar:           boolean = true;
   showTitle:             boolean = true;
   showFooter:            boolean = true;
 
@@ -193,6 +196,7 @@ export class DataGridDef implements ChildElement, Showable {
     if (options.allowColumnChanger !== undefined) this.allowColumnChanger = options.allowColumnChanger;
     if (options.allowNavigation    !== undefined) this.allowNavigation    = options.allowNavigation;
     if (options.allowPageSizeSelector !== undefined) this.allowPageSizeSelector = options.allowPageSizeSelector;
+    if (options.showToolbar       !== undefined) this.showToolbar       = options.showToolbar;
     if (options.showTitle          !== undefined) this.showTitle          = options.showTitle;
     if (options.showFooter         !== undefined) this.showFooter         = options.showFooter;
     if (options.hidden             !== undefined) this.hidden             = options.hidden;
@@ -389,7 +393,9 @@ export class DataGridDef implements ChildElement, Showable {
         if (!existingKeys.has(col.key)) this.columns.push(col);
       }
     }
-    // Apply user's saved column prefs on top of defaults
+    // GridDesigner is the authority — it loads from grid_defaults and applies
+    await applyGridDefaults(this);
+    // Apply user's saved column prefs on top of designer defaults
     this._applyColumnPrefs();
   }
 

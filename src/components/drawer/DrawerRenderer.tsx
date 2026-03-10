@@ -6,7 +6,6 @@
 
 import { useEffect, useCallback } from "react";
 import { useDrawer } from "@/context/DrawerContext";
-import { EditPanelRenderer } from "@/components/panel/EditPanelRenderer";
 import { Icon } from "@/components/icons/Icon";
 
 export function DrawerRenderer() {
@@ -123,7 +122,7 @@ function SlideInPanel({ panel, index, total, onClose }: SlideInPanelProps) {
 
       {/* Panel content */}
       <div style={{ flex: 1, overflow: "auto" }}>
-        <EditPanelRenderer panel={panel} />
+        {panel.show()}
       </div>
     </div>
   );

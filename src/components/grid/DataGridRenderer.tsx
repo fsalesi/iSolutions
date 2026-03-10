@@ -12,6 +12,9 @@ import { countConditions } from "./filter/filter-types";
 import type { FilterCondition, FilterGroup } from "./filter/filter-types";
 import { CellRenderer } from "./CellRenderer";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useSession } from "@/context/SessionContext";
+import { GridDesigner } from "@/platform/core/GridDesigner";
+import { DrawerService } from "@/platform/core/DrawerService";
 
 const CHUNK = 50;
 
@@ -60,6 +63,9 @@ function mergeFilters(a: FilterTree, b: FilterTree): FilterTree {
 export function DataGridRenderer({ grid }: DataGridRendererProps) {
   const isInfinite = grid.pageSize === 0;
   const isMobile   = useIsMobile();
+  const { user } = useSession();
+  const isAdmin = user.isAdmin;
+  const showInlineAdd = grid.isChildGrid && grid.mode === "browse" && !!grid.panel && !grid.showToolbar;
 
   // ── Shared state ──────────────────────────────────────────────────────────
   const [columns,       setColumns]       = useState<ColumnDef[]>([]);
@@ -414,11 +420,13 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
         onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = "var(--bg-hover, rgba(0,0,0,0.03))"; }}
         onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = "transparent"; }}
       >
+        {showInlineAdd && <div style={{ flex: "0 0 32px", width: 32 }} />}
         {visibleCols.map(col => (
           <div key={col.key} style={{ flex: col.width ? `0 0 ${col.width}px` : 1, minWidth: col.width ?? 80, padding: "7px 10px", fontSize: "0.82rem", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: col.align ?? "left" }}>
             <CellRenderer col={col} row={row} />
           </div>
         ))}
+        {isAdmin && <div style={{ flex: "0 0 32px", width: 32 }} />}
       </div>
     );
   };
@@ -427,7 +435,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", overflow: "hidden", background: "var(--bg-surface)" }}>
 
-      <GridToolbar
+      {grid.showToolbar && <GridToolbar
         grid={grid}
         search={search}
         sortKey={sortKey}
@@ -444,10 +452,21 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
           persistFilterState({ search, sortKey, sortDir, filterTree: null, columnFilters: {} });
           handleApplyFilter(null);
         }}
-      />
+      />}
 
       {/* Column headers — desktop only */}
       {!isMobile && <div style={{ display: "flex", flexShrink: 0, background: "var(--bg-surface-alt)", borderBottom: activeColFilter ? "none" : "1px solid var(--border)", overflowX: "hidden" }}>
+        {showInlineAdd && (
+          <div
+            onClick={(e) => { e.stopPropagation(); grid.panel?.newRecord(); }}
+            style={{ flex: "0 0 32px", width: 32, padding: "7px 6px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--accent)" }}
+            onMouseEnter={e => { e.currentTarget.style.opacity = "0.7"; }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
+            title="Add"
+          >
+            <Icon name="plus" size={15} />
+          </div>
+        )}
         {visibleCols.length === 0
           ? <div style={{ padding: "7px 10px", fontSize: "0.72rem", color: "var(--text-muted)" }}>Loading…</div>
           : visibleCols.map(col => {
@@ -486,11 +505,23 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
             );
           })
         }
+        {isAdmin && (
+          <div
+            onClick={(e) => { e.stopPropagation(); DrawerService.push(new GridDesigner(grid)); }}
+            style={{ flex: "0 0 32px", width: 32, padding: "7px 6px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-muted)" }}
+            onMouseEnter={e => { e.currentTarget.style.color = "var(--accent)"; }}
+            onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; }}
+            title="Grid Designer"
+          >
+            <Icon name="settings" size={16} />
+          </div>
+        )}
       </div>}
 
       {/* Column filter input row */}
       {activeColFilter && (
         <div style={{ display: "flex", flexShrink: 0, background: "var(--bg-surface)", borderBottom: "1px solid var(--border)", overflowX: "hidden" }}>
+          {showInlineAdd && <div style={{ flex: "0 0 32px", width: 32 }} />}
           {visibleCols.map(col => (
             <div key={col.key} style={{ flex: col.width ? `0 0 ${col.width}px` : 1, minWidth: col.width ?? 80, padding: "3px 6px" }}>
               {col.key === activeColFilter ? (
@@ -523,6 +554,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
               ) : null}
             </div>
           ))}
+          {isAdmin && <div style={{ flex: "0 0 32px", width: 32 }} />}
         </div>
       )}
 
@@ -574,7 +606,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
       </div>
 
       {/* Infinite scroll footer — always visible at bottom */}
-      {isInfinite && !isLoading && rows.length > 0 && (
+      {isInfinite && grid.showFooter && !isLoading && rows.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "5px 10px", flexShrink: 0, fontSize: "0.75rem", color: "var(--text-muted)", background: "var(--bg-surface)", borderTop: "1px solid var(--border)", gap: 6 }}>
           {loadingMore ? (
             <><SpinnerIcon />Loading more…</>

@@ -1,6 +1,5 @@
 import { DataGridDef } from "@/platform/core/DataGridDef";
-import { RequisitionLinesDataSource } from "@customer/pages/requisition/RequisitionLinesDataSource";
-import { RequisitionLinesEditPanel } from "@customer/pages/requisition/RequisitionLinesEditPanel";
+import { RequisitionLinesDataSource, RequisitionLinesEditPanel } from "@customer/pages/requisition/components";
 
 export class RequisitionLinesGrid extends DataGridDef {
   constructor(form?: any) {

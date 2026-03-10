@@ -362,7 +362,6 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
         </div>
       )}
 
-      <ToolbarButton icon="edit" label={resolveClientText(tx("grid.design", "Design"))} onClick={() => {}} mobileIconOnly={isMobile} />
     </div>
   );
 }

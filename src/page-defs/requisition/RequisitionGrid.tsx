@@ -2,7 +2,7 @@ import { resolveClientText } from "@/lib/i18n/runtime";
 import { tx } from "@/lib/i18n/types";
 import { DataGridDef } from "@/platform/core/DataGridDef";
 import type { Row } from "@/platform/core/types";
-import { RequisitionDataSource } from "@customer/pages/requisition/RequisitionDataSource";
+import { RequisitionDataSource } from "@customer/pages/requisition/components";
 
 export class RequisitionGrid extends DataGridDef {
   constructor(form?: any) {
