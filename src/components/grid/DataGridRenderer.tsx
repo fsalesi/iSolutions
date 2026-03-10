@@ -420,13 +420,13 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
         onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = "var(--bg-hover, rgba(0,0,0,0.03))"; }}
         onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = "transparent"; }}
       >
-        {showInlineAdd && <div style={{ flex: "0 0 32px", width: 32 }} />}
+        {showInlineAdd && <div style={{ flex: "0 0 36px", width: 36 }} />}
         {visibleCols.map(col => (
           <div key={col.key} style={{ flex: col.width ? `0 0 ${col.width}px` : 1, minWidth: col.width ?? 80, padding: "7px 10px", fontSize: "0.82rem", color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: col.align ?? "left" }}>
             <CellRenderer col={col} row={row} />
           </div>
         ))}
-        {isAdmin && <div style={{ flex: "0 0 32px", width: 32 }} />}
+        {isAdmin && <div style={{ flex: "0 0 36px", width: 36 }} />}
       </div>
     );
   };
@@ -459,7 +459,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
         {showInlineAdd && (
           <div
             onClick={(e) => { e.stopPropagation(); grid.panel?.newRecord(); }}
-            style={{ flex: "0 0 32px", width: 32, padding: "7px 6px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--accent)" }}
+            style={{ flex: "0 0 36px", width: 36, padding: "7px 10px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--accent)" }}
             onMouseEnter={e => { e.currentTarget.style.opacity = "0.7"; }}
             onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
             title="Add"
@@ -508,7 +508,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
         {isAdmin && (
           <div
             onClick={(e) => { e.stopPropagation(); DrawerService.push(new GridDesigner(grid)); }}
-            style={{ flex: "0 0 32px", width: 32, padding: "7px 6px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-muted)" }}
+            style={{ flex: "0 0 36px", width: 36, padding: "7px 10px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-muted)" }}
             onMouseEnter={e => { e.currentTarget.style.color = "var(--accent)"; }}
             onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; }}
             title="Grid Designer"
@@ -521,7 +521,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
       {/* Column filter input row */}
       {activeColFilter && (
         <div style={{ display: "flex", flexShrink: 0, background: "var(--bg-surface)", borderBottom: "1px solid var(--border)", overflowX: "hidden" }}>
-          {showInlineAdd && <div style={{ flex: "0 0 32px", width: 32 }} />}
+          {showInlineAdd && <div style={{ flex: "0 0 36px", width: 36 }} />}
           {visibleCols.map(col => (
             <div key={col.key} style={{ flex: col.width ? `0 0 ${col.width}px` : 1, minWidth: col.width ?? 80, padding: "3px 6px" }}>
               {col.key === activeColFilter ? (
@@ -554,7 +554,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
               ) : null}
             </div>
           ))}
-          {isAdmin && <div style={{ flex: "0 0 32px", width: 32 }} />}
+          {isAdmin && <div style={{ flex: "0 0 36px", width: 36 }} />}
         </div>
       )}
 

@@ -9,6 +9,9 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { AuditPanel } from "@/components/audit-panel/AuditPanel";
 import { NotesPanel } from "@/components/notes-panel/NotesPanel";
 import type { ToolbarDef, ButtonDef } from "@/platform/core/ToolbarDef";
+import { useSession } from "@/context/SessionContext";
+import { ToolbarDesigner, applyToolbarDefaults } from "@/platform/core/ToolbarDesigner";
+import { DrawerService } from "@/platform/core/DrawerService";
 
 interface PanelToolbarProps {
   toolbar: ToolbarDef;
@@ -27,8 +30,19 @@ interface ToolBtn {
 export function PanelToolbar({ toolbar }: PanelToolbarProps) {
   const { locale } = useTranslation();
   const isMobile = useIsMobile();
+  const { user } = useSession();
+  const isAdmin = user.isAdmin;
   const [auditOpen, setAuditOpen] = useState(false);
   const [, setTick] = useState(0);
+  const [applied, setApplied] = useState(false);
+
+  // Apply saved toolbar defaults on mount
+  useEffect(() => {
+    applyToolbarDefaults(toolbar).then(() => {
+      setApplied(true);
+      toolbar.refresh();
+    });
+  }, [toolbar]);
 
   useEffect(() => {
     toolbar.onRefresh = () => setTick(t => t + 1);
@@ -94,6 +108,28 @@ export function PanelToolbar({ toolbar }: PanelToolbarProps) {
             </span>
           );
         })}
+        {isAdmin && (
+          <>
+            <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 2px" }} />
+            <button
+              onClick={() => DrawerService.push(new ToolbarDesigner(toolbar))}
+              title="Toolbar Designer"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                padding: "4px 10px", borderRadius: 5,
+                border: "1px solid var(--border)",
+                background: "var(--bg-surface-alt)",
+                color: "var(--text-muted)",
+                fontSize: "0.78rem", fontWeight: 500, cursor: "pointer",
+                alignSelf: "stretch",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = "var(--accent)"; }}
+              onMouseLeave={e => { e.currentTarget.style.color = "var(--text-muted)"; }}
+            >
+              <Icon name="settings" size={14} />
+            </button>
+          </>
+        )}
       </div>
 
       <AuditPanel
