@@ -9,6 +9,7 @@ export class RequisitionLinesGrid extends DataGridDef {
       mode: "browse",
       allowSearch: true,
       showTitle: false,
+      disabledWhenDirty: true,
     }, form);
     this.dataSource = new RequisitionLinesDataSource();
     this.panel = new RequisitionLinesEditPanel();

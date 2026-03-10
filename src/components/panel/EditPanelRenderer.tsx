@@ -15,7 +15,6 @@ export function EditPanelRenderer({ panel }: EditPanelRendererProps) {
   const [isNew, setIsNew] = useState(panel.isNew);
   const [, setRenderTick] = useState(0);
 
-  // Wire direct callbacks — no pub/sub needed
   useEffect(() => {
     const handleDisplay = (row: Row | null) => {
       setCurrentRecord(row);
@@ -31,7 +30,6 @@ export function EditPanelRenderer({ panel }: EditPanelRendererProps) {
     };
   }, [panel]);
 
-  // Show the form when isNew (no currentRecord yet but we have fields to fill)
   const showForm = !!currentRecord || isNew;
 
   return (

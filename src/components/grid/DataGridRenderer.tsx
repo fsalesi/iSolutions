@@ -65,7 +65,22 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
   const isMobile   = useIsMobile();
   const { user } = useSession();
   const isAdmin = user.isAdmin;
-  const showInlineAdd = grid.isChildGrid && grid.mode === "browse" && !!grid.panel && !grid.showToolbar;
+  const ownerPanel = grid.ownerPanel;
+  const ownerReadOnly = ownerPanel?.readOnly ?? false;
+  const ownerDirty = ownerPanel?.isDirty ?? false;
+  const ownerIsNew = ownerPanel?.isNew ?? false;
+  const gridHidden = !!grid.hidden || (!!grid.hiddenWhenReadOnly && ownerReadOnly);
+  const gridUpdatesDisabled =
+    (!!grid.disabledWhenNew && ownerIsNew) ||
+    (!!grid.disabledWhenDirty && ownerDirty) ||
+    (!!grid.disabledWhenReadOnly && ownerReadOnly);
+  const showInlineAdd = grid.isChildGrid && grid.mode === "browse" && !!grid.panel && !grid.showToolbar && !gridUpdatesDisabled;
+
+  if (grid.panel) {
+    const baseReadOnly = (grid.panel as any)._baseReadOnly ?? grid.panel.readOnly ?? false;
+    (grid.panel as any)._baseReadOnly = baseReadOnly;
+    grid.panel.readOnly = baseReadOnly || gridUpdatesDisabled;
+  }
 
   // ── Shared state ──────────────────────────────────────────────────────────
   const [columns,       setColumns]       = useState<ColumnDef[]>([]);
@@ -433,7 +448,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", overflow: "hidden", background: "var(--bg-surface)" }}>
+    <div style={{ display: gridHidden ? "none" : "flex", flexDirection: "column", width: "100%", height: "100%", overflow: "hidden", background: "var(--bg-surface)" }}>
 
       {grid.showToolbar && <GridToolbar
         grid={grid}
@@ -566,7 +581,7 @@ export function DataGridRenderer({ grid }: DataGridRendererProps) {
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 8, color: "var(--text-muted)" }}>
             <Icon name="list" size={28} />
             <span style={{ fontSize: "0.82rem" }}>No records</span>
-            {grid.panel && (
+            {grid.panel && !gridUpdatesDisabled && (
               <button
                 onClick={() => grid.panel?.newRecord()}
                 style={{

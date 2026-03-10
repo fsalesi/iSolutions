@@ -57,12 +57,12 @@ export function PanelToolbar({ toolbar }: PanelToolbarProps) {
   const recordOid = panel?.currentRecord?.oid ?? "";
 
   const builtins: ToolBtn[] = [
-    { key: "new",    label: resolveClientText(tx("panel.actions.new", "New")),       icon: "plus",          sortOrder: toolbar.buttonSortOrder.new ?? 10, hidden: !toolbar.useNew    || readOnly, onClick: () => toolbar.onNew() },
-    { key: "save",   label: resolveClientText(tx("panel.actions.save", "Save")),      icon: "save",          sortOrder: toolbar.buttonSortOrder.save ?? 20, hidden: !toolbar.useSave   || readOnly, disabled: !isDirty && !isNew, onClick: () => toolbar.onSave() },
-    { key: "copy",   label: resolveClientText(tx("panel.actions.copy", "Copy")),      icon: "copy",          sortOrder: toolbar.buttonSortOrder.copy ?? 30, hidden: !toolbar.useCopy   || readOnly, disabled: !hasRecord,         onClick: () => toolbar.onCopy() },
-    { key: "delete", label: resolveClientText(tx("panel.actions.delete", "Delete")),  icon: "trash",         sortOrder: toolbar.buttonSortOrder.delete ?? 40, hidden: !toolbar.useDelete || readOnly, disabled: !hasRecord,         onClick: () => toolbar.onDelete(), danger: true },
-    { key: "audit",  label: resolveClientText(tx("panel.actions.audit", "Audit")),    icon: "shield",        sortOrder: toolbar.buttonSortOrder.audit ?? 50, hidden: !toolbar.useAudit,              disabled: !hasRecord,         onClick: () => setAuditOpen(true) },
-    { key: "notes",  label: resolveClientText(tx("panel.actions.notes", "Notes")),    icon: "messageSquare", sortOrder: toolbar.buttonSortOrder.notes ?? 60, hidden: !toolbar.useNotes,              disabled: !hasRecord,         onClick: () => setNotesOpen(true) },
+    { key: "new",    label: resolveClientText(tx("panel.actions.new", "New")),       icon: "plus",          sortOrder: toolbar.buttonSortOrder.new ?? 10, hidden: !toolbar.useNew,    disabled: readOnly,                   onClick: () => toolbar.onNew() },
+    { key: "save",   label: resolveClientText(tx("panel.actions.save", "Save")),      icon: "save",          sortOrder: toolbar.buttonSortOrder.save ?? 20, hidden: !toolbar.useSave,   disabled: readOnly || (!isDirty && !isNew), onClick: () => toolbar.onSave() },
+    { key: "copy",   label: resolveClientText(tx("panel.actions.copy", "Copy")),      icon: "copy",          sortOrder: toolbar.buttonSortOrder.copy ?? 30, hidden: !toolbar.useCopy,   disabled: readOnly || !hasRecord,      onClick: () => toolbar.onCopy() },
+    { key: "delete", label: resolveClientText(tx("panel.actions.delete", "Delete")),  icon: "trash",         sortOrder: toolbar.buttonSortOrder.delete ?? 40, hidden: !toolbar.useDelete, disabled: readOnly || !hasRecord,      onClick: () => toolbar.onDelete(), danger: true },
+    { key: "audit",  label: resolveClientText(tx("panel.actions.audit", "Audit")),    icon: "shield",        sortOrder: toolbar.buttonSortOrder.audit ?? 50, hidden: !toolbar.useAudit,  disabled: !hasRecord,                  onClick: () => setAuditOpen(true) },
+    { key: "notes",  label: resolveClientText(tx("panel.actions.notes", "Notes")),    icon: "messageSquare", sortOrder: toolbar.buttonSortOrder.notes ?? 60, hidden: !toolbar.useNotes,  disabled: !hasRecord,                  onClick: () => setNotesOpen(true) },
   ];
 
   const custom: ToolBtn[] = toolbar.buttons

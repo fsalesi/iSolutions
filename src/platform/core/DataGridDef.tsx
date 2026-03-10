@@ -39,6 +39,10 @@ export interface DataGridDefOptions {
   showTitle?: boolean;
   showFooter?: boolean;
   hidden?: boolean;
+  disabledWhenNew?: boolean;
+  disabledWhenDirty?: boolean;
+  disabledWhenReadOnly?: boolean;
+  hiddenWhenReadOnly?: boolean;
   onSelect?: (row: Row) => void;
   parentLink?: { parentField: string; myField: string };
 }
@@ -166,6 +170,10 @@ export class DataGridDef implements ChildElement, Showable {
   showFooter:            boolean = true;
 
   hidden: boolean = false;
+  disabledWhenNew: boolean = false;
+  disabledWhenDirty: boolean = false;
+  disabledWhenReadOnly: boolean = false;
+  hiddenWhenReadOnly: boolean = false;
 
   // Lookup mode
   onSelect?: (row: Row) => void;
@@ -200,6 +208,10 @@ export class DataGridDef implements ChildElement, Showable {
     if (options.showTitle          !== undefined) this.showTitle          = options.showTitle;
     if (options.showFooter         !== undefined) this.showFooter         = options.showFooter;
     if (options.hidden             !== undefined) this.hidden             = options.hidden;
+    if (options.disabledWhenNew    !== undefined) this.disabledWhenNew    = options.disabledWhenNew;
+    if (options.disabledWhenDirty  !== undefined) this.disabledWhenDirty  = options.disabledWhenDirty;
+    if (options.disabledWhenReadOnly !== undefined) this.disabledWhenReadOnly = options.disabledWhenReadOnly;
+    if (options.hiddenWhenReadOnly !== undefined) this.hiddenWhenReadOnly = options.hiddenWhenReadOnly;
     if (options.onSelect           !== undefined) this.onSelect           = options.onSelect;
     if (options.parentLink         !== undefined) this.parentLink         = options.parentLink;
   }

@@ -54,7 +54,7 @@ import { RequisitionEditPanel as ProductRequisitionEditPanel } from "@/page-defs
 export class RequisitionEditPanel extends ProductRequisitionEditPanel {
   constructor(form?: any) {
     super(form);
-    this.headerRenderer = () => null;
+//    this.headerRenderer = () => null;
     this.getTab("justification").hidden = true;
   }
 }

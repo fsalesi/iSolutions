@@ -12,16 +12,15 @@ interface TabRendererProps {
 export function TabRenderer({ tabs, panel }: TabRendererProps) {
   const visible = tabs.filter(t => !t.hidden);
   const [activeKey, setActiveKey] = useState(panel.activeTabKey || visible[0]?.key || "");
-  const [, setTick] = useState(0); // force re-render when hasError changes
+  const [, setTick] = useState(0);
 
-  // Wire panel.onFocusTab — switches to failing tab on validate()
   useEffect(() => {
     panel.onFocusTab = (index: number) => {
       const tab = visible[index];
       if (tab) {
         setActiveKey(tab.key);
         panel.activeTabKey = tab.key;
-        setTick(t => t + 1); // re-render to show error dots
+        setTick(t => t + 1);
       }
     };
     return () => { panel.onFocusTab = null; };
@@ -33,8 +32,6 @@ export function TabRenderer({ tabs, panel }: TabRendererProps) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-
-      {/* Tab bar — only show if more than one tab */}
       {visible.length > 1 && (
         <div style={{
           display: "flex",
@@ -79,14 +76,12 @@ export function TabRenderer({ tabs, panel }: TabRendererProps) {
         </div>
       )}
 
-      {/* Active tab content — polymorphic: each child renders itself */}
       <div style={{ flex: 1, overflow: "auto" }}>
         {activeTab?.children
           .filter(c => !c.hidden)
           .map(child => child.show())
         }
       </div>
-
     </div>
   );
 }

@@ -151,6 +151,18 @@ function getInitialHandler(handlerOptions: ToolbarButtonHandlerOption[]): string
   return handlerOptions[0]?.key ?? "";
 }
 
+async function fetchToolbarRows(id: ToolbarIdentity): Promise<DbButton[]> {
+  const res = await fetch(`/api/toolbar-actions?form_key=${encodeURIComponent(id.formKey)}&table_name=${encodeURIComponent(id.gridKey)}`);
+  const data = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    const message = data && typeof data.error === "string" ? data.error : `Toolbar settings request failed (${res.status})`;
+    throw new Error(message);
+  }
+
+  return Array.isArray(data?.rows) ? data.rows as DbButton[] : [];
+}
+
 /** Apply saved toolbar overrides. Called by PanelToolbar on mount. */
 export async function applyToolbarDefaults(toolbar: ToolbarDef): Promise<void> {
   if (typeof window === "undefined") return;
@@ -158,12 +170,11 @@ export async function applyToolbarDefaults(toolbar: ToolbarDef): Promise<void> {
   if (!id) return;
 
   try {
-    const res = await fetch(`/api/toolbar-actions?form_key=${encodeURIComponent(id.formKey)}&table_name=${encodeURIComponent(id.gridKey)}`);
-    const data = await res.json();
-    if (!Array.isArray(data.rows) || data.rows.length === 0) return;
-    applyToToolbar(toolbar, data.rows);
-  } catch {
-    // No saved overrides — toolbar uses code-defined defaults
+    const rows = await fetchToolbarRows(id);
+    if (rows.length === 0) return;
+    applyToToolbar(toolbar, rows);
+  } catch (error) {
+    console.warn("Toolbar settings could not be loaded; using defaults.", error);
   }
 }
 
@@ -256,19 +267,29 @@ function ToolbarDesignerPanel({ designer }: { designer: ToolbarDesigner }) {
       return;
     }
 
+    let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch(`/api/toolbar-actions?form_key=${encodeURIComponent(id.formKey)}&table_name=${encodeURIComponent(id.gridKey)}`)
-      .then(r => r.json())
-      .then(data => {
-        if (!Array.isArray(data.rows) || data.rows.length === 0) {
+
+    fetchToolbarRows(id)
+      .then(rows => {
+        if (cancelled) return;
+        if (rows.length === 0) {
           setButtons(getDefaultButtons(toolbar));
           return;
         }
-        setButtons(prev => appendMissingRows(prev, data.rows as DbButton[]));
+        setButtons(prev => appendMissingRows(prev, rows));
       })
-      .catch(() => setError("Failed to load toolbar settings"))
-      .finally(() => setLoading(false));
+      .catch(error => {
+        if (cancelled) return;
+        console.warn("Toolbar settings could not be loaded in designer; using defaults.", error);
+        setButtons(getDefaultButtons(toolbar));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, [id?.formKey, id?.gridKey, toolbar]);
 
   useEffect(() => {

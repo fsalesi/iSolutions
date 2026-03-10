@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Input, Select } from "@/components/ui";
 import { Toggle } from "@/components/ui/Toggle";
 import { DatePicker } from "@/components/ui/DatePicker";
@@ -10,18 +10,15 @@ import { Lookup } from "@/components/lookup/Lookup";
 
 interface FieldRendererProps {
   field: FieldDef;
-  onChange?: (value: unknown) => void;
 }
 
-export function FieldRenderer({ field, onChange }: FieldRendererProps) {
+export function FieldRenderer({ field }: FieldRendererProps) {
   if (field.hidden) return null;
 
-  // keyField fields are editable on New, read-only when editing an existing record
-  // plain readOnly fields are always read-only
   const isNew = field.panel?.isNew ?? false;
-  const effectiveReadOnly = field.keyField ? !isNew : (field.readOnly ?? false);
+  const panelReadOnly = field.panel?.readOnly ?? false;
+  const effectiveReadOnly = panelReadOnly || (field.readOnly ?? false) || (!!field.keyField && !isNew);
 
-  // Local React state — initialized from field.value (set by display() cascade)
   const [value, setValue] = useState(field.value);
 
   useEffect(() => {
@@ -29,21 +26,64 @@ export function FieldRenderer({ field, onChange }: FieldRendererProps) {
   }, [field.value, field.panel?.displayNonce]);
 
   const handleChange = (v: unknown) => {
+    if (effectiveReadOnly) return;
     setValue(v);
-    field.setValue(v);   // marks panel dirty
-    onChange?.(v);
+    field.setValue(v);
   };
+
+  const lookupConfig = useMemo(() => {
+    if (!field.lookupConfig) return undefined;
+    return {
+      ...field.lookupConfig,
+      readOnly: effectiveReadOnly || field.lookupConfig.readOnly === true,
+    };
+  }, [effectiveReadOnly, field.lookupConfig]);
+
+  const readOnlyLookupText = useMemo(() => {
+    if (!lookupConfig || !effectiveReadOnly) return null;
+
+    const currentRecord = field.panel?.currentRecord ?? null;
+    const rawValue = value ?? "";
+    const displayField = lookupConfig.displayField;
+    const valueField = lookupConfig.valueField;
+    const displayValue = displayField ? currentRecord?.[displayField] : undefined;
+
+    if (typeof lookupConfig.displayFormat === "function" && currentRecord) {
+      try {
+        const formatted = lookupConfig.displayFormat(currentRecord);
+        if (formatted) return String(formatted);
+      } catch {
+        // Fallback to raw display fields below.
+      }
+    }
+
+    if (displayValue !== undefined && displayValue !== null && String(displayValue).trim() !== "") {
+      if (valueField && displayField && valueField !== displayField && rawValue) {
+        return `${rawValue} - ${displayValue}`;
+      }
+      return String(displayValue);
+    }
+
+    return rawValue === null || rawValue === undefined ? "" : String(rawValue);
+  }, [effectiveReadOnly, field.panel?.currentRecord, lookupConfig, value]);
 
   let input: React.ReactNode;
 
   switch (field.renderer) {
     case "boolean":
-      input = <Toggle value={!!value} onChange={handleChange} />;
+      input = <Toggle value={!!value} onChange={handleChange} readOnly={effectiveReadOnly} />;
       break;
 
     case "date":
     case "datetime":
-      input = <DatePicker value={value || ""} onChange={handleChange} />;
+      input = (
+        <DatePicker
+          value={typeof value === "string" ? value : null}
+          onChange={handleChange}
+          mode={field.renderer === "datetime" ? "datetime" : "date"}
+          readOnly={effectiveReadOnly}
+        />
+      );
       break;
 
     case "number":
@@ -65,9 +105,10 @@ export function FieldRenderer({ field, onChange }: FieldRendererProps) {
     case "select":
       input = (
         <Select
-          value={value ?? ""}
+          value={String(value ?? "")}
           onChange={handleChange}
           options={[{ value: "", label: "— Select —" }, ...(field.options || [])]}
+          disabled={effectiveReadOnly}
         />
       );
       break;
@@ -85,14 +126,18 @@ export function FieldRenderer({ field, onChange }: FieldRendererProps) {
       break;
 
     case "lookup":
-      input = field.lookupConfig ? (
-        <Lookup
-          value={value}
-          onChange={handleChange}
-          config={field.lookupConfig}
-          label={field.getLabel()}
-          hydrateNonce={field.panel?.displayNonce !== undefined ? String(field.panel.displayNonce) : undefined}
-        />
+      input = lookupConfig ? (
+        effectiveReadOnly ? (
+          <Input value={readOnlyLookupText ?? ""} readOnly />
+        ) : (
+          <Lookup
+            value={value}
+            onChange={handleChange}
+            config={lookupConfig}
+            label={field.getLabel()}
+            hydrateNonce={field.panel?.displayNonce !== undefined ? String(field.panel.displayNonce) : undefined}
+          />
+        )
       ) : (
         <span style={{ color: "var(--text-muted)", fontSize: "0.75rem", fontStyle: "italic" }}>
           Lookup — no config
