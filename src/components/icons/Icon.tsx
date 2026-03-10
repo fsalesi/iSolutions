@@ -129,3 +129,6 @@ const ICON_PATHS: Record<string, string> = {
   undo:       "M3 7v6h6M21 17a9 9 0 00-9-9 9 9 0 00-6.219 2.5L3 13",
   "rotate-ccw": "M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 005.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 013.51 15",
 };
+
+
+export const BUILTIN_ICON_NAMES = Object.keys(ICON_PATHS);

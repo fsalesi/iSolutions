@@ -1,20 +1,19 @@
 // ToolbarDesigner.tsx — Toolbar configuration designer.
 // The single authority for toolbar button configuration.
-//
-// Two roles:
-//   1. applyToolbarDefaults(toolbar) — called by PanelToolbar on mount to
-//      apply saved overrides from form_toolbar_actions. The toolbar doesn't
-//      know about the DB, it just asks the designer to do its thing.
-//   2. ToolbarDesigner instance — pushed onto DrawerService for the admin UI.
-//      On save, writes to DB and applies to the live toolbar immediately.
 
-import type { ReactNode } from "react";
-import type { ToolbarDef, ButtonDef } from "./ToolbarDef";
+import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type {
+  ToolbarDef,
+  ButtonDef,
+  ToolbarButtonHandlerOption,
+  ToolbarButtonSettings,
+} from "./ToolbarDef";
+import { getToolbarButtonHandlerOptions } from "./ToolbarDef";
 import { DrawerService } from "./DrawerService";
-
-// ═══════════════════════════════════════════════════════════════════════
-// Identity + apply
-// ═══════════════════════════════════════════════════════════════════════
+import { Toggle } from "@/components/ui/Toggle";
+import { Icon } from "@/components/icons/Icon";
+import { IconPicker } from "@/components/ui/IconPicker";
 
 interface ToolbarIdentity { formKey: string; gridKey: string; }
 
@@ -35,18 +34,122 @@ interface DbButton {
   sort_order: number;
   is_standard: boolean;
   handler: string;
+  settings?: ToolbarButtonSettings | null;
 }
 
-// Built-in key → ToolbarDef toggle mapping
+interface DesignButton {
+  key: string;
+  label: string;
+  icon: string;
+  handler: string;
+  settings: ToolbarButtonSettings;
+  origin: "builtin" | "code" | "db";
+  isBuiltin: boolean;
+  visible: boolean;
+  sortOrder: number;
+}
+
 const BUILTIN_TOGGLE: Record<string, keyof ToolbarDef> = {
-  new:    "useNew",
-  save:   "useSave",
+  new: "useNew",
+  save: "useSave",
   delete: "useDelete",
-  copy:   "useCopy",
-  audit:  "useAudit",
-  notes:  "useNotes",
-  print:  "usePrint",
+  copy: "useCopy",
+  audit: "useAudit",
+  notes: "useNotes",
+  print: "usePrint",
 };
+
+const BUILTIN_BUTTONS: { key: string; label: string; icon: string; toggle: keyof ToolbarDef }[] = [
+  { key: "new",    label: "New",    icon: "plus",          toggle: "useNew" },
+  { key: "save",   label: "Save",   icon: "save",          toggle: "useSave" },
+  { key: "copy",   label: "Copy",   icon: "copy",          toggle: "useCopy" },
+  { key: "delete", label: "Delete", icon: "trash",         toggle: "useDelete" },
+  { key: "audit",  label: "Audit",  icon: "shield",        toggle: "useAudit" },
+  { key: "notes",  label: "Notes",  icon: "messageSquare", toggle: "useNotes" },
+];
+
+function toDesignButton(row: DbButton): DesignButton {
+  return {
+    key: row.action_key,
+    label: row.label || row.action_key,
+    icon: row.icon || "bolt",
+    handler: row.handler || "",
+    settings: row.settings ?? {},
+    origin: row.is_standard ? "builtin" : "db",
+    isBuiltin: !!row.is_standard,
+    visible: !row.is_hidden,
+    sortOrder: row.sort_order || 10,
+  };
+}
+
+function sortButtons(buttons: DesignButton[]): DesignButton[] {
+  return [...buttons].sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.key.localeCompare(b.key);
+  });
+}
+
+function slugifyActionKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "") || "custom_button";
+}
+
+function createCustomKey(existing: DesignButton[], label: string): string {
+  const base = slugifyActionKey(label);
+  const keys = new Set(existing.map(button => button.key));
+  if (!keys.has(base)) return base;
+  let index = 2;
+  while (keys.has(`${base}_${index}`)) index += 1;
+  return `${base}_${index}`;
+}
+
+function getDefaultButtons(toolbar: ToolbarDef): DesignButton[] {
+  const builtins: DesignButton[] = BUILTIN_BUTTONS.map((button, index) => ({
+    key: button.key,
+    label: button.label,
+    icon: button.icon,
+    handler: "",
+    settings: {},
+    origin: "builtin",
+    isBuiltin: true,
+    visible: !!(toolbar as ToolbarDef & Record<string, boolean>)[button.toggle],
+    sortOrder: (index + 1) * 10,
+  }));
+
+  const custom: DesignButton[] = toolbar.buttons.map((button: ButtonDef, index: number) => ({
+    key: button.key,
+    label: typeof button.label === "string" ? button.label : button.key,
+    icon: button.icon ?? "bolt",
+    handler: button.handler ?? "",
+    settings: button.settings ?? {},
+    origin: "code",
+    isBuiltin: false,
+    visible: !button.hidden,
+    sortOrder: button.sortOrder ?? (100 + index * 10),
+  }));
+
+  return sortButtons([...builtins, ...custom]);
+}
+
+function appendMissingRows(existing: DesignButton[], rows: DbButton[]): DesignButton[] {
+  const byKey = new Map(existing.map(button => [button.key, button]));
+
+  for (const row of rows) {
+    const next = toDesignButton(row);
+    const current = byKey.get(next.key);
+    if (current) byKey.set(next.key, { ...current, ...next, origin: current.origin === "code" ? "code" : next.origin });
+    else byKey.set(next.key, next);
+  }
+
+  return sortButtons(Array.from(byKey.values()));
+}
+
+function getInitialHandler(handlerOptions: ToolbarButtonHandlerOption[]): string {
+  return handlerOptions[0]?.key ?? "";
+}
 
 /** Apply saved toolbar overrides. Called by PanelToolbar on mount. */
 export async function applyToolbarDefaults(toolbar: ToolbarDef): Promise<void> {
@@ -55,7 +158,7 @@ export async function applyToolbarDefaults(toolbar: ToolbarDef): Promise<void> {
   if (!id) return;
 
   try {
-    const res  = await fetch(`/api/toolbar-actions?form_key=${encodeURIComponent(id.formKey)}&table_name=${encodeURIComponent(id.gridKey)}`);
+    const res = await fetch(`/api/toolbar-actions?form_key=${encodeURIComponent(id.formKey)}&table_name=${encodeURIComponent(id.gridKey)}`);
     const data = await res.json();
     if (!Array.isArray(data.rows) || data.rows.length === 0) return;
     applyToToolbar(toolbar, data.rows);
@@ -66,24 +169,49 @@ export async function applyToolbarDefaults(toolbar: ToolbarDef): Promise<void> {
 
 /** Apply DB rows to a toolbar instance. */
 function applyToToolbar(toolbar: ToolbarDef, rows: DbButton[]): void {
+  const currentDbKeys = new Set<string>();
+  const previousDbKeys = new Set<string>((toolbar as any)._dbButtonKeys ?? []);
+
   for (const row of rows) {
-    // Builtin toggles
     const toggle = BUILTIN_TOGGLE[row.action_key];
     if (toggle) {
-      (toolbar as any)[toggle] = !row.is_hidden;
+      (toolbar as ToolbarDef & Record<string, boolean>)[toggle] = !row.is_hidden;
+      toolbar.buttonSortOrder[row.action_key] = row.sort_order || toolbar.buttonSortOrder[row.action_key] || 10;
       continue;
     }
-    // Custom buttons already in toolbar.buttons — update hidden
-    const existing = toolbar.buttons.find(b => b.key === row.action_key);
-    if (existing) {
-      existing.hidden = row.is_hidden;
-    }
-  }
-}
 
-// ═══════════════════════════════════════════════════════════════════════
-// ToolbarDesigner class — the drawer UI
-// ═══════════════════════════════════════════════════════════════════════
+    currentDbKeys.add(row.action_key);
+    const existing = toolbar.buttons.find(button => button.key === row.action_key);
+    const target = existing ?? {
+      key: row.action_key,
+      label: row.label || row.action_key,
+      icon: row.icon || "bolt",
+      hidden: row.is_hidden,
+      handler: row.handler || "",
+      settings: row.settings ?? {},
+    };
+
+    target.label = row.label || target.label;
+    target.icon = row.icon || target.icon;
+    target.hidden = row.is_hidden;
+    target.handler = row.handler || target.handler;
+    target.settings = row.settings ?? target.settings ?? {};
+    target.requiresRecord = !!target.settings?.requiresRecord;
+    target.disabledWhenNew = !!target.settings?.disabledWhenNew;
+    target.disabledWhenDirty = !!target.settings?.disabledWhenDirty;
+    target.disabledWhenReadOnly = !!target.settings?.disabledWhenReadOnly;
+    target.hiddenWhenReadOnly = !!target.settings?.hiddenWhenReadOnly;
+    target.sortOrder = row.sort_order || target.sortOrder;
+
+    if (!existing) toolbar.addButton(target);
+  }
+
+  for (const key of previousDbKeys) {
+    if (!currentDbKeys.has(key)) toolbar.removeButton(key);
+  }
+
+  (toolbar as any)._dbButtonKeys = Array.from(currentDbKeys);
+}
 
 export class ToolbarDesigner {
   title = "Toolbar Designer";
@@ -97,120 +225,162 @@ export class ToolbarDesigner {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════
-// React component
-// ═══════════════════════════════════════════════════════════════════════
-
-import { useState, useEffect } from "react";
-import { Toggle } from "@/components/ui/Toggle";
-import { Icon } from "@/components/icons/Icon";
-
-interface DesignButton {
-  key: string;
-  label: string;
-  icon: string;
-  isBuiltin: boolean;
-  visible: boolean;
-  sortOrder: number;
-}
-
-const BUILTIN_BUTTONS: { key: string; label: string; icon: string; toggle: keyof ToolbarDef }[] = [
-  { key: "new",    label: "New",    icon: "plus",           toggle: "useNew" },
-  { key: "save",   label: "Save",   icon: "save",           toggle: "useSave" },
-  { key: "copy",   label: "Copy",   icon: "copy",           toggle: "useCopy" },
-  { key: "delete", label: "Delete", icon: "trash",          toggle: "useDelete" },
-  { key: "audit",  label: "Audit",  icon: "shield",         toggle: "useAudit" },
-  { key: "notes",  label: "Notes",  icon: "messageSquare",  toggle: "useNotes" },
-];
-
 function ToolbarDesignerPanel({ designer }: { designer: ToolbarDesigner }) {
   const toolbar = designer.toolbar;
   const id = designer.id;
+  const formKey = id?.formKey ?? "";
+  const form = toolbar.panel?.form ?? null;
+
+  const handlerOptions = useMemo(
+    () => getToolbarButtonHandlerOptions(form),
+    [form]
+  );
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving]   = useState(false);
-  const [error, setError]     = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [buttons, setButtons] = useState<DesignButton[]>(() => getDefaultButtons(toolbar));
+  const [selectedKey, setSelectedKey] = useState<string>("");
+  const [newLabel, setNewLabel] = useState("");
+  const [newIcon, setNewIcon] = useState("bolt");
+  const [newHandler, setNewHandler] = useState(() => getInitialHandler(handlerOptions));
 
-  // Build initial button list from toolbar state
-  const [buttons, setButtons] = useState<DesignButton[]>(() => {
-    const builtins: DesignButton[] = BUILTIN_BUTTONS.map((b, i) => ({
-      key: b.key,
-      label: b.label,
-      icon: b.icon,
-      isBuiltin: true,
-      visible: !!(toolbar as any)[b.toggle],
-      sortOrder: (i + 1) * 10,
-    }));
-
-    const custom: DesignButton[] = toolbar.buttons.map((b: ButtonDef, i: number) => ({
-      key: b.key,
-      label: typeof b.label === "string" ? b.label : b.key,
-      icon: b.icon ?? "bolt",
-      isBuiltin: false,
-      visible: !b.hidden,
-      sortOrder: 100 + i * 10,
-    }));
-
-    return [...builtins, ...custom];
-  });
-
-  // Load DB overrides on mount
   useEffect(() => {
-    if (!id) { setLoading(false); return; }
+    if (!newHandler && handlerOptions.length > 0) setNewHandler(handlerOptions[0].key);
+  }, [handlerOptions, newHandler]);
+
+  useEffect(() => {
+    if (!id) {
+      setButtons(getDefaultButtons(toolbar));
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     fetch(`/api/toolbar-actions?form_key=${encodeURIComponent(id.formKey)}&table_name=${encodeURIComponent(id.gridKey)}`)
       .then(r => r.json())
       .then(data => {
-        if (Array.isArray(data.rows) && data.rows.length > 0) {
-          const dbMap = new Map<string, DbButton>(data.rows.map((r: DbButton) => [r.action_key, r]));
-          setButtons(prev => prev.map(b => {
-            const db = dbMap.get(b.key);
-            if (!db) return b;
-            return { ...b, visible: !db.is_hidden, sortOrder: db.sort_order, label: db.label || b.label, icon: db.icon || b.icon };
-          }));
+        if (!Array.isArray(data.rows) || data.rows.length === 0) {
+          setButtons(getDefaultButtons(toolbar));
+          return;
         }
+        setButtons(prev => appendMissingRows(prev, data.rows as DbButton[]));
       })
       .catch(() => setError("Failed to load toolbar settings"))
       .finally(() => setLoading(false));
-  }, [id?.formKey, id?.gridKey]);
+  }, [id?.formKey, id?.gridKey, toolbar]);
 
-  const toggleVisible = (key: string) => {
-    setButtons(prev => prev.map(b => b.key === key ? { ...b, visible: !b.visible } : b));
+  useEffect(() => {
+    if (!buttons.length) {
+      setSelectedKey("");
+      return;
+    }
+    if (!selectedKey || !buttons.some(button => button.key === selectedKey)) {
+      const firstCustom = buttons.find(button => !button.isBuiltin);
+      setSelectedKey(firstCustom?.key ?? buttons[0].key);
+    }
+  }, [buttons, selectedKey]);
+
+  const selectedButton = buttons.find(button => button.key === selectedKey) ?? null;
+  const visibleCount = buttons.filter(button => button.visible).length;
+
+  const setButtonPatch = (key: string, patch: Partial<DesignButton>) => {
+    setButtons(prev => prev.map(button => button.key === key ? { ...button, ...patch } : button));
   };
 
-  // Move button up/down
+  const toggleVisible = (key: string) => {
+    setButtons(prev => prev.map(button => button.key === key ? { ...button, visible: !button.visible } : button));
+  };
+
   const move = (key: string, dir: -1 | 1) => {
     setButtons(prev => {
-      const idx = prev.findIndex(b => b.key === key);
-      const target = idx + dir;
-      if (target < 0 || target >= prev.length) return prev;
-      const next = [...prev];
-      [next[idx], next[target]] = [next[target], next[idx]];
-      // Reassign sort orders
-      return next.map((b, i) => ({ ...b, sortOrder: (i + 1) * 10 }));
+      const ordered = sortButtons(prev);
+      const index = ordered.findIndex(button => button.key === key);
+      const target = index + dir;
+      if (index < 0 || target < 0 || target >= ordered.length) return prev;
+      [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
+      return ordered.map((button, orderIndex) => ({ ...button, sortOrder: (orderIndex + 1) * 10 }));
     });
   };
 
-  // Save — write to DB, apply to live toolbar, refresh, close
+  const addCustomButton = () => {
+    const label = newLabel.trim();
+    const handler = newHandler.trim();
+    if (!label) {
+      setError("Enter a label for the new button.");
+      return;
+    }
+    if (!handler) {
+      setError("Select a handler for the new button.");
+      return;
+    }
+
+    setButtons(prev => {
+      const key = createCustomKey(prev, label);
+      const next: DesignButton = {
+        key,
+        label,
+        icon: newIcon || "bolt",
+        handler,
+        settings: {},
+        origin: "db",
+        isBuiltin: false,
+        visible: true,
+        sortOrder: ((prev.length + 1) * 10),
+      };
+      setSelectedKey(key);
+      return sortButtons([...prev, next]).map((button, index) => ({ ...button, sortOrder: (index + 1) * 10 }));
+    });
+
+    setNewLabel("");
+    setNewIcon("bolt");
+    setNewHandler(getInitialHandler(handlerOptions));
+    setError(null);
+  };
+
+  const removeCustomButton = (key: string) => {
+    setButtons(prev => {
+      const target = prev.find(button => button.key === key);
+      if (!target) return prev;
+
+      if (target.origin === "code") {
+        return sortButtons(prev.map(button =>
+          button.key === key ? { ...button, visible: false } : button
+        )).map((button, index) => ({ ...button, sortOrder: (index + 1) * 10 }));
+      }
+
+      return sortButtons(prev.filter(button => button.key !== key)).map((button, index) => ({ ...button, sortOrder: (index + 1) * 10 }));
+    });
+    setSelectedKey("");
+  };
+
   const handleSave = async () => {
     if (!id) return;
+    const invalid = buttons.find(button => !button.isBuiltin && (!button.label.trim() || !button.handler.trim()));
+    if (invalid) {
+      setError(`Custom button "${invalid.key}" needs both a label and a handler.`);
+      return;
+    }
+
     setSaving(true);
     setError(null);
     try {
+      const ordered = sortButtons(buttons).map((button, index) => ({ ...button, sortOrder: (index + 1) * 10 }));
       const payload = {
         form_key: id.formKey,
         table_name: id.gridKey,
-        buttons: buttons.map(b => ({
-          action_key:  b.key,
-          label:       b.label,
-          icon:        b.icon,
-          variant:     "default",
-          separator:   false,
-          is_hidden:   !b.visible,
-          sort_order:  b.sortOrder,
-          is_standard: b.isBuiltin,
-          handler:     "",
+        buttons: ordered.map(button => ({
+          action_key: button.key,
+          label: button.label,
+          icon: button.icon,
+          variant: "default",
+          separator: false,
+          is_hidden: !button.visible,
+          sort_order: button.sortOrder,
+          is_standard: button.isBuiltin,
+          handler: button.isBuiltin ? "" : button.handler,
+          settings: button.settings ?? {},
         })),
       };
 
@@ -221,10 +391,8 @@ function ToolbarDesignerPanel({ designer }: { designer: ToolbarDesigner }) {
       });
       if (!res.ok) throw new Error("Save failed");
 
-      // Apply to live toolbar
-      applyToToolbar(toolbar, payload.buttons as any);
+      applyToToolbar(toolbar, payload.buttons as DbButton[]);
       toolbar.refresh();
-
       DrawerService.pop();
     } catch (e: any) {
       setError(e.message || "Save failed");
@@ -235,13 +403,24 @@ function ToolbarDesignerPanel({ designer }: { designer: ToolbarDesigner }) {
 
   const handleCancel = () => DrawerService.pop();
 
-  // ── Styles ────────────────────────────────────────────────────────
-  const sectionTitle: React.CSSProperties = {
-    fontSize: "0.7rem", fontWeight: 600, textTransform: "uppercase",
-    letterSpacing: "0.05em", color: "var(--text-muted)", padding: "12px 16px 6px",
+  const sectionTitle: CSSProperties = {
+    fontSize: "0.7rem",
+    fontWeight: 600,
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+    color: "var(--text-muted)",
+    padding: "12px 16px 6px",
   };
 
-  const divider: React.CSSProperties = { height: 1, background: "var(--border)", margin: "4px 0" };
+  const inputStyle: CSSProperties = {
+    width: "100%",
+    padding: "7px 10px",
+    borderRadius: 6,
+    border: "1px solid var(--border)",
+    background: "var(--bg-surface)",
+    color: "var(--text-primary)",
+    fontSize: "0.82rem",
+  };
 
   if (loading) {
     return (
@@ -251,12 +430,8 @@ function ToolbarDesignerPanel({ designer }: { designer: ToolbarDesigner }) {
     );
   }
 
-  const visibleCount = buttons.filter(b => b.visible).length;
-
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-
-      {/* ── Fixed top ─────────────────────────────────────────── */}
       <div style={{ flexShrink: 0 }}>
         <div style={{ padding: "14px 16px 0", fontSize: "0.75rem", color: "var(--text-muted)" }}>
           {id ? `${id.formKey}:${id.gridKey}` : "unknown"}
@@ -268,75 +443,220 @@ function ToolbarDesignerPanel({ designer }: { designer: ToolbarDesigner }) {
             {visibleCount} of {buttons.length}
           </span>
         </div>
-      </div>
 
-      {/* ── Button list (scrollable) ─────────────────────────── */}
-      <div style={{ flex: 1, margin: "0 10px", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
-        {/* Header */}
-        <div style={{
-          display: "grid", gridTemplateColumns: "40px 1fr 50px 60px",
-          padding: "4px 12px", fontSize: "0.65rem", fontWeight: 600, textTransform: "uppercase",
-          letterSpacing: "0.04em", color: "var(--text-muted)", borderBottom: "1px solid var(--border)",
-          background: "var(--bg-surface-alt)", flexShrink: 0,
-        }}>
-          <span>Order</span>
-          <span>Button</span>
-          <span style={{ textAlign: "center" }}>Show</span>
-          <span />
-        </div>
-
-        {/* Rows */}
-        <div style={{ flex: 1, overflow: "auto" }}>
-          {buttons.map((btn, i) => (
-            <div key={btn.key} style={{
-              display: "grid", gridTemplateColumns: "40px 1fr 50px 60px",
-              alignItems: "center", padding: "6px 12px", fontSize: "0.8rem",
-              color: btn.visible ? "var(--text-primary)" : "var(--text-muted)",
-              borderBottom: "1px solid var(--border-light, rgba(0,0,0,0.04))",
-              opacity: btn.visible ? 1 : 0.5,
-            }}>
-              {/* Sort order number */}
-              <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>{btn.sortOrder}</span>
-
-              {/* Icon + label */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Icon name={btn.icon} size={14} />
-                <span>{btn.label}</span>
-                {!btn.isBuiltin && (
-                  <span style={{ fontSize: "0.6rem", color: "var(--accent)", padding: "1px 5px", borderRadius: 3, background: "var(--accent-light, rgba(14,134,202,0.08))" }}>
-                    custom
-                  </span>
-                )}
-              </div>
-
-              {/* Visible toggle */}
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <Toggle value={btn.visible} onChange={() => toggleVisible(btn.key)} size="sm" />
-              </div>
-
-              {/* Move up/down */}
-              <div style={{ display: "flex", gap: 2, justifyContent: "center" }}>
-                <button
-                  onClick={() => move(btn.key, -1)}
-                  disabled={i === 0}
-                  style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", opacity: i === 0 ? 0.2 : 0.6, padding: 2, display: "flex", color: "var(--text-muted)" }}
-                >
-                  <Icon name="chevUp" size={12} />
-                </button>
-                <button
-                  onClick={() => move(btn.key, 1)}
-                  disabled={i === buttons.length - 1}
-                  style={{ background: "none", border: "none", cursor: i === buttons.length - 1 ? "default" : "pointer", opacity: i === buttons.length - 1 ? 0.2 : 0.6, padding: 2, display: "flex", color: "var(--text-muted)" }}
-                >
-                  <Icon name="chevDown" size={12} />
-                </button>
+        <div style={{ display: "grid", gap: 10, padding: "0 16px 12px" }}>
+          <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-surface-alt)" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 600 }}>Add Custom Button</div>
+            <input
+              value={newLabel}
+              onChange={e => setNewLabel(e.currentTarget.value)}
+              placeholder="Button label"
+              style={inputStyle}
+            />
+            <select value={newHandler} onChange={e => setNewHandler(e.currentTarget.value)} style={inputStyle}>
+              <option value="">Select a handler</option>
+              {handlerOptions.map(option => (
+                <option key={option.key} value={option.key}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <div style={{ display: "grid", gap: 6 }}>
+              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Icon</div>
+              <IconPicker value={newIcon} onChange={value => setNewIcon(value || "bolt")} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button
+                type="button"
+                onClick={addCustomButton}
+                style={{ padding: "7px 12px", borderRadius: 6, border: "none", background: "var(--accent)", color: "#fff", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer" }}
+              >
+                Add Button
+              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-muted)", fontSize: "0.75rem" }}>
+                <Icon name={newIcon} size={15} />
+                <span>{newIcon}</span>
               </div>
             </div>
-          ))}
+          </div>
         </div>
       </div>
 
-      {/* ── Footer ───────────────────────────────────────────── */}
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(0, 1.1fr) minmax(280px, 0.9fr)", gap: 12, padding: "0 10px 10px" }}>
+        <div style={{ border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden", display: "flex", flexDirection: "column", minHeight: 0 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "40px 1fr 50px 60px", padding: "4px 12px", fontSize: "0.65rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--text-muted)", borderBottom: "1px solid var(--border)", background: "var(--bg-surface-alt)", flexShrink: 0 }}>
+            <span>Order</span>
+            <span>Button</span>
+            <span style={{ textAlign: "center" }}>Show</span>
+            <span />
+          </div>
+
+          <div style={{ flex: 1, overflow: "auto" }}>
+            {sortButtons(buttons).map((button, index) => {
+              const isSelected = button.key === selectedKey;
+              return (
+                <div
+                  key={button.key}
+                  onClick={() => setSelectedKey(button.key)}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "40px 1fr 50px 60px",
+                    alignItems: "center",
+                    padding: "6px 12px",
+                    fontSize: "0.8rem",
+                    cursor: "pointer",
+                    color: button.visible ? "var(--text-primary)" : "var(--text-muted)",
+                    borderBottom: "1px solid var(--border-light, rgba(0,0,0,0.04))",
+                    opacity: button.visible ? 1 : 0.5,
+                    background: isSelected ? "var(--bg-hover, rgba(0,0,0,0.04))" : "transparent",
+                  }}
+                >
+                  <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>{button.sortOrder}</span>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <Icon name={button.icon} size={14} />
+                    <div style={{ display: "grid", minWidth: 0 }}>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{button.label}</span>
+                      <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {button.isBuiltin ? button.key : button.handler || button.key}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "center" }}>
+                    <Toggle value={button.visible} onChange={() => toggleVisible(button.key)} size="sm" />
+                  </div>
+
+                  <div style={{ display: "flex", gap: 2, justifyContent: "center" }}>
+                    <button
+                      onClick={e => { e.stopPropagation(); move(button.key, -1); }}
+                      disabled={index === 0}
+                      style={{ background: "none", border: "none", cursor: index === 0 ? "default" : "pointer", opacity: index === 0 ? 0.2 : 0.6, padding: 2, display: "flex", color: "var(--text-muted)" }}
+                    >
+                      <Icon name="chevUp" size={12} />
+                    </button>
+                    <button
+                      onClick={e => { e.stopPropagation(); move(button.key, 1); }}
+                      disabled={index === buttons.length - 1}
+                      style={{ background: "none", border: "none", cursor: index === buttons.length - 1 ? "default" : "pointer", opacity: index === buttons.length - 1 ? 0.2 : 0.6, padding: 2, display: "flex", color: "var(--text-muted)" }}
+                    >
+                      <Icon name="chevDown" size={12} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ border: "1px solid var(--border)", borderRadius: 6, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+          <div style={{ ...sectionTitle, paddingTop: 10 }}>Selection</div>
+
+          {!selectedButton && (
+            <div style={{ padding: 16, color: "var(--text-muted)", fontSize: "0.8rem" }}>
+              Select a button to edit it.
+            </div>
+          )}
+
+          {selectedButton && selectedButton.isBuiltin && (
+            <div style={{ padding: 16, display: "grid", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", fontWeight: 600 }}>
+                <Icon name={selectedButton.icon} size={16} />
+                <span>{selectedButton.label}</span>
+              </div>
+              <div style={{ fontSize: "0.78rem", color: "var(--text-muted)" }}>
+                Built-in buttons can be shown, hidden, and reordered here. New handlers only apply to custom buttons.
+              </div>
+            </div>
+          )}
+
+          {selectedButton && !selectedButton.isBuiltin && (
+            <div style={{ display: "grid", gap: 12, padding: 16, minHeight: 0, overflow: "auto" }}>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={{ fontSize: "0.72rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Label</label>
+                <input
+                  value={selectedButton.label}
+                  onChange={e => setButtonPatch(selectedButton.key, { label: e.currentTarget.value })}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={{ fontSize: "0.72rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Handler</label>
+                <select
+                  value={selectedButton.handler}
+                  onChange={e => setButtonPatch(selectedButton.key, { handler: e.currentTarget.value })}
+                  style={inputStyle}
+                >
+                  <option value="">Select a handler</option>
+                  {handlerOptions.map(option => (
+                    <option key={option.key} value={option.key}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+                  {handlerOptions.find(option => option.key === selectedButton.handler)?.description || "Handlers come from the current page override."}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Icon</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, fontSize: "0.82rem" }}>
+                    <Icon name={selectedButton.icon} size={16} />
+                    <span>{selectedButton.icon}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeCustomButton(selectedButton.key)}
+                  style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid var(--danger-border, #fc8181)", background: "transparent", color: "var(--danger, #e53e3e)", fontSize: "0.78rem", cursor: "pointer" }}
+                >
+{selectedButton.origin === "code" ? "Hide Button" : "Remove Button"}
+                </button>
+              </div>
+
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={{ fontSize: "0.72rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Icon</label>
+                <IconPicker value={selectedButton.icon} onChange={value => setButtonPatch(selectedButton.key, { icon: value || "bolt" })} />
+              </div>
+
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={{ fontSize: "0.72rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>State Rules</label>
+                {[
+                  ["requiresRecord", "Requires selected record"],
+                  ["disabledWhenNew", "Disable on new record"],
+                  ["disabledWhenDirty", "Disable when panel is dirty"],
+                  ["disabledWhenReadOnly", "Disable when panel is read-only"],
+                  ["hiddenWhenReadOnly", "Hide when panel is read-only"],
+                ].map(([settingKey, settingLabel]) => (
+                  <label
+                    key={settingKey}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-surface-alt)", color: "var(--text-primary)", fontSize: "0.78rem" }}
+                  >
+                    <span>{settingLabel}</span>
+                    <Toggle
+                      value={!!selectedButton.settings[settingKey as keyof ToolbarButtonSettings]}
+                      onChange={value => setButtonPatch(selectedButton.key, {
+                        settings: {
+                          ...selectedButton.settings,
+                          [settingKey]: !!value,
+                        },
+                      })}
+                      size="sm"
+                    />
+                  </label>
+                ))}
+                <div style={{ padding: "9px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-surface-alt)", color: "var(--text-muted)", fontSize: "0.76rem" }}>
+                  These rules are saved into <code>settings</code> and evaluated against the current panel state.
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderTop: "1px solid var(--border)", background: "var(--bg-surface-alt)", flexShrink: 0 }}>
         <div style={{ fontSize: "0.75rem", color: "var(--danger-text, #dc2626)" }}>{error || ""}</div>
         <div style={{ display: "flex", gap: 8 }}>
