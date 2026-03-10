@@ -13,5 +13,7 @@ export class RequisitionLinesGrid extends DataGridDef {
     this.dataSource = new RequisitionLinesDataSource();
     this.panel = new RequisitionLinesEditPanel();
     this.panel.grid = this;  // Bidirectional reference
+    this.sort = ["line_number"];
+    this.sortDirection = ["ASC"];
   }
 }

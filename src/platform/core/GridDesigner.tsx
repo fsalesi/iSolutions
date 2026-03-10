@@ -16,7 +16,6 @@ import { DrawerService } from "./DrawerService";
 function getGridId(grid: DataGridDef): string {
   const formKey = (grid.form as any)?.formKey ?? "";
   const gridKey = grid.key;
-  if (!formKey || formKey === gridKey) return gridKey;
   return `${formKey}:${gridKey}`;
 }
 
