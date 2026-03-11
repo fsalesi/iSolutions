@@ -48,6 +48,9 @@ export class SectionDef implements ChildElement {
     const fallback = typeof this.label === "string" && this.label.length > 0
       ? this.label
       : this.key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    if ((this as any)._panelLayoutLabelOverride && typeof this.label === "string" && this.label.length > 0) {
+      return resolveClientText(this.label);
+    }
     const formKey = this.panel?.form?.formKey ?? this.panel?.form?.key;
     return formKey
       ? resolveClientText(tx(`${formKey}.sections.${this.key}`, fallback))
@@ -56,11 +59,11 @@ export class SectionDef implements ChildElement {
 
   // === LIFECYCLE METHODS ===
 
-  show(): ReactNode {
+  show(options?: Record<string, unknown>): ReactNode {
     if (this.hidden) return null;
     // Lazy import to avoid circular dependency
     const { SectionRenderer } = require("@/components/panel/SectionRenderer");
-    return React.createElement(SectionRenderer, { section: this, key: this.key });
+    return React.createElement(SectionRenderer, { section: this, key: this.key, ...(options ?? {}) });
   }
 
   display(row: Row | null): void { this.children.forEach(c => c.display(row)); }

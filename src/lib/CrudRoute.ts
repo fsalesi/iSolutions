@@ -24,6 +24,16 @@ import bcrypt from "bcryptjs";
 
 export type ColType = "text" | "number" | "boolean" | "date" | "datetime" | "image";
 
+export interface CustomLayoutFieldMeta {
+  transient: boolean;
+  type: ColType;
+  label: string;
+  dataType?: string;
+  renderer?: string;
+  maxLength?: number | null;
+  scale?: number | null;
+}
+
 export interface TableMeta {
   formKey: string;
   tableName: string;
@@ -36,7 +46,7 @@ export interface TableMeta {
   colTypes: Record<string, ColType>;
   colScales: Record<string, number>;
   defaultSort: string;
-  customLayoutFields: Record<string, { transient: boolean; type: ColType }>;
+  customLayoutFields: Record<string, CustomLayoutFieldMeta>;
 }
 export interface ParentBinding {
   name: string;           // Usually the parent table name
@@ -76,6 +86,14 @@ const APPROVAL_COLS = [
 const metaCache = new Map<string, { meta: TableMeta; loadedAt: number }>();
 const CACHE_TTL = 30_000;
 
+export function invalidateCrudMetaCache(formKey?: string, tableName?: string): void {
+  if (formKey && tableName) {
+    metaCache.delete(`${formKey}::${tableName}`);
+    return;
+  }
+  metaCache.clear();
+}
+
 /* ── Helpers ── */
 
 function mapColType(dataType: string): ColType {
@@ -98,6 +116,18 @@ function mapRendererToColType(renderer: string): ColType {
   if (["datetime", "timestamptz"].includes(r)) return "datetime";
   if (r === "image") return "image";
   return "text";
+}
+
+function parseOptionalNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string" && value.trim() === "") return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function parseOptionalMaxLength(value: unknown): number | null {
+  const num = parseOptionalNumber(value);
+  return num !== null && num > 0 ? num : null;
 }
 
 function colScale(f: FieldMeta): number | undefined {
@@ -188,7 +218,6 @@ async function loadMeta(formKey: string, tableName: string): Promise<TableMeta> 
     }));
 
   const customColNames = customFields.map((f) => f.fieldName);
-  const allColumns = [...systemCols, ...customColNames];
   const writableColumns = customColNames;
 
   const colTypes: Record<string, ColType> = {
@@ -207,22 +236,41 @@ async function loadMeta(formKey: string, tableName: string): Promise<TableMeta> 
   const searchColumns = customFields.filter((f) => f.dataType === "text").slice(0, 4).map((f) => f.fieldName);
   const defaultSort = customFields.find((f) => f.isIndexed)?.fieldName || customFields[0]?.fieldName || "created_at";
 
-  const layoutRes = await db.query(
-    `SELECT layout_key, properties
-       FROM form_layout
+  const customFieldRes = await db.query(
+    `SELECT DISTINCT ON (entry_key) entry_key, settings
+       FROM panel_layout
       WHERE form_key = $1
         AND table_name = $2
-        AND layout_type = 'field'`,
+        AND entry_type = 'custom_field'
+        AND domain = '*'
+      ORDER BY entry_key, updated_at DESC NULLS LAST, created_at DESC NULLS LAST`,
     [formKey, tableName]
   );
-  const customLayoutFields: Record<string, { transient: boolean; type: ColType }> = {};
-  for (const r of layoutRes.rows) {
-    const key = String(r.layout_key || "");
-    if (!key || allColumns.includes(key)) continue;
-    const props = (r.properties || {}) as Record<string, any>;
-    if (props.custom_field !== true) continue;
-    customLayoutFields[key] = { transient: props.transient === true, type: mapRendererToColType(String(props.renderer || "text")) };
+  const customLayoutFields: Record<string, CustomLayoutFieldMeta> = {};
+  for (const r of customFieldRes.rows) {
+    const key = String(r.entry_key || "");
+    if (!key || customColNames.includes(key)) continue;
+    const props = (r.settings || {}) as Record<string, any>;
+    const dataType = String(props.dataType || "text").toLowerCase();
+    const renderer = String(props.renderer || "").toLowerCase() || undefined;
+    const type = mapRendererToColType(renderer || dataType);
+    customLayoutFields[key] = {
+      transient: props.transient === true,
+      type,
+      label: typeof props.label === "string" && props.label.trim() ? props.label.trim() : key,
+      dataType,
+      renderer,
+      maxLength: parseOptionalMaxLength(props.maxLength),
+      scale: parseOptionalNumber(props.scale),
+    };
+    colTypes[key] = type;
+    const parsedScale = parseOptionalNumber(props.scale);
+    if (type === "number" && parsedScale !== null) {
+      colScales[key] = parsedScale;
+    }
   }
+
+  const allColumns = [...systemCols, ...customColNames, ...Object.keys(customLayoutFields)];
 
   const meta: TableMeta = {
     formKey,
@@ -461,7 +509,14 @@ export class CrudRoute {
         const toLabel = (c: string) => c.replace(/_/g, " ").replace(/\b\w+/g, w => w === "id" ? "ID" : w.charAt(0).toUpperCase() + w.slice(1));
         const cols = meta.allColumns
           .filter(c => !["oid","domain","created_at","created_by","updated_at","updated_by","custom_fields","password_hash"].includes(c))
-          .map(c => ({ key: c, label: toLabel(c), dataType: meta.colTypes[c] ?? "string" }));
+          .map(c => ({
+            key: c,
+            label: meta.customLayoutFields[c]?.label ?? toLabel(c),
+            dataType: meta.colTypes[c] ?? "string",
+            renderer: meta.customLayoutFields[c]?.renderer ?? undefined,
+            scale: meta.customLayoutFields[c]?.scale ?? undefined,
+            maxLength: meta.customLayoutFields[c]?.maxLength ?? undefined,
+          }));
 
         // Get parent bindings - static override or auto-discover
         const staticBindings = this.getParentBindings();
@@ -533,6 +588,7 @@ export class CrudRoute {
 
       const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
       const restricted = new Set([...this.restrictedFields, ...this.passwordFields]);
+      const customFieldNames = new Set(Object.keys(meta.customLayoutFields));
       // Image fields (bytea): never send binary over the wire — select a boolean
       // presence flag instead. transformRow in the generated route converts to URL.
       const imageFields = new Set(
@@ -540,10 +596,19 @@ export class CrudRoute {
       );
       const selectCols = meta.allColumns
         .filter(c => !restricted.has(c))
-        .map(c => imageFields.has(c)
-          ? `(CASE WHEN "${tableName}"."${c}" IS NOT NULL AND octet_length("${tableName}"."${c}") > 0 THEN true ELSE NULL END) AS "${c}"`
-          : `"${tableName}"."${c}"`)
+        .map(c => {
+          if (customFieldNames.has(c)) {
+            const safeKey = c.replace(/'/g, "''");
+            return `("${tableName}"."custom_fields"->>'${safeKey}') AS "${c}"`;
+          }
+          return imageFields.has(c)
+            ? `(CASE WHEN "${tableName}"."${c}" IS NOT NULL AND octet_length("${tableName}"."${c}") > 0 THEN true ELSE NULL END) AS "${c}"`
+            : `"${tableName}"."${c}"`;
+        })
         .join(", ");
+      const sortExpr = customFieldNames.has(safeSort)
+        ? `("${tableName}"."custom_fields"->>'${safeSort.replace(/'/g, "''")}')`
+        : `"${tableName}"."${safeSort}"`;
 
       const joins = this.buildJoins(tableName);
       const selectExtras = this.buildSelectExtras(tableName);
@@ -553,7 +618,7 @@ export class CrudRoute {
 
       const dataR = await db.query(
         `SELECT ${selectCols}${selectExtras} FROM "${tableName}" ${joins} ${where}
-         ORDER BY "${safeSort}" ${sortDir}
+         ORDER BY ${sortExpr} ${sortDir}
          LIMIT $${pi} OFFSET $${pi + 1}`,
         [...params, limit, offset]
       );

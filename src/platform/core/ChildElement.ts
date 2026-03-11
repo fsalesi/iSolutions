@@ -20,7 +20,7 @@ export interface ChildElement {
   /**
    * Render this element as React. Called during layout render cycle.
    */
-  show(): ReactNode;
+  show(options?: Record<string, unknown>): ReactNode;
 
   /**
    * Called by parent during the display cascade.

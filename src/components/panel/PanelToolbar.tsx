@@ -15,6 +15,7 @@ import { DrawerService } from "@/platform/core/DrawerService";
 
 interface PanelToolbarProps {
   toolbar: ToolbarDef;
+  designEnabled?: boolean;
 }
 
 interface ToolBtn {
@@ -28,11 +29,11 @@ interface ToolBtn {
   sortOrder?: number;
 }
 
-export function PanelToolbar({ toolbar }: PanelToolbarProps) {
+export function PanelToolbar({ toolbar, designEnabled = false }: PanelToolbarProps) {
   const { locale } = useTranslation();
   const isMobile = useIsMobile();
   const { user } = useSession();
-  const isAdmin = user.isAdmin;
+  const canDesignPanel = !!user?.isAdmin && designEnabled;
   const [auditOpen, setAuditOpen] = useState(false);
   const [, setTick] = useState(0);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -125,9 +126,9 @@ export function PanelToolbar({ toolbar }: PanelToolbarProps) {
             </span>
           );
         })}
-        {isAdmin && (
+        {canDesignPanel && (
           <>
-            <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 2px" }} />
+            <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 2px 0 auto" }} />
             <button
               onClick={() => DrawerService.push(new ToolbarDesigner(toolbar))}
               title="Toolbar Designer"

@@ -123,9 +123,10 @@ export class DataSourceDef {
         key:      col.key,
         label:    this._defaultLabel(col.key, col.label),
         dataType: dt,
-        renderer: RENDERER_MAP[dt] ?? "text",
+        renderer: col.renderer ?? (RENDERER_MAP[dt] ?? "text"),
         sortable: true,
         align:    dt === "boolean" ? "center" : "left",
+        precision: Number.isFinite(Number(col.scale)) ? Number(col.scale) : undefined,
       });
       column.translationScope = this.table;
       this.columns.push(column);

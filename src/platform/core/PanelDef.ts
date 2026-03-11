@@ -56,6 +56,12 @@ export class PanelDef {
   activeTabKey:   string = "";
   onDirtyChanged: ((dirty: boolean) => void) | null = null;
 
+  panelLayoutRows: any[] = [];
+  panelLayoutIdentity: { domain: string; formKey: string; panelKey: string; tableName: string } | null = null;
+  panelLayoutLoaded: boolean = false;
+  panelLayoutLoading: Promise<void> | null = null;
+  panelLayoutLoadError: string | null = null;
+
   private _form: PanelForm | null = null;
   get form(): PanelForm | null { return this._form; }
   set form(f: PanelForm | null) {
@@ -70,7 +76,7 @@ export class PanelDef {
     if (form) this.form = form;
   }
 
-  private get sections(): SectionDef[] {
+  get sections(): SectionDef[] {
     return this.tabs.flatMap(tab => tab.children.filter((child): child is SectionDef => child.type === "section"));
   }
 
@@ -330,6 +336,11 @@ export class PanelDef {
 
   canNavigateAway(): Promise<boolean> { return Promise.resolve(true); }
 
+  refreshView(): void {
+    this.displayNonce++;
+    this.onDirtyChanged?.(this.isDirty);
+  }
+
   // Flat addressable access — searches entire tree
 
   getField(key: string): FieldDef {
@@ -344,6 +355,10 @@ export class PanelDef {
     return tab;
   }
 
-  getSection(key: string): SectionDef { throw new Error("stub"); }
+  getSection(key: string): SectionDef {
+    const section = this.sections.find(s => s.key === key);
+    if (!section) throw new Error(`Section "${key}" not found`);
+    return section;
+  }
   getGrid(key: string): DataGridDef { throw new Error("stub"); }
 }

@@ -44,6 +44,7 @@ export function Lookup({ value, onChange, config, label, domain: domainProp, hyd
     apiPath: _apiPath,
     dataSource,
     fetchFn,
+    resolveValueFn,
     baseFilters,
     valueField,
     displayField,
@@ -140,10 +141,10 @@ export function Lookup({ value, onChange, config, label, domain: domainProp, hyd
 
   // The columns to show in the dropdown
   const ddCols = useMemo(
-    () => dropdownColumns || [valueField, ...(displayField !== valueField ? [displayField] : [])],
+    () => (dropdownColumns || [valueField, ...(displayField !== valueField ? [displayField] : [])]).filter(Boolean),
     [dropdownColumns, valueField, displayField]
   );
-  const ddKeys = useMemo(() => ddCols.map(ddColKey), [ddCols]);
+  const ddKeys = useMemo(() => ddCols.map(ddColKey).filter(Boolean), [ddCols]);
 
   // Multi-select: parse value as array
   const selectedValues: string[] = useMemo(() => {
@@ -216,7 +217,12 @@ export function Lookup({ value, onChange, config, label, domain: domainProp, hyd
         return;
       }
       // Fetch the record to get display text
-      doFetch(v, 1, 0).then(data => {
+      const hydratePromise = resolveValueFn
+        ? resolveValueFn({ value: v, domain: effectiveDomain })
+            .then(match => match ? { rows: [match], total: 1 } : doFetch(v, 1, 0))
+            .catch(() => doFetch(v, 1, 0))
+        : doFetch(v, 1, 0);
+      hydratePromise.then(data => {
         const match = (data.rows ?? []).find((r: any) => String(r[valueField]) === v);
         if (match) {
           cache.current.set(v, match);
@@ -232,7 +238,7 @@ export function Lookup({ value, onChange, config, label, domain: domainProp, hyd
         }
       });
     }
-  }, [value, multiple, selectedValues.length, displayField, displayTemplate, doFetch, emitResolve, valueField, hydrateNonce]);
+  }, [value, multiple, selectedValues.length, displayField, displayTemplate, doFetch, emitResolve, valueField, hydrateNonce, resolveValueFn, effectiveDomain]);
 
   // Preload on mount
   useEffect(() => {

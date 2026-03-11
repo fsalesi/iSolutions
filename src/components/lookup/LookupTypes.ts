@@ -7,13 +7,15 @@ export type DropdownColumnType = "flag" | "image" | "badge";
 export type DropdownColumn = string | { key: string; type: DropdownColumnType };
 
 /** Helper to extract the key from a DropdownColumn */
-export function ddColKey(col: DropdownColumn): string {
-  return typeof col === "string" ? col : col.key;
+export function ddColKey(col: DropdownColumn | undefined | null): string {
+  if (!col) return "";
+  return typeof col === "string" ? col : String(col.key ?? "").trim();
 }
 
 /** Helper to get the type (undefined for plain text) */
-export function ddColType(col: DropdownColumn): DropdownColumnType | undefined {
-  return typeof col === "string" ? undefined : col.type;
+export function ddColType(col: DropdownColumn | undefined | null): DropdownColumnType | undefined {
+  if (!col || typeof col === "string") return undefined;
+  return col.type;
 }
 
 export type LookupResolveReason = "select" | "hydrate" | "clear";
@@ -34,6 +36,12 @@ export interface LookupConfig {
     offset: number;
     domain?: string;
   }) => Promise<{ rows: any[]; total: number }>;
+
+  /** Resolve one record by exact stored value for initial hydration. */
+  resolveValueFn?: (params: {
+    value: any;
+    domain?: string;
+  }) => Promise<any | null>;
 
   // --- Field Mapping ---
 

@@ -42,10 +42,12 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
 
   const push = useCallback((panel: any) => {
     setStack(prev => {
-      if (prev.length > 0 && prev[prev.length - 1].panel === panel) {
-        return prev;
+      const panelKey = panel?.drawerKey ?? panel;
+      const topKey = prev.length > 0 ? (prev[prev.length - 1].panel?.drawerKey ?? prev[prev.length - 1].panel) : null;
+      if (prev.length > 0 && topKey === panelKey) {
+        return [...prev.slice(0, -1), { id: `drawer-${nextDrawerId++}`, panel }];
       }
-      const filtered = prev.filter(e => e.panel !== panel);
+      const filtered = prev.filter(e => (e.panel?.drawerKey ?? e.panel) !== panelKey);
       return [...filtered, { id: `drawer-${nextDrawerId++}`, panel }];
     });
   }, []);

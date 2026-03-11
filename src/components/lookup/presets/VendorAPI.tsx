@@ -22,6 +22,18 @@ export const VendorAPI = (overrides: Partial<LookupConfig> & { domain: string })
       const data = await res.json();
       return { rows: data.rows || [], total: data.total || 0 };
     },
+    resolveValueFn: async ({ value, domain: runtimeDomain }) => {
+      const vendorCode = String(value ?? "").trim();
+      const effectiveDomain = runtimeDomain || domain;
+      if (!vendorCode || !effectiveDomain) return null;
+      const qs = new URLSearchParams({ action: "get", code: vendorCode, domain: effectiveDomain });
+      const res = await fetch(`/api/qad/vendors?${qs}`);
+      if (!res.ok) {
+        console.error("VendorLookup resolve failed:", res.status);
+        return null;
+      }
+      return await res.json().catch(() => null);
+    },
     valueField: "vendor_code",
     displayField: "vendor_name",
     minChars: 2,

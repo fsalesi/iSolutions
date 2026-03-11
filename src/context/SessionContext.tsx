@@ -34,6 +34,16 @@ const EMPTY_USER: SessionUser = {
   groups: [], isAdmin: false,
 };
 
+async function parseJsonSafely(res: Response): Promise<any | null> {
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) return null;
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 const SessionContext = createContext<SessionContextType>({
   user: EMPTY_USER,
   loggedIn: false,
@@ -57,7 +67,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // Check for existing session on mount
   useEffect(() => {
     fetch("/api/auth/me")
-      .then(r => r.ok ? r.json() : Promise.reject("not logged in"))
+      .then(async (r) => {
+        if (!r.ok) throw new Error("not logged in");
+        const data = await parseJsonSafely(r);
+        if (!data) throw new Error("Invalid auth/me response");
+        return data;
+      })
       .then(data => {
         setUser(data);
         setLoggedIn(true);
@@ -77,8 +92,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, password: _password }),
       });
-      const data = await res.json();
-      if (!res.ok) return { ok: false, error: data.error || "Login failed" };
+      const data = await parseJsonSafely(res);
+      if (!res.ok) {
+        return { ok: false, error: data?.error || `Login failed (${res.status})` };
+      }
+      if (!data) {
+        return { ok: false, error: "Login returned an invalid response" };
+      }
       setUser(data);
       setLoggedIn(true);
       // Set initial domain

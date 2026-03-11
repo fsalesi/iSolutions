@@ -6,6 +6,8 @@ import type { ReactNode } from "react";
 import type { ChildElement } from "./ChildElement";
 import { resolveClientText } from "@/lib/i18n/runtime";
 import { tx, type TranslatableText } from "@/lib/i18n/types";
+import type { LookupConfig } from "@/components/lookup/LookupTypes";
+import type { LookupDefinition } from "./LookupDefinition";
 import type { Row, RendererType, SelectOption } from "./types";
 
 // Data-only options — no methods, safe to spread
@@ -13,7 +15,8 @@ export interface FieldDefOptions {
   key: string;
   label?: TranslatableText;
   renderer?: RendererType;
-  lookupConfig?: any;
+  lookupConfig?: LookupConfig;
+  lookupDefinition?: LookupDefinition;
   options?: SelectOption[];
   scale?: number;
   required?: boolean;
@@ -21,6 +24,7 @@ export interface FieldDefOptions {
   keyField?: boolean;
   maxLength?: number;
   valMessage?: TranslatableText;
+  placeholder?: string;
   hidden?: boolean;
   defaultValue?: any;
 }
@@ -34,7 +38,8 @@ export class FieldDef implements ChildElement {
   renderer: RendererType = "text";
 
   // Renderer-specific config
-  lookupConfig?: any;        // LookupConfig — from lookup subsystem
+  lookupConfig?: LookupConfig;
+  lookupDefinition?: LookupDefinition;
   options?: SelectOption[];  // when renderer = "select"
   scale?: number;            // decimal places — when renderer = "number"
 
@@ -44,6 +49,7 @@ export class FieldDef implements ChildElement {
   keyField?: boolean;
   maxLength?: number;
   valMessage?: TranslatableText;
+  placeholder?: string;
 
   hidden: boolean = false;
   defaultValue?: any;
@@ -60,6 +66,7 @@ export class FieldDef implements ChildElement {
     if (options.label !== undefined) this.label = options.label;
     if (options.renderer    !== undefined) this.renderer    = options.renderer;
     if (options.lookupConfig !== undefined) this.lookupConfig = options.lookupConfig;
+    if (options.lookupDefinition !== undefined) this.lookupDefinition = options.lookupDefinition;
     if (options.options     !== undefined) this.options     = options.options;
     if (options.scale       !== undefined) this.scale       = options.scale;
     if (options.required    !== undefined) this.required    = options.required;
@@ -67,6 +74,7 @@ export class FieldDef implements ChildElement {
     if (options.keyField    !== undefined) this.keyField    = options.keyField;
     if (options.maxLength   !== undefined) this.maxLength   = options.maxLength;
     if (options.valMessage  !== undefined) this.valMessage  = options.valMessage;
+    if (options.placeholder !== undefined) this.placeholder = options.placeholder;
     if (options.hidden        !== undefined) this.hidden        = options.hidden;
     if (options.defaultValue  !== undefined) this.defaultValue  = options.defaultValue;
   }
@@ -74,6 +82,10 @@ export class FieldDef implements ChildElement {
 
   getLabel(): string {
     const generated = this.key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+    if ((this as any)._panelLayoutLabelOverride && typeof this.label === "string" && this.label.length > 0) {
+      return resolveClientText(this.label);
+    }
 
     if (this.label !== undefined) {
       const fallback = typeof this.label === "string" && this.label.length > 0 ? this.label : generated;
@@ -100,11 +112,11 @@ export class FieldDef implements ChildElement {
 
   // === LIFECYCLE METHODS ===
 
-  show(): ReactNode {
+  show(options?: Record<string, unknown>): ReactNode {
     if (this.hidden) return null;
     // Lazy import to avoid circular dependency
     const { FieldRenderer } = require("@/components/panel/FieldRenderer");
-    return React.createElement(FieldRenderer, { field: this, key: this.key });
+    return React.createElement(FieldRenderer, { field: this, key: this.key, ...(options ?? {}) });
   }
 
   display(row: Row | null): void  { this.value = row ? (row[this.key] ?? null) : null; }

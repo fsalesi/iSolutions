@@ -26,6 +26,16 @@ const EMPTY_USER: AuthUser = {
   groups: [], isAdmin: false,
 };
 
+async function parseJsonSafely(res: Response): Promise<any | null> {
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) return null;
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 const AuthContext = createContext<AuthContextType>({
   user: EMPTY_USER,
   ready: false,
@@ -37,7 +47,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     fetch("/api/auth/me")
-      .then(r => r.ok ? r.json() : Promise.reject(r.statusText))
+      .then(async (r) => {
+        if (!r.ok) throw new Error(r.statusText);
+        const data = await parseJsonSafely(r);
+        if (!data) throw new Error("Invalid auth/me response");
+        return data;
+      })
       .then(data => setUser(data))
       .catch(err => console.error("[auth] Failed to load session:", err))
       .finally(() => setReady(true));

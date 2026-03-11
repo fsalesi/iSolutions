@@ -317,14 +317,18 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
         <div ref={pickerRef} style={{ position: "relative" }}>
           <ToolbarButton icon="columns" label={resolveClientText(tx("grid.columns", "Columns"))} active={pickerOpen} onClick={() => setPickerOpen(o => !o)} mobileIconOnly={isMobile} />
 
-          {pickerOpen && (
+          {pickerOpen && (() => {
+            const allowedKeys = Array.isArray((grid as any)._allowedKeys) ? new Set((grid as any)._allowedKeys as string[]) : null;
+            const pickerColumns = allowedKeys ? grid.columns.filter(col => allowedKeys.has(col.key)) : grid.columns;
+            const visibleCount = pickerColumns.filter(col => !col.hidden).length;
+            return (
             <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 200, background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, boxShadow: "var(--shadow-md)", minWidth: 220, maxHeight: 380, overflowY: "auto" }}>
               <div style={{ padding: "8px 12px 7px", fontSize: "0.72rem", fontWeight: 600, color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
                 {resolveClientText(tx("grid.columns", "Columns"))}
               </div>
-              {grid.columns.map((col, i) => {
+              {pickerColumns.map((col, i) => {
                 const visible = !col.hidden;
-                const isLastVisible = visible && grid.columns.filter(c => !c.hidden).length <= 1;
+                const isLastVisible = visible && visibleCount <= 1;
                 return (
                   <div
                     key={col.key}
@@ -345,16 +349,16 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
                     <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{col.getLabel() || col.key}</span>
                     {visible && (
                       <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-                        <button onClick={() => moveColumn(i, -1)} disabled={i === 0}
-                          style={{ display: "flex", padding: 2, borderRadius: 3, background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", opacity: i === 0 ? 0.2 : 0.55 }}
-                          onMouseEnter={e => { if (i > 0) e.currentTarget.style.opacity = "1"; }}
-                          onMouseLeave={e => { e.currentTarget.style.opacity = i === 0 ? "0.2" : "0.55"; }}>
+                        <button onClick={() => moveColumn(grid.columns.findIndex(c => c.key === col.key), -1)} disabled={grid.columns.findIndex(c => c.key === col.key) === 0}
+                          style={{ display: "flex", padding: 2, borderRadius: 3, background: "none", border: "none", cursor: grid.columns.findIndex(c => c.key === col.key) === 0 ? "default" : "pointer", opacity: grid.columns.findIndex(c => c.key === col.key) === 0 ? 0.2 : 0.55 }}
+                          onMouseEnter={e => { if (grid.columns.findIndex(c => c.key === col.key) > 0) e.currentTarget.style.opacity = "1"; }}
+                          onMouseLeave={e => { e.currentTarget.style.opacity = grid.columns.findIndex(c => c.key === col.key) === 0 ? "0.2" : "0.55"; }}>
                           <Icon name="chevUp" size={13} />
                         </button>
-                        <button onClick={() => moveColumn(i, 1)} disabled={i === grid.columns.length - 1}
-                          style={{ display: "flex", padding: 2, borderRadius: 3, background: "none", border: "none", cursor: i === grid.columns.length - 1 ? "default" : "pointer", opacity: i === grid.columns.length - 1 ? 0.2 : 0.55 }}
-                          onMouseEnter={e => { if (i < grid.columns.length - 1) e.currentTarget.style.opacity = "1"; }}
-                          onMouseLeave={e => { e.currentTarget.style.opacity = i === grid.columns.length - 1 ? "0.2" : "0.55"; }}>
+                        <button onClick={() => moveColumn(grid.columns.findIndex(c => c.key === col.key), 1)} disabled={grid.columns.findIndex(c => c.key === col.key) === grid.columns.length - 1}
+                          style={{ display: "flex", padding: 2, borderRadius: 3, background: "none", border: "none", cursor: grid.columns.findIndex(c => c.key === col.key) === grid.columns.length - 1 ? "default" : "pointer", opacity: grid.columns.findIndex(c => c.key === col.key) === grid.columns.length - 1 ? 0.2 : 0.55 }}
+                          onMouseEnter={e => { if (grid.columns.findIndex(c => c.key === col.key) < grid.columns.length - 1) e.currentTarget.style.opacity = "1"; }}
+                          onMouseLeave={e => { e.currentTarget.style.opacity = grid.columns.findIndex(c => c.key === col.key) === grid.columns.length - 1 ? "0.2" : "0.55"; }}>
                           <Icon name="chevDown" size={13} />
                         </button>
                       </div>
@@ -363,7 +367,8 @@ export function GridToolbar({ grid, search, sortKey, sortDir, filterActive, filt
                 );
               })}
             </div>
-          )}
+            );
+          })()}
         </div>
       )}
 

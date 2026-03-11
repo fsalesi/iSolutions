@@ -4,12 +4,21 @@ import { useState, useEffect } from "react";
 import type { TabDef } from "@/platform/core/TabDef";
 import type { PanelDef } from "@/platform/core/PanelDef";
 
+type DesignTarget = {
+  type: "tab" | "section" | "field";
+  key: string;
+  parentKey?: string;
+};
+
 interface TabRendererProps {
   tabs: TabDef[];
   panel: PanelDef;
+  designMode?: boolean;
+  selectedTarget?: DesignTarget | null;
+  onSelectTarget?: (target: DesignTarget | null) => void;
 }
 
-export function TabRenderer({ tabs, panel }: TabRendererProps) {
+export function TabRenderer({ tabs, panel, designMode = false, selectedTarget = null, onSelectTarget }: TabRendererProps) {
   const visible = tabs.filter(t => !t.hidden);
   const [activeKey, setActiveKey] = useState(panel.activeTabKey || visible[0]?.key || "");
   const [, setTick] = useState(0);
@@ -42,8 +51,9 @@ export function TabRenderer({ tabs, panel }: TabRendererProps) {
         }}>
           {visible.map(tab => {
             const isActive = tab.key === activeKey;
+            const isSelected = designMode && selectedTarget?.type === "tab" && selectedTarget.key === tab.key;
             return (
-              <button key={tab.key} onClick={() => { setActiveKey(tab.key); panel.activeTabKey = tab.key; }} style={{
+              <button key={tab.key} onClick={() => { setActiveKey(tab.key); panel.activeTabKey = tab.key; if (designMode) onSelectTarget?.({ type: "tab", key: tab.key }); }} style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 5,
@@ -54,6 +64,8 @@ export function TabRenderer({ tabs, panel }: TabRendererProps) {
                 background: "none",
                 border: "none",
                 borderBottom: isActive ? "2px solid var(--accent)" : "2px solid transparent",
+                outline: isSelected ? "2px solid rgba(245, 158, 11, 0.8)" : "none",
+                outlineOffset: -2,
                 cursor: "pointer",
                 whiteSpace: "nowrap",
                 transition: "color 0.15s",
@@ -79,7 +91,9 @@ export function TabRenderer({ tabs, panel }: TabRendererProps) {
       <div style={{ flex: 1, overflow: "auto" }}>
         {activeTab?.children
           .filter(c => !c.hidden)
-          .map(child => child.show())
+          .map(child => child.type === "section"
+            ? (child as any).show({ designMode, selectedTarget, onSelectTarget })
+            : child.show())
         }
       </div>
     </div>

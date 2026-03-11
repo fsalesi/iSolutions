@@ -6,6 +6,30 @@
 
 ---
 
+## Current Status
+
+Completed in the current module:
+- [x] Phase 1 - Persistence Foundation
+- [x] Phase 2 - Panel Layout API
+- [x] Phase 3 - Runtime Loader (No Visual Changes)
+- [x] Phase 4 - Design Mode Shell
+- [x] Phase 5 - Field Properties Drawer (Existing Fields Only)
+- [x] Phase 6 - Tab and Section Drawers
+- [x] Phase 7 - Add Existing Datasource Fields
+- [x] Phase 8 - Backend Custom Field Contract
+- [x] Phase 9 - Add Custom Field Drawer
+- [x] Phase 10 - Reorder / Move Operations
+
+Still open or intentionally deferred:
+- [ ] Phase 11 - Child Grids As Structural Elements
+- [ ] Phase 12 - Hardening and Testing
+- [ ] Translation-aware designer labels (tracked separately)
+- [ ] Destructive custom-field purge workflow for dev cleanup (tracked separately)
+
+The core panel-designer module is usable and working in dev. This checklist remains because there is still deferred cleanup/hardening work.
+
+---
+
 ## Delivery Rules
 
 - Each phase must be a complete vertical slice or a dormant infrastructure change.
@@ -416,18 +440,18 @@ Make the delivered phases durable enough for continued dev use without destabili
 
 ## Recommended Stop Points
 
-- [ ] Stop after Phase 1 if you only want schema in place
-- [ ] Stop after Phase 3 if you want dormant runtime support only
-- [ ] Stop after Phase 5 for the first usable designer slice
-- [ ] Stop after Phase 7 for existing-field panel editing without custom fields
-- [ ] Stop after Phase 9 for full custom-field creation and placement
+- [x] Stop after Phase 1 if you only want schema in place
+- [x] Stop after Phase 3 if you want dormant runtime support only
+- [x] Stop after Phase 5 for the first usable designer slice
+- [x] Stop after Phase 7 for existing-field panel editing without custom fields
+- [x] Stop after Phase 9 for full custom-field creation and placement
 
 ---
 
 ## Non-Goals
 
-- [ ] Do not use `form_tables`
-- [ ] Do not use `form_fields`
-- [ ] Do not port v1 grid designer logic
-- [ ] Do not adopt v1 `FormPage` / metadata runtime patterns
-- [ ] Do not require app-wide activation before the page-scoped slice is stable
+- [x] Do not use `form_tables`
+- [x] Do not use `form_fields`
+- [x] Do not port v1 grid designer logic
+- [x] Do not adopt v1 `FormPage` / metadata runtime patterns
+- [x] Do not require app-wide activation before the page-scoped slice is stable

@@ -44,9 +44,13 @@ export class TabDef implements ChildElement {
 
 
   getLabel(): string {
+    const runtimeTab = this as TabDef & { _panelLayoutLabelOverride?: boolean };
     const fallback = typeof this.label === "string" && this.label.length > 0
       ? this.label
       : this.key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    if (runtimeTab._panelLayoutLabelOverride && typeof this.label === "string") {
+      return this.label;
+    }
     const formKey = this.panel?.form?.formKey ?? this.panel?.form?.key;
     return formKey
       ? resolveClientText(tx(`${formKey}.tabs.${this.key}`, fallback))
@@ -57,7 +61,7 @@ export class TabDef implements ChildElement {
 
   // Tabs don't render themselves — TabRenderer renders tab headers
   // and calls show() on the active tab's children.
-  show(): ReactNode { return null; }
+  show(_options?: Record<string, unknown>): ReactNode { return null; }
 
   display(row: Row | null): void { this.children.forEach(c => c.display(row)); }
 
