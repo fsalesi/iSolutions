@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { GetDataService } from "@/lib/qad/GetDataService";
-import { QADProxyError, getQADData } from "@/lib/qad/proxy";
+import { QADProxyError } from "@/lib/qad/proxy";
 
 /**
  * GET /api/qad/data?table=cc_mstr&where=cc_domain eq "demo1"&fields=cc_code,cc_desc&domain=DEMO1&max=50
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   const max = Math.min(Number(params.get("max") || 100), 500);
 
   try {
-    const result = await getQADData({
+    const result = await GetDataService.get({
       table,
       whereClause: where,
       fieldSet: fields,
@@ -56,7 +56,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-
 export async function POST(req: NextRequest) {
   const userId = getCurrentUser(req);
   if (!userId) {
@@ -70,10 +69,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "domain is required" }, { status: 400 });
     }
 
-    const result = await GetDataService.get({
+    const params = {
       table: typeof body?.table === "string" ? body.table : undefined,
       dsName: typeof body?.dsName === "string" ? body.dsName : undefined,
-      dataset: body?.dataset,
       whereClause: typeof body?.whereClause === "string" ? body.whereClause : undefined,
       fieldSet: body?.fieldSet,
       numRecords: typeof body?.numRecords === "number" ? body.numRecords : undefined,
@@ -89,8 +87,9 @@ export async function POST(req: NextRequest) {
       includeSchema: !!body?.includeSchema,
       dictdb: typeof body?.dictdb === "string" ? body.dictdb : undefined,
       reverse: !!body?.reverse,
-    });
+    };
 
+    const result = await GetDataService.get(params);
     return NextResponse.json(result);
   } catch (err) {
     if (err instanceof QADProxyError) {

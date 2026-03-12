@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "@/context/SessionContext";
 import { Checkbox, Input, Select } from "@/components/ui";
 import { Toggle } from "@/components/ui/Toggle";
 import type { PanelDef } from "./PanelDef";
@@ -17,6 +18,7 @@ import {
   type LookupPresetName,
   type LookupSourceType,
 } from "./LookupDefinition";
+import type { QadConfigMetadata } from "@/lib/qad/QadConfigService";
 import {
   getCustomFieldDefinitionSettings,
   getFieldLayoutSettings,
@@ -176,6 +178,7 @@ function FieldDesignerPanel({ designer }: { designer: FieldDesigner }) {
   const [lookupSourceColumns, setLookupSourceColumns] = useState<string[]>([]);
   const lookupHandlerOptions = useMemo(() => getLookupHandlerOptions(panel.form), [panel.form]);
   const panelFieldKeys = useMemo(() => panel.fields.map(f => f.key).filter(key => key !== field.key), [panel, field]);
+  const { domain: sessionDomain } = useSession();
 
   const [label, setLabel] = useState(existing.label ?? field.getLabel());
   const [hidden, setHidden] = useState(existing.hidden ?? field.hidden);
@@ -189,7 +192,7 @@ function FieldDesignerPanel({ designer }: { designer: FieldDesigner }) {
   const [customDataType, setCustomDataType] = useState(customDef?.dataType ?? "text");
 
   const inferredLookupSourceType: LookupSourceType = existingLookup?.sourceType
-    ?? (existingLookup?.dataSourceName ? "datasource" : existingLookup?.apiPath ? "api" : "preset");
+    ?? (existingLookup?.dataSourceName ? "datasource" : existingLookup?.apiPath ? "api" : existingLookup?.qadDsName ? "qad_getdata" : "preset");
   const [lookupSourceType, setLookupSourceType] = useState<LookupSourceType>(inferredLookupSourceType);
   const [lookupDataSourceName, setLookupDataSourceName] = useState<LookupDataSourceName>(existingLookup?.dataSourceName ?? "users");
   const [lookupPresetName, setLookupPresetName] = useState<LookupPresetName>(existingLookup?.presetName ?? (field.lookupConfig ? "current" : "custom"));
@@ -218,12 +221,20 @@ function FieldDesignerPanel({ designer }: { designer: FieldDesigner }) {
   const [useDefaultHydrateNonTransient, setUseDefaultHydrateNonTransient] = useState(!hasOwn(storedLookup, "hydrateNonTransient"));
 
   const [lookupApiPath, setLookupApiPath] = useState(existingLookup?.apiPath ?? "");
+  const [lookupQadDsName, setLookupQadDsName] = useState((existingLookup as any)?.qadDsName ?? "");
+  const [lookupQadSearchWhere, setLookupQadSearchWhere] = useState((existingLookup as any)?.qadSearchWhere ?? "");
+  const [lookupQadUniqueWhere, setLookupQadUniqueWhere] = useState((existingLookup as any)?.qadUniqueWhere ?? "");
+  const [lookupQadFieldSet, setLookupQadFieldSet] = useState((existingLookup as any)?.qadFieldSet ?? "");
+  const [qadConfigMeta, setQadConfigMeta] = useState<QadConfigMetadata | null>(null);
   const [lookupValueField, setLookupValueField] = useState(existingLookup?.valueField ?? "");
   const [lookupDisplayField, setLookupDisplayField] = useState(existingLookup?.displayField ?? "");
   const [lookupDisplayTemplate, setLookupDisplayTemplate] = useState(existingLookup?.displayTemplate ?? "");
   const [lookupSearchColumns, setLookupSearchColumns] = useState(existingLookup?.searchColumns ?? []);
+  const [lookupSearchColumnsText, setLookupSearchColumnsText] = useState((existingLookup?.searchColumns ?? []).join(", "));
   const [lookupDropdownColumns, setLookupDropdownColumns] = useState(existingLookup?.dropdownColumns ?? []);
+  const [lookupDropdownColumnsText, setLookupDropdownColumnsText] = useState((existingLookup?.dropdownColumns ?? []).join(", "));
   const [lookupGridColumns, setLookupGridColumns] = useState(existingLookup?.gridColumns ?? []);
+  const [lookupGridColumnsText, setLookupGridColumnsText] = useState((existingLookup?.gridColumns ?? []).join(", "));
   const [lookupBrowsable, setLookupBrowsable] = useState(existingLookup?.browsable ?? true);
   const [lookupBrowseTitle, setLookupBrowseTitle] = useState(existingLookup?.browseTitle ?? "");
   const [lookupMultiple, setLookupMultiple] = useState(existingLookup?.multiple ?? false);
@@ -240,6 +251,41 @@ function FieldDesignerPanel({ designer }: { designer: FieldDesigner }) {
   const [lookupHandlerName, setLookupHandlerName] = useState(existingLookup?.handlerName ?? "");
   const [lookupHydrateNonTransient, setLookupHydrateNonTransient] = useState(existingLookup?.hydrateNonTransient ?? false);
 
+  const handleLookupSourceTypeChange = (nextType: LookupSourceType) => {
+    setLookupSourceType(nextType);
+    if (nextType !== "qad_getdata") return;
+
+    setUseDefaultValueField(false);
+    setUseDefaultDisplayField(false);
+    setUseDefaultDisplayTemplate(false);
+    setUseDefaultSearchColumns(false);
+    setUseDefaultDropdownColumns(false);
+    setUseDefaultGridColumns(false);
+    setUseDefaultBrowseTitle(false);
+    setUseDefaultMinChars(false);
+    setUseDefaultDropdownLimit(false);
+
+    setLookupValueField("");
+    setLookupDisplayField("");
+    setLookupDisplayTemplate("");
+    setLookupSearchColumns([]);
+    setLookupSearchColumnsText("");
+    setLookupDropdownColumns([]);
+    setLookupDropdownColumnsText("");
+    setLookupGridColumns([]);
+    setLookupGridColumnsText("");
+    setLookupBrowseTitle("");
+
+    setLookupBrowsable(true);
+    setLookupMultiple(false);
+    setLookupChecklist(false);
+    setLookupPreload(false);
+    setUseDefaultBrowsable(false);
+    setUseDefaultMultiple(false);
+    setUseDefaultChecklist(false);
+    setUseDefaultPreload(false);
+  };
+
   const defaultLookupConfig = useMemo(() => {
     if (lookupSourceType === "preset") {
       const presetName = lookupPresetName === "current" ? (existingLookup?.presetName ?? "current") : lookupPresetName;
@@ -253,8 +299,24 @@ function FieldDesignerPanel({ designer }: { designer: FieldDesigner }) {
       return buildLookupConfig({ sourceType: "datasource", dataSourceName: lookupDataSourceName }, field.lookupConfig);
     }
 
+    if (lookupSourceType === "qad_getdata") {
+      return buildLookupConfig({
+        sourceType: "qad_getdata",
+        qadDsName: lookupQadDsName,
+        qadSearchWhere: lookupQadSearchWhere,
+        qadUniqueWhere: lookupQadUniqueWhere,
+        qadFieldSet: lookupQadFieldSet,
+        valueField: lookupValueField,
+        displayField: lookupDisplayField,
+        displayTemplate: lookupDisplayTemplate,
+        searchColumns: lookupSearchColumns,
+        gridColumns: lookupGridColumns,
+        placeholder: placeholder,
+      }, field.lookupConfig);
+    }
+
     return buildLookupConfig({ sourceType: "api", apiPath: lookupApiPath, valueField: lookupValueField, displayField: lookupDisplayField }, field.lookupConfig);
-  }, [lookupSourceType, lookupPresetName, lookupDataSourceName, lookupApiPath, lookupValueField, lookupDisplayField, existingLookup?.presetName, field.lookupConfig]);
+  }, [lookupSourceType, lookupPresetName, lookupDataSourceName, lookupApiPath, lookupQadDsName, lookupQadSearchWhere, lookupQadUniqueWhere, lookupQadFieldSet, lookupValueField, lookupDisplayField, lookupDisplayTemplate, lookupSearchColumns, lookupGridColumns, placeholder, existingLookup?.presetName, field.lookupConfig]);
 
   const defaultLookup = useMemo(() => ({
     apiPath: defaultLookupConfig?.apiPath ?? "",
@@ -320,23 +382,43 @@ function FieldDesignerPanel({ designer }: { designer: FieldDesigner }) {
     if (lookupSourceType === "preset") definition.presetName = effectivePreset;
     if (lookupSourceType === "datasource") definition.dataSourceName = lookupDataSourceName;
     if (lookupSourceType === "api" && !useDefaultApiPath) definition.apiPath = lookupApiPath.trim() || undefined;
-    if (!useDefaultValueField) definition.valueField = lookupValueField.trim() || undefined;
-    if (!useDefaultDisplayField) definition.displayField = lookupDisplayField.trim() || undefined;
-    if (!useDefaultDisplayTemplate) definition.displayTemplate = lookupDisplayTemplate.trim() || undefined;
+    if (lookupSourceType === "qad_getdata") {
+      definition.qadDsName = lookupQadDsName.trim() || undefined;
+      definition.qadSearchWhere = lookupQadSearchWhere.trim() || undefined;
+      definition.qadUniqueWhere = lookupQadUniqueWhere.trim() || undefined;
+      definition.qadFieldSet = lookupQadFieldSet.trim() || undefined;
+      definition.valueField = lookupValueField.trim() || undefined;
+      definition.displayField = lookupDisplayField.trim() || undefined;
+      definition.displayTemplate = lookupDisplayTemplate.trim() || undefined;
+      definition.searchColumns = parseDelimitedList(lookupSearchColumnsText);
+      definition.dropdownColumns = parseDelimitedList(lookupDropdownColumnsText);
+      definition.gridColumns = parseDelimitedList(lookupGridColumnsText);
+      definition.browsable = lookupBrowsable;
+      definition.browseTitle = lookupBrowseTitle.trim() || undefined;
+      definition.multiple = lookupMultiple;
+      definition.checklist = lookupChecklist;
+      definition.preload = lookupPreload;
+      definition.readOnly = lookupReadOnly;
+      definition.minChars = lookupMinChars.trim() ? Number(lookupMinChars) : undefined;
+      definition.dropdownLimit = lookupDropdownLimit.trim() ? Number(lookupDropdownLimit) : undefined;
+    }
+    if (lookupSourceType !== "qad_getdata" && !useDefaultValueField) definition.valueField = lookupValueField.trim() || undefined;
+    if (lookupSourceType !== "qad_getdata" && !useDefaultDisplayField) definition.displayField = lookupDisplayField.trim() || undefined;
+    if (lookupSourceType !== "qad_getdata" && !useDefaultDisplayTemplate) definition.displayTemplate = lookupDisplayTemplate.trim() || undefined;
     if (!useDefaultPlaceholder) definition.placeholder = placeholder.trim() || undefined;
-    if (!useDefaultSearchColumns) definition.searchColumns = lookupSearchColumns;
-    if (!useDefaultDropdownColumns) definition.dropdownColumns = lookupDropdownColumns;
-    if (!useDefaultGridColumns) definition.gridColumns = lookupGridColumns;
-    if (!useDefaultBrowsable) definition.browsable = lookupBrowsable;
-    if (!useDefaultBrowseTitle) definition.browseTitle = lookupBrowseTitle.trim() || undefined;
-    if (!useDefaultMultiple) definition.multiple = lookupMultiple;
-    if (!useDefaultChecklist) definition.checklist = lookupChecklist;
+    if (lookupSourceType !== "qad_getdata" && !useDefaultSearchColumns) definition.searchColumns = lookupSearchColumns;
+    if (lookupSourceType !== "qad_getdata" && !useDefaultDropdownColumns) definition.dropdownColumns = lookupDropdownColumns;
+    if (lookupSourceType !== "qad_getdata" && !useDefaultGridColumns) definition.gridColumns = lookupGridColumns;
+    if (lookupSourceType !== "qad_getdata" && !useDefaultBrowsable) definition.browsable = lookupBrowsable;
+    if (lookupSourceType !== "qad_getdata" && !useDefaultBrowseTitle) definition.browseTitle = lookupBrowseTitle.trim() || undefined;
+    if (lookupSourceType !== "qad_getdata" && !useDefaultMultiple) definition.multiple = lookupMultiple;
+    if (lookupSourceType !== "qad_getdata" && !useDefaultChecklist) definition.checklist = lookupChecklist;
     if (!useDefaultChecklistHeight) definition.checklistHeight = lookupChecklistHeight.trim() ? Number(lookupChecklistHeight) : undefined;
     if (!useDefaultChecklistPageSize) definition.checklistPageSize = lookupChecklistPageSize.trim() ? Number(lookupChecklistPageSize) : undefined;
-    if (!useDefaultPreload) definition.preload = lookupPreload;
-    if (!useDefaultLookupReadOnly) definition.readOnly = lookupReadOnly;
-    if (!useDefaultMinChars) definition.minChars = lookupMinChars.trim() ? Number(lookupMinChars) : undefined;
-    if (!useDefaultDropdownLimit) definition.dropdownLimit = lookupDropdownLimit.trim() ? Number(lookupDropdownLimit) : undefined;
+    if (lookupSourceType !== "qad_getdata" && !useDefaultPreload) definition.preload = lookupPreload;
+    if (lookupSourceType !== "qad_getdata" && !useDefaultLookupReadOnly) definition.readOnly = lookupReadOnly;
+    if (lookupSourceType !== "qad_getdata" && !useDefaultMinChars) definition.minChars = lookupMinChars.trim() ? Number(lookupMinChars) : undefined;
+    if (lookupSourceType !== "qad_getdata" && !useDefaultDropdownLimit) definition.dropdownLimit = lookupDropdownLimit.trim() ? Number(lookupDropdownLimit) : undefined;
     if (!useDefaultAllOption) {
       definition.allOptionValue = lookupAllOptionValue.trim() || undefined;
       definition.allOptionLabel = lookupAllOptionLabel.trim() || undefined;
@@ -440,6 +522,24 @@ function FieldDesignerPanel({ designer }: { designer: FieldDesigner }) {
     };
   }, [lookupSourceConfig, defaultLookupConfig, effectiveLookup.apiPath, lookupSourceType]);
 
+  useEffect(() => {
+    if (lookupSourceType !== "qad_getdata") return;
+    if (!sessionDomain) return;
+    let cancelled = false;
+    fetch(`/api/qad/config?domain=${encodeURIComponent(sessionDomain)}`)
+      .then(async res => res.ok ? res.json() : null)
+      .then(data => { if (!cancelled) setQadConfigMeta(data); })
+      .catch(() => { if (!cancelled) setQadConfigMeta(null); });
+    return () => { cancelled = true; };
+  }, [lookupSourceType, sessionDomain]);
+
+  useEffect(() => {
+    if (lookupSourceType !== "qad_getdata") return;
+    const cols = parseDelimitedList(lookupQadFieldSet);
+    if (cols.length) setLookupSourceColumns(cols);
+  }, [lookupSourceType, lookupQadFieldSet]);
+
+  const isQadGetData = lookupSourceType === "qad_getdata";
   const lookupFieldOptions = uniqueKeys([
     ...lookupSourceColumns,
     effectiveLookup.valueField,
@@ -447,11 +547,16 @@ function FieldDesignerPanel({ designer }: { designer: FieldDesigner }) {
     ...(effectiveLookup.searchColumns ?? []),
     ...(effectiveLookup.dropdownColumns ?? []),
     ...(effectiveLookup.gridColumns ?? []),
+    lookupValueField,
+    lookupDisplayField,
+    ...(isQadGetData ? parseDelimitedList(lookupSearchColumnsText) : lookupSearchColumns),
+    ...(isQadGetData ? parseDelimitedList(lookupDropdownColumnsText) : lookupDropdownColumns),
+    ...(isQadGetData ? parseDelimitedList(lookupGridColumnsText) : lookupGridColumns),
   ]);
   const hasLookupSchemaHelpers = lookupSourceColumns.length > 0;
-  const useManualLookupFieldEntry = lookupSourceType === "api" && !hasLookupSchemaHelpers;
-  const showBrowseControls = !!effectiveLookup.browsable;
-  const showChecklistSizing = !!effectiveLookup.checklist;
+  const useManualLookupFieldEntry = isQadGetData || (lookupSourceType === "api" && !hasLookupSchemaHelpers);
+  const showBrowseControls = isQadGetData ? lookupBrowsable : !!effectiveLookup.browsable;
+  const showChecklistSizing = isQadGetData ? lookupChecklist : !!effectiveLookup.checklist;
   const columnKeys = lookupFieldOptions;
   const columnOptions = [{ value: "", label: "—" }, ...lookupFieldOptions.map(key => ({ value: key, label: key }))];
 
@@ -577,7 +682,7 @@ function FieldDesignerPanel({ designer }: { designer: FieldDesigner }) {
               <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
                 Lookup Source
               </label>
-              <Select value={lookupSourceType} onChange={v => setLookupSourceType(String(v) as LookupSourceType)} options={LOOKUP_SOURCE_OPTIONS} />
+              <Select value={lookupSourceType} onChange={v => handleLookupSourceTypeChange(String(v) as LookupSourceType)} options={LOOKUP_SOURCE_OPTIONS} />
             </div>
             {lookupSourceType === "preset" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -602,66 +707,114 @@ function FieldDesignerPanel({ designer }: { designer: FieldDesigner }) {
                 <ToggleDefault checked={useDefaultApiPath} onChange={setUseDefaultApiPath} />
               </div>
             )}
+            {lookupSourceType === "qad_getdata" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, gridColumn: "1 / -1" }}>
+                <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>QAD Source Name</label>
+                <Input value={lookupQadDsName} onChange={setLookupQadDsName} />
+                <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Type any table name directly, or use one of the predefined datasets from config.xml.</div>
+                {!!qadConfigMeta?.datasets?.length && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {qadConfigMeta.datasets.map(item => (
+                      <button
+                        key={item.name}
+                        type="button"
+                        onClick={() => setLookupQadDsName(item.name)}
+                        style={{ padding: "4px 8px", borderRadius: 999, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text-primary)", cursor: "pointer", fontSize: "0.72rem" }}
+                      >
+                        {item.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {lookupSourceType === "qad_getdata" && (
+              <>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, gridColumn: "1 / -1" }}>
+                  <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>QAD Search Where</label>
+                  <Input value={lookupQadSearchWhere} onChange={setLookupQadSearchWhere} />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, gridColumn: "1 / -1" }}>
+                  <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>QAD Unique Where</label>
+                  <Input value={lookupQadUniqueWhere} onChange={setLookupQadUniqueWhere} />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, gridColumn: "1 / -1" }}>
+                  <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>QAD Field Set</label>
+                  <Input value={lookupQadFieldSet} onChange={setLookupQadFieldSet} />
+                  <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Comma-separated getData field list. Used to derive lookup columns.</div>
+                </div>
+              </>
+            )}
             {showBrowseControls && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Browse Title</label>
-                <Input value={effectiveLookup.browseTitle} onChange={setLookupBrowseTitle} readOnly={useDefaultBrowseTitle} />
-                <ToggleDefault checked={useDefaultBrowseTitle} onChange={setUseDefaultBrowseTitle} />
+                <Input value={isQadGetData ? lookupBrowseTitle : effectiveLookup.browseTitle} onChange={setLookupBrowseTitle} readOnly={!isQadGetData && useDefaultBrowseTitle} />
+                {!isQadGetData && <ToggleDefault checked={useDefaultBrowseTitle} onChange={setUseDefaultBrowseTitle} />}
               </div>
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Value Field</label>
-              {useDefaultValueField
-                ? <Input value={effectiveLookup.valueField} readOnly />
-                : useManualLookupFieldEntry
-                  ? <Input value={effectiveLookup.valueField} onChange={setLookupValueField} />
-                  : <Select value={effectiveLookup.valueField} onChange={setLookupValueField} options={columnOptions} />}
-              <ToggleDefault checked={useDefaultValueField} onChange={setUseDefaultValueField} />
+              {isQadGetData
+                ? <Input value={lookupValueField} onChange={setLookupValueField} />
+                : useDefaultValueField
+                  ? <Input value={effectiveLookup.valueField} readOnly />
+                  : useManualLookupFieldEntry
+                    ? <Input value={effectiveLookup.valueField} onChange={setLookupValueField} />
+                    : <Select value={effectiveLookup.valueField} onChange={setLookupValueField} options={columnOptions} />}
+              {!isQadGetData && <ToggleDefault checked={useDefaultValueField} onChange={setUseDefaultValueField} />}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Display Field</label>
-              {useDefaultDisplayField
-                ? <Input value={effectiveLookup.displayField} readOnly />
-                : useManualLookupFieldEntry
-                  ? <Input value={effectiveLookup.displayField} onChange={setLookupDisplayField} />
-                  : <Select value={effectiveLookup.displayField} onChange={setLookupDisplayField} options={columnOptions} />}
-              <ToggleDefault checked={useDefaultDisplayField} onChange={setUseDefaultDisplayField} />
+              {isQadGetData
+                ? <Input value={lookupDisplayField} onChange={setLookupDisplayField} />
+                : useDefaultDisplayField
+                  ? <Input value={effectiveLookup.displayField} readOnly />
+                  : useManualLookupFieldEntry
+                    ? <Input value={effectiveLookup.displayField} onChange={setLookupDisplayField} />
+                    : <Select value={effectiveLookup.displayField} onChange={setLookupDisplayField} options={columnOptions} />}
+              {!isQadGetData && <ToggleDefault checked={useDefaultDisplayField} onChange={setUseDefaultDisplayField} />}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, gridColumn: "1 / -1" }}>
               <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Display Template</label>
-              <Input value={effectiveLookup.displayTemplate} onChange={setLookupDisplayTemplate} readOnly={useDefaultDisplayTemplate} />
-              <ToggleDefault checked={useDefaultDisplayTemplate} onChange={setUseDefaultDisplayTemplate} />
+              <Input value={isQadGetData ? lookupDisplayTemplate : effectiveLookup.displayTemplate} onChange={setLookupDisplayTemplate} readOnly={!isQadGetData && useDefaultDisplayTemplate} />
+              {!isQadGetData && <ToggleDefault checked={useDefaultDisplayTemplate} onChange={setUseDefaultDisplayTemplate} />}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, gridColumn: "1 / -1" }}>
               <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Search Columns</label>
-              {useDefaultSearchColumns
-                ? <Input value={effectiveLookup.searchColumns.join(", ")} readOnly />
-                : useManualLookupFieldEntry
-                  ? <Input value={effectiveLookup.searchColumns.join(", ")} onChange={value => setLookupSearchColumns(parseDelimitedList(value))} />
-                  : <MultiSelectChecks options={lookupFieldOptions} selected={effectiveLookup.searchColumns} onChange={setLookupSearchColumns} />}
-              <ToggleDefault checked={useDefaultSearchColumns} onChange={setUseDefaultSearchColumns} />
+              {isQadGetData
+                ? <Input value={lookupSearchColumnsText} onChange={setLookupSearchColumnsText} />
+                : useDefaultSearchColumns
+                  ? <Input value={effectiveLookup.searchColumns.join(", ")} readOnly />
+                  : useManualLookupFieldEntry
+                    ? <Input value={effectiveLookup.searchColumns.join(", ")} onChange={value => setLookupSearchColumns(parseDelimitedList(value))} />
+                    : <MultiSelectChecks options={lookupFieldOptions} selected={effectiveLookup.searchColumns} onChange={setLookupSearchColumns} />}
+              {!isQadGetData && <ToggleDefault checked={useDefaultSearchColumns} onChange={setUseDefaultSearchColumns} />}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, gridColumn: "1 / -1" }}>
               <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Dropdown Columns</label>
-              {useDefaultDropdownColumns
-                ? <Input value={effectiveLookup.dropdownColumns.join(", ")} readOnly />
-                : useManualLookupFieldEntry
-                  ? <Input value={effectiveLookup.dropdownColumns.join(", ")} onChange={value => setLookupDropdownColumns(parseDelimitedList(value))} />
-                  : <MultiSelectChecks options={lookupFieldOptions} selected={effectiveLookup.dropdownColumns} onChange={setLookupDropdownColumns} />}
-              <ToggleDefault checked={useDefaultDropdownColumns} onChange={setUseDefaultDropdownColumns} />
+              {isQadGetData
+                ? <Input value={lookupDropdownColumnsText} onChange={setLookupDropdownColumnsText} />
+                : useDefaultDropdownColumns
+                  ? <Input value={effectiveLookup.dropdownColumns.join(", ")} readOnly />
+                  : useManualLookupFieldEntry
+                    ? <Input value={effectiveLookup.dropdownColumns.join(", ")} onChange={value => setLookupDropdownColumns(parseDelimitedList(value))} />
+                    : <MultiSelectChecks options={lookupFieldOptions} selected={effectiveLookup.dropdownColumns} onChange={setLookupDropdownColumns} />}
+              {!isQadGetData && <ToggleDefault checked={useDefaultDropdownColumns} onChange={setUseDefaultDropdownColumns} />}
             </div>
             {showBrowseControls && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6, gridColumn: "1 / -1" }}>
                 <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Browse Grid Columns</label>
-                {useDefaultGridColumns
-                  ? <Input value={effectiveLookup.gridColumns.join(", ")} readOnly />
-                  : useManualLookupFieldEntry
-                    ? <Input value={effectiveLookup.gridColumns.join(", ")} onChange={value => setLookupGridColumns(parseDelimitedList(value))} />
-                    : <MultiSelectChecks options={lookupFieldOptions} selected={effectiveLookup.gridColumns} onChange={setLookupGridColumns} />}
-                <ToggleDefault checked={useDefaultGridColumns} onChange={setUseDefaultGridColumns} />
+                {isQadGetData
+                  ? <Input value={lookupGridColumnsText} onChange={setLookupGridColumnsText} />
+                  : useDefaultGridColumns
+                    ? <Input value={effectiveLookup.gridColumns.join(", ")} readOnly />
+                    : useManualLookupFieldEntry
+                      ? <Input value={effectiveLookup.gridColumns.join(", ")} onChange={value => setLookupGridColumns(parseDelimitedList(value))} />
+                      : <MultiSelectChecks options={lookupFieldOptions} selected={effectiveLookup.gridColumns} onChange={setLookupGridColumns} />}
+                {!isQadGetData && <ToggleDefault checked={useDefaultGridColumns} onChange={setUseDefaultGridColumns} />}
               </div>
             )}
             {showChecklistSizing && (
@@ -680,13 +833,13 @@ function FieldDesignerPanel({ designer }: { designer: FieldDesigner }) {
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Min Chars</label>
-              <Input value={effectiveLookup.minChars} onChange={setLookupMinChars} readOnly={useDefaultMinChars} />
-              <ToggleDefault checked={useDefaultMinChars} onChange={setUseDefaultMinChars} />
+              <Input value={isQadGetData ? lookupMinChars : effectiveLookup.minChars} onChange={setLookupMinChars} readOnly={!isQadGetData && useDefaultMinChars} />
+              {!isQadGetData && <ToggleDefault checked={useDefaultMinChars} onChange={setUseDefaultMinChars} />}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Dropdown Limit</label>
-              <Input value={effectiveLookup.dropdownLimit} onChange={setLookupDropdownLimit} readOnly={useDefaultDropdownLimit} />
-              <ToggleDefault checked={useDefaultDropdownLimit} onChange={setUseDefaultDropdownLimit} />
+              <Input value={isQadGetData ? lookupDropdownLimit : effectiveLookup.dropdownLimit} onChange={setLookupDropdownLimit} readOnly={!isQadGetData && useDefaultDropdownLimit} />
+              {!isQadGetData && <ToggleDefault checked={useDefaultDropdownLimit} onChange={setUseDefaultDropdownLimit} />}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>All Option Value</label>
@@ -728,27 +881,27 @@ function FieldDesignerPanel({ designer }: { designer: FieldDesigner }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <span style={{ fontSize: "0.82rem", color: "var(--text-primary)" }}>Browsable</span>
-              <Toggle value={effectiveLookup.browsable} onChange={v => setLookupBrowsable(!!v)} readOnly={useDefaultBrowsable} />
+              <Toggle value={isQadGetData ? lookupBrowsable : effectiveLookup.browsable} onChange={v => setLookupBrowsable(!!v)} readOnly={!isQadGetData && useDefaultBrowsable} />
             </label>
-            <ToggleDefault checked={useDefaultBrowsable} onChange={setUseDefaultBrowsable} />
+            {!isQadGetData && <ToggleDefault checked={useDefaultBrowsable} onChange={setUseDefaultBrowsable} />}
 
             <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <span style={{ fontSize: "0.82rem", color: "var(--text-primary)" }}>Multiple</span>
-              <Toggle value={effectiveLookup.multiple} onChange={v => setLookupMultiple(!!v)} readOnly={useDefaultMultiple} />
+              <Toggle value={isQadGetData ? lookupMultiple : effectiveLookup.multiple} onChange={v => setLookupMultiple(!!v)} readOnly={!isQadGetData && useDefaultMultiple} />
             </label>
-            <ToggleDefault checked={useDefaultMultiple} onChange={setUseDefaultMultiple} />
+            {!isQadGetData && <ToggleDefault checked={useDefaultMultiple} onChange={setUseDefaultMultiple} />}
 
             <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <span style={{ fontSize: "0.82rem", color: "var(--text-primary)" }}>Checklist</span>
-              <Toggle value={effectiveLookup.checklist} onChange={v => setLookupChecklist(!!v)} readOnly={useDefaultChecklist} />
+              <Toggle value={isQadGetData ? lookupChecklist : effectiveLookup.checklist} onChange={v => setLookupChecklist(!!v)} readOnly={!isQadGetData && useDefaultChecklist} />
             </label>
-            <ToggleDefault checked={useDefaultChecklist} onChange={setUseDefaultChecklist} />
+            {!isQadGetData && <ToggleDefault checked={useDefaultChecklist} onChange={setUseDefaultChecklist} />}
 
             <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <span style={{ fontSize: "0.82rem", color: "var(--text-primary)" }}>Preload</span>
-              <Toggle value={effectiveLookup.preload} onChange={v => setLookupPreload(!!v)} readOnly={useDefaultPreload} />
+              <Toggle value={isQadGetData ? lookupPreload : effectiveLookup.preload} onChange={v => setLookupPreload(!!v)} readOnly={!isQadGetData && useDefaultPreload} />
             </label>
-            <ToggleDefault checked={useDefaultPreload} onChange={setUseDefaultPreload} />
+            {!isQadGetData && <ToggleDefault checked={useDefaultPreload} onChange={setUseDefaultPreload} />}
 
             <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <span style={{ fontSize: "0.82rem", color: "var(--text-primary)" }}>Lookup Read Only</span>

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { callQAD, QADProxyError } from "@/lib/qad/proxy";
+import { DomainMgr } from "@/lib/qad/DomainMgr";
+import { QADProxyError } from "@/lib/qad/proxy";
 import { translateRequest } from "@/lib/i18n/server";
 
 /**
  * POST /api/pasoe_brokers/test-connection
  * Body: { domain: string, name: string }
- * Calls asstatus.p via callQAD. A successful response means the broker is reachable.
+ * Calls asstatus.p via DomainMgr. A successful response means the broker is reachable.
  */
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await callQAD({
+    await DomainMgr.call({
       procedure: "asstatus.p",
       entry:     "",
       input:     name,

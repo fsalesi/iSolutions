@@ -28,8 +28,7 @@ async function runShim(shimKey: string, domain: string, input: string, userId: s
             whereClause: "so_domain eq 'demo1' and so_nbr eq 'SO10420'",
             fieldSet: "so_domain,so_nbr,so_cust,so_ord_date,so_stat,so_site",
             outputFormat: "json",
-            numRecords: 0,
-            configxml: '<ibDataSet ibDatasetName="dsOrder"><ibDataSetTable ibTableName="so_mstr"><ibTableSequence>1</ibTableSequence><ibRepositionMode>false</ibRepositionMode><ibNested>true</ibNested><ibDSTMoreTables ibTableName="sod_det"><ibMoreTableSequence>1</ibMoreTableSequence><ibParentTable>so_mstr</ibParentTable><ibQuery>first sod_det no-lock where sod_domain eq so_domain and sod_nbr eq so_nbr</ibQuery></ibDSTMoreTables></ibDataSetTable></ibDataSet>'
+            numRecords: 1,
           })
         : input;
       try {
@@ -43,14 +42,11 @@ async function runShim(shimKey: string, domain: string, input: string, userId: s
       console.log("QAD getData shim payload:", JSON.stringify({
         keys: Object.keys(payload || {}),
         dsName: payload?.dsName,
-        hasConfigXml: !!payload?.configxml,
-        configXmlLen: typeof payload?.configxml === "string" ? payload.configxml.length : 0,
       }));
       return GetDataService.get({
         table: typeof payload?.table === "string" ? payload.table : undefined,
         dsName: typeof payload?.dsName === "string" ? payload.dsName : undefined,
         configxml: typeof payload?.configxml === "string" ? payload.configxml : undefined,
-        dataset: payload?.dataset,
         whereClause: typeof payload?.whereClause === "string" ? payload.whereClause : undefined,
         fieldSet: payload?.fieldSet,
         outputFormat: typeof payload?.outputFormat === "string" ? payload.outputFormat : undefined,

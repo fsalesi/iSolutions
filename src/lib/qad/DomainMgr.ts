@@ -11,19 +11,30 @@
 import {
   callQAD as callQADProxy,
   getQADData as getQADDataProxy,
+  getQADFile as getQADFileProxy,
   type GetDataParams,
   type QADCallParams,
+  type QADFileResult,
 } from "./proxy";
 
 export type DomainMgrCall = QADCallParams;
 export type DomainMgrGetData = GetDataParams;
+export interface DomainMgrGetDataResult {
+  dataset: any;
+  rows: any[];
+  raw: any;
+}
 
 export class DomainMgr {
   static async call(params: DomainMgrCall): Promise<any> {
     return callQADProxy(params);
   }
 
-  static async getData(params: DomainMgrGetData): Promise<any[]> {
+  static async getData(params: DomainMgrGetData): Promise<DomainMgrGetDataResult> {
     return getQADDataProxy(params);
+  }
+
+  static async getFile(params: { domain: string; file: string }): Promise<QADFileResult> {
+    return getQADFileProxy(params);
   }
 }

@@ -66,7 +66,7 @@ export const QAD_CALL_PRESETS: QadCallPreset[] = [
   {
     key: "getdata.soWithLines",
     label: "GetData SO With Lines",
-    description: "Generic getData ad hoc dataset query for order header plus lines. Always filter by domain.",
+    description: "Generic getData query using a predefined dataset from config.xml. The dataset name `dsOrder` must exist in config.xml before this example will work. Always filter by domain.",
     procedure: "getData.p",
     entry: "dataset",
     sampleInput: JSON.stringify({
@@ -74,8 +74,7 @@ export const QAD_CALL_PRESETS: QadCallPreset[] = [
       whereClause: "so_domain eq 'demo1' and so_nbr eq 'SO10420'",
       fieldSet: "so_domain,so_nbr,so_cust,so_ord_date,so_stat,so_site",
       outputFormat: "json",
-      numRecords: 1,
-      configxml: `<ibDataSet ibDatasetName="dsOrder"><ibDataSetTable ibTableName="so_mstr"><ibTableSequence>1</ibTableSequence><ibRepositionMode>false</ibRepositionMode><ibNested>true</ibNested><ibDSTMoreTables ibTableName="sod_det"><ibMoreTableSequence>1</ibMoreTableSequence><ibParentTable>so_mstr</ibParentTable><ibQuery>sod_domain eq 'demo1' and sod_nbr eq 'SO10420'</ibQuery></ibDSTMoreTables></ibDataSetTable></ibDataSet>`
+      numRecords: 1
     }, null, 2),
   },
   {
@@ -446,7 +445,7 @@ export const QAD_CALL_PRESETS: QadCallPreset[] = [
     sampleInput: `{
   "typeList": "RCT-PO,ISS-PRV",
   "start": 0,
-  "lastDate": "2026-03-01",
+  "lastDate": "03/01/2026",
   "minResults": false
 }`,
   },

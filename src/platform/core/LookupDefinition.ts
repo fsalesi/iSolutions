@@ -4,6 +4,7 @@ import { GroupLookup, ActiveGroupLookup } from "@/components/lookup/presets/Grou
 import { LocaleLookup } from "@/components/lookup/presets/LocaleLookup";
 import { UserLookup, ActiveUserLookup } from "@/components/lookup/presets/UserLookup";
 import { QadAccountLookup, QadCostCenterLookup, QadSubAccountLookup, QadProjectLookup, QadCreditTermsLookup, QadSiteLookup, QadCustomerLookup } from "@/components/lookup/presets/qad";
+import { createQadGetDataLookup } from "@/components/lookup/presets/qad/GetDataLookup";
 import { GroupDataSource } from "@/platform/pages/groups/GroupDataSource";
 import { LocaleDataSource } from "@/platform/pages/locales/LocaleDataSource";
 import { PasoeDataSource } from "@/platform/pages/pasoe_brokers/PasoeDataSource";
@@ -13,7 +14,7 @@ import { TranslationDataSource } from "@/platform/pages/translations/Translation
 import { UserDataSource } from "@/platform/pages/users/UserDataSource";
 
 export type LookupPresetName = "current" | "custom" | "domain" | "group" | "active_group" | "locale" | "user" | "active_user" | "qad_account" | "qad_cost_center" | "qad_sub_account" | "qad_project" | "qad_credit_terms" | "qad_site" | "qad_customer";
-export type LookupSourceType = "preset" | "datasource" | "api";
+export type LookupSourceType = "preset" | "datasource" | "api" | "qad_getdata";
 export type LookupDataSourceName = "groups" | "locales" | "users" | "settings" | "translations" | "pasoe_brokers" | "sso_config";
 
 export interface LookupFieldMapEntry {
@@ -26,6 +27,10 @@ export interface LookupDefinition {
   presetName?: LookupPresetName;
   dataSourceName?: LookupDataSourceName;
   apiPath?: string;
+  qadDsName?: string;
+  qadSearchWhere?: string;
+  qadUniqueWhere?: string;
+  qadFieldSet?: string;
   valueField?: string;
   displayField?: string;
   displayTemplate?: string;
@@ -54,6 +59,7 @@ export const LOOKUP_SOURCE_OPTIONS: Array<{ value: LookupSourceType; label: stri
   { value: "preset", label: "Preset" },
   { value: "datasource", label: "Data Source" },
   { value: "api", label: "API Path" },
+  { value: "qad_getdata", label: "QAD getData" },
 ];
 
 export const LOOKUP_PRESET_OPTIONS: Array<{ value: LookupPresetName; label: string }> = [
@@ -168,6 +174,18 @@ export function normalizeLookupDefinition(value: unknown): LookupDefinition | un
 
   const apiPath = asString(raw.apiPath);
   if (apiPath !== undefined) normalized.apiPath = apiPath;
+
+  const qadFieldSet = asString(raw.qadFieldSet);
+  if (qadFieldSet !== undefined) normalized.qadFieldSet = qadFieldSet;
+
+  const qadUniqueWhere = asString(raw.qadUniqueWhere);
+  if (qadUniqueWhere !== undefined) normalized.qadUniqueWhere = qadUniqueWhere;
+
+  const qadSearchWhere = asString(raw.qadSearchWhere);
+  if (qadSearchWhere !== undefined) normalized.qadSearchWhere = qadSearchWhere;
+
+  const qadDsName = asString(raw.qadDsName);
+  if (qadDsName !== undefined) normalized.qadDsName = qadDsName;
 
   const valueField = asString(raw.valueField);
   if (valueField !== undefined) normalized.valueField = valueField;
@@ -342,7 +360,7 @@ export function buildLookupConfig(definition: LookupDefinition | undefined, base
   if (!normalized) return baseConfig;
 
   const sourceType = normalized.sourceType
-    ?? (normalized.dataSourceName ? "datasource" : normalized.apiPath ? "api" : "preset");
+    ?? (normalized.dataSourceName ? "datasource" : normalized.apiPath ? "api" : normalized.qadDsName ? "qad_getdata" : "preset");
   const presetName = normalized.presetName ?? "current";
   const overrides = definitionToOverrides(normalized);
 
@@ -374,6 +392,34 @@ export function buildLookupConfig(definition: LookupDefinition | undefined, base
       ...overrides,
     };
     return apiConfig;
+  }
+
+  if (sourceType === "qad_getdata") {
+    const dsName = normalized.qadDsName || "";
+    const valueField = normalized.valueField || "";
+    const displayField = normalized.displayField || "";
+    const searchWhere = normalized.qadSearchWhere || "";
+    const uniqueWhere = normalized.qadUniqueWhere || "";
+    const fieldSet = normalized.qadFieldSet || [valueField, displayField].filter(Boolean).join(",");
+    const searchColumns = normalized.searchColumns || [valueField, displayField].filter(Boolean);
+    const dropdownColumnKeys = normalized.dropdownColumns || [valueField, displayField].filter(Boolean);
+    const gridColumnKeys = normalized.gridColumns || dropdownColumnKeys;
+    const qadConfig = createQadGetDataLookup({
+      dsName,
+      valueField,
+      displayField,
+      searchWhere,
+      uniqueWhere,
+      fieldSet,
+      searchColumns,
+      gridColumns: gridColumnKeys.map(key => ({ key, label: toLabel(key) })),
+      placeholder: normalized.placeholder || "",
+      displayTemplate: normalized.displayTemplate || "",
+    }, {
+      ...overrides,
+      dropdownColumns: dropdownColumnKeys,
+    });
+    return qadConfig;
   }
 
   return baseConfig ? { ...baseConfig, ...overrides } : undefined;

@@ -3,8 +3,9 @@ import type { LookupConfig } from "../../LookupTypes";
 type GridCol = { key: string; label?: string };
 
 export interface QadGetDataLookupOptions {
-  table: string;
-  domainField: string;
+  dsName?: string;
+  table?: string;
+  domainField?: string;
   valueField: string;
   displayField: string;
   searchWhere: string;
@@ -20,9 +21,10 @@ function quote(value: string): string {
   return value.replace(/'/g, "''");
 }
 
-function applyWhere(template: string, domainField: string, domain: string, value: string): string {
+function applyWhere(template: string, domain: string, value: string, domainField?: string): string {
+  const domainToken = domainField ? `${domainField} eq '${quote(domain)}'` : quote(domain);
   return template
-    .replace(/\$DOMAIN/g, `${domainField} eq '${quote(domain)}'`)
+    .replace(/\$DOMAIN/g, domainToken)
     .replace(/&1/g, quote(value));
 }
 
@@ -33,7 +35,13 @@ async function postQadData(body: any) {
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    console.error('QAD getData lookup failed:', res.status);
+    let detail: unknown = null;
+    try {
+      detail = await res.json();
+    } catch {
+      detail = await res.text().catch(() => null);
+    }
+    console.error('QAD getData lookup failed', { status: res.status, detail });
     return { rows: [], total: 0 };
   }
   const data = await res.json().catch(() => ({ rows: [] }));
@@ -54,25 +62,29 @@ export function createQadGetDataLookup(options: QadGetDataLookupOptions, overrid
     fetchFn: async ({ search, limit, domain }) => {
       const effectiveDomain = String(domain || '').trim().toLowerCase();
       if (!effectiveDomain || !search) return { rows: [], total: 0 };
-      return postQadData({
+      const requestBody = {
         domain: effectiveDomain,
-        table: options.table,
-        whereClause: applyWhere(options.searchWhere, options.domainField, effectiveDomain, search),
+        ...(options.table ? { table: options.table } : {}),
+        ...(options.dsName ? { dsName: options.dsName } : {}),
+        whereClause: applyWhere(options.searchWhere, effectiveDomain, search, options.domainField),
         fieldSet: options.fieldSet,
         numRecords: limit || 100,
-      });
+      };
+      return postQadData(requestBody);
     },
     resolveValueFn: async ({ value, domain }) => {
       const effectiveDomain = String(domain || '').trim().toLowerCase();
       const key = String(value || '').trim();
       if (!effectiveDomain || !key) return null;
-      const data = await postQadData({
+      const requestBody = {
         domain: effectiveDomain,
-        table: options.table,
-        whereClause: applyWhere(options.uniqueWhere, options.domainField, effectiveDomain, key),
+        ...(options.table ? { table: options.table } : {}),
+        ...(options.dsName ? { dsName: options.dsName } : {}),
+        whereClause: applyWhere(options.uniqueWhere, effectiveDomain, key, options.domainField),
         fieldSet: options.fieldSet,
         numRecords: 1,
-      });
+      };
+      const data = await postQadData(requestBody);
       return data.rows[0] || null;
     },
     ...overrides,

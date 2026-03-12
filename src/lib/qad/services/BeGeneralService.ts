@@ -111,7 +111,11 @@ export class BeGeneralService {
   }
 
   static async getLatestTransactionHistory(typeList: string, start: number, lastDate: string, minResults: boolean, domain: string, userId?: string): Promise<{ rows: TRHistRecord[]; nextTransaction: number | null; }> {
-    const input = [typeList, String(start || 0), lastDate || "", String(!!minResults)].join(DELIM);
+    let normalizedDate = lastDate || "";
+    const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(normalizedDate);
+    if (iso) normalizedDate = `${iso[2]}/${iso[3]}/${iso[1]}`;
+
+    const input = [typeList, String(start || 0), normalizedDate, String(!!minResults)].join(DELIM);
     const raw = await DomainMgr.call({ procedure: "begeneral.p", entry: "beGetLatestTransactionHistory", input, domain, userId, datasetMode: "typed" });
     return {
       rows: (raw.tttr_hist || []).map(flattenTR),
