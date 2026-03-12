@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { GetDataService } from "@/lib/qad/GetDataService";
 import { QADProxyError, getQADData } from "@/lib/qad/proxy";
 
 /**
@@ -37,20 +38,65 @@ export async function GET(req: NextRequest) {
   const max = Math.min(Number(params.get("max") || 100), 500);
 
   try {
-    const rows = await getQADData({
-      dsName: table,
+    const result = await getQADData({
+      table,
       whereClause: where,
       fieldSet: fields,
       numRecords: max,
       domain,
       userId,
     });
-    return NextResponse.json({ rows, total: rows.length });
+    return NextResponse.json({ rows: result.rows, total: result.rows.length, dataset: result.dataset });
   } catch (err) {
     if (err instanceof QADProxyError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }
     console.error("QAD data error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+
+export async function POST(req: NextRequest) {
+  const userId = getCurrentUser(req);
+  if (!userId) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  try {
+    const body = await req.json();
+    const domain = typeof body?.domain === "string" ? body.domain : "";
+    if (!domain) {
+      return NextResponse.json({ error: "domain is required" }, { status: 400 });
+    }
+
+    const result = await GetDataService.get({
+      table: typeof body?.table === "string" ? body.table : undefined,
+      dsName: typeof body?.dsName === "string" ? body.dsName : undefined,
+      dataset: body?.dataset,
+      whereClause: typeof body?.whereClause === "string" ? body.whereClause : undefined,
+      fieldSet: body?.fieldSet,
+      numRecords: typeof body?.numRecords === "number" ? body.numRecords : undefined,
+      domain,
+      userId,
+      sort: typeof body?.sort === "string" ? body.sort : undefined,
+      dir: typeof body?.dir === "string" ? body.dir : undefined,
+      restartRowid: typeof body?.restartRowid === "string" ? body.restartRowid : undefined,
+      rowid: typeof body?.rowid === "string" ? body.rowid : undefined,
+      query: typeof body?.query === "string" ? body.query : undefined,
+      queryFields: body?.queryFields,
+      filter: typeof body?.filter === "string" ? body.filter : undefined,
+      includeSchema: !!body?.includeSchema,
+      dictdb: typeof body?.dictdb === "string" ? body.dictdb : undefined,
+      reverse: !!body?.reverse,
+    });
+
+    return NextResponse.json(result);
+  } catch (err) {
+    if (err instanceof QADProxyError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
+    console.error("QAD data POST error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

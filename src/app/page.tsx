@@ -6,6 +6,7 @@ import LoginScreen from "@/components/LoginScreen";
 import { AppShell } from "@/components/shell/AppShell";
 import { resolvePage, type PageInstance } from "@/page-defs/registry";
 import { TestRunnerWorkbench } from "@/components/dev/TestRunnerWorkbench";
+import { QadCallWorkbench } from "@/components/dev/QadCallWorkbench";
 import { resolveClientText } from "@/lib/i18n/runtime";
 import { useTranslation } from "@/context/TranslationContext";
 import { tx } from "@/lib/i18n/types";
@@ -35,6 +36,13 @@ export default function Home() {
       };
     }
 
+    if (activeNav === "tool:qad-call") {
+      setToolContent(<QadCallWorkbench />);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     if (!activeNav.startsWith("form:")) {
       return () => {
         cancelled = true;
@@ -57,7 +65,9 @@ export default function Home() {
 
   const title = activeNav === "tool:test-runner"
     ? resolveClientText(tx("shell.items.test_runner", "Test Runner"))
-    : (page?.getTitle?.() ?? page?.title ?? resolveClientText(tx("shell.title", "iSolutions")));
+    : activeNav === "tool:qad-call"
+      ? resolveClientText(tx("shell.items.qad_call", "QAD Call Workbench"))
+      : (page?.getTitle?.() ?? page?.title ?? resolveClientText(tx("shell.title", "iSolutions")));
   const content = toolContent ?? (page
     ? page.show()
     : (activeNav.startsWith("form:")

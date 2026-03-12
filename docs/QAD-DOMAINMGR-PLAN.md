@@ -89,6 +89,46 @@ Target layering:
 
 ---
 
+## Folder Structure
+
+QAD integration code in iSolutions should use one main module root:
+- `src/lib/qad/`
+
+This folder owns:
+- `DomainMgr`
+- `Be*` service classes
+- shared QAD types
+- result mappers
+- transport helpers
+- utility functions specific to QAD integration
+
+Recommended structure:
+- `src/lib/qad/DomainMgr.ts`
+- `src/lib/qad/services/`
+- `src/lib/qad/types/`
+- `src/lib/qad/mappers/`
+- `src/lib/qad/utils/`
+
+Lookup UI code does **not** belong under `src/lib/qad`.
+
+QAD-backed lookup presets should live under:
+- `src/components/lookup/presets/qad/`
+
+That folder owns UI-facing lookup preset definitions such as:
+- vendor lookup
+- item lookup
+- PO lookup
+
+Next.js HTTP routes remain in their required location:
+- `src/app/api/qad/`
+
+So the boundary is:
+- `src/lib/qad/` = transport and service layer
+- `src/components/lookup/presets/qad/` = UI lookup layer
+- `src/app/api/qad/` = HTTP route layer
+
+---
+
 ## Existing Starting Point
 
 The current closest equivalent already exists in iSolutions:

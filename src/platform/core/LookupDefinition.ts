@@ -3,6 +3,7 @@ import { DomainLookup } from "@/components/lookup/presets/DomainLookup";
 import { GroupLookup, ActiveGroupLookup } from "@/components/lookup/presets/GroupLookup";
 import { LocaleLookup } from "@/components/lookup/presets/LocaleLookup";
 import { UserLookup, ActiveUserLookup } from "@/components/lookup/presets/UserLookup";
+import { QadAccountLookup, QadCostCenterLookup, QadSubAccountLookup, QadProjectLookup, QadCreditTermsLookup, QadSiteLookup, QadCustomerLookup } from "@/components/lookup/presets/qad";
 import { GroupDataSource } from "@/platform/pages/groups/GroupDataSource";
 import { LocaleDataSource } from "@/platform/pages/locales/LocaleDataSource";
 import { PasoeDataSource } from "@/platform/pages/pasoe_brokers/PasoeDataSource";
@@ -11,7 +12,7 @@ import { SsoDataSource } from "@/platform/pages/sso_config/SsoDataSource";
 import { TranslationDataSource } from "@/platform/pages/translations/TranslationDataSource";
 import { UserDataSource } from "@/platform/pages/users/UserDataSource";
 
-export type LookupPresetName = "current" | "custom" | "domain" | "group" | "active_group" | "locale" | "user" | "active_user";
+export type LookupPresetName = "current" | "custom" | "domain" | "group" | "active_group" | "locale" | "user" | "active_user" | "qad_account" | "qad_cost_center" | "qad_sub_account" | "qad_project" | "qad_credit_terms" | "qad_site" | "qad_customer";
 export type LookupSourceType = "preset" | "datasource" | "api";
 export type LookupDataSourceName = "groups" | "locales" | "users" | "settings" | "translations" | "pasoe_brokers" | "sso_config";
 
@@ -63,6 +64,13 @@ export const LOOKUP_PRESET_OPTIONS: Array<{ value: LookupPresetName; label: stri
   { value: "locale", label: "Locale" },
   { value: "user", label: "User" },
   { value: "active_user", label: "Active User" },
+  { value: "qad_account", label: "QAD Account" },
+  { value: "qad_cost_center", label: "QAD Cost Center" },
+  { value: "qad_sub_account", label: "QAD Sub Account" },
+  { value: "qad_project", label: "QAD Project" },
+  { value: "qad_credit_terms", label: "QAD Credit Terms" },
+  { value: "qad_site", label: "QAD Site" },
+  { value: "qad_customer", label: "QAD Customer" },
 ];
 
 export const LOOKUP_DATASOURCE_OPTIONS: Array<{ value: LookupDataSourceName; label: string }> = [
@@ -289,6 +297,20 @@ function getPresetConfig(presetName: LookupPresetName, overrides: Partial<Lookup
       return UserLookup(overrides);
     case "active_user":
       return ActiveUserLookup(overrides);
+    case "qad_account":
+      return QadAccountLookup(overrides);
+    case "qad_cost_center":
+      return QadCostCenterLookup(overrides);
+    case "qad_sub_account":
+      return QadSubAccountLookup(overrides);
+    case "qad_project":
+      return QadProjectLookup(overrides);
+    case "qad_credit_terms":
+      return QadCreditTermsLookup(overrides);
+    case "qad_site":
+      return QadSiteLookup(overrides);
+    case "qad_customer":
+      return QadCustomerLookup(overrides);
     default:
       return undefined;
   }

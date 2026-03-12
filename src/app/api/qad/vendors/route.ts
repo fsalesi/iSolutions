@@ -2,12 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getSystemSetting } from "@/lib/settings";
 import { QADProxyError } from "@/lib/qad/proxy";
-import {
-  listSuppliers,
-  listSuppliersMatch,
-  getSupplier,
-  getSupplierEmail,
-} from "@/lib/qad/vendor";
+import { BeSupplierService } from "@/lib/qad/services/BeSupplierService";
 
 
 
@@ -43,8 +38,8 @@ export async function GET(req: NextRequest) {
         const useMatch = await getSystemSetting("SUPPLIER_SEARCH_MATCHES", { domain });
         const rows =
           useMatch?.toLowerCase() === "true"
-            ? await listSuppliersMatch(search, domain)
-            : await listSuppliers(search, domain);
+            ? await BeSupplierService.listSuppliersMatch(search, domain)
+            : await BeSupplierService.listSuppliers(search, domain);
         return NextResponse.json({ rows, total: rows.length });
       }
 
@@ -53,7 +48,7 @@ export async function GET(req: NextRequest) {
         if (!code) {
           return NextResponse.json({ error: "code parameter is required" }, { status: 400 });
         }
-        const vendor = await getSupplier(code, domain);
+        const vendor = await BeSupplierService.getSupplier(code, domain);
         if (!vendor) {
           return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
         }
@@ -65,7 +60,7 @@ export async function GET(req: NextRequest) {
         if (!code) {
           return NextResponse.json({ error: "code parameter is required" }, { status: 400 });
         }
-        const email = await getSupplierEmail(code, domain);
+        const email = await BeSupplierService.getSupplierEmail(code, domain);
         return NextResponse.json({ email });
       }
 

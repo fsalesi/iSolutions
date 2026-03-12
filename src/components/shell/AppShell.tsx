@@ -54,6 +54,7 @@ const NAV_SECTIONS: NavSection[] = [
     icon: "edit",
     items: [
       { key: "tool:test-runner", label: tx("shell.items.test_runner", "Test Runner"), icon: "fileText" },
+      { key: "tool:qad-call", label: tx("shell.items.qad_call", "QAD Call Workbench"), icon: "database" },
     ],
   },
 ];
