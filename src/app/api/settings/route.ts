@@ -2,13 +2,28 @@
  * Settings — Product API route (ISS layer).
  * Extends CrudRoute base class. ISS developers add business logic here.
  */
-import { CrudRoute, exportRouteHandlers } from "@/lib/CrudRoute";
+import { CrudRoute, exportRouteHandlers, type ParentBinding } from "@/lib/CrudRoute";
 
 export class SettingsRoute extends CrudRoute {
   protected keyFields = ["owner", "setting_name", "domain", "form"];
 
   constructor() {
     super("settings");
+  }
+
+  protected getParentBindings(): ParentBinding[] {
+    return [
+      {
+        name: "forms",
+        parentTable: "forms",
+        columns: [{ parentColumn: "form_key", childColumn: "form" }],
+      },
+      {
+        name: "users",
+        parentTable: "users",
+        columns: [{ parentColumn: "user_id", childColumn: "owner" }],
+      },
+    ];
   }
 }
 

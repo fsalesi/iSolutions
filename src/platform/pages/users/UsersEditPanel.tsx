@@ -7,9 +7,12 @@ import { EditPanel } from "@/platform/core/EditPanel";
 import { FieldDef } from "@/platform/core/FieldDef";
 import { SectionDef } from "@/platform/core/SectionDef";
 import { TabDef } from "@/platform/core/TabDef";
+import { UserSettingsGrid } from "./UserSettingsGrid";
 import { UsersKeyPanel } from "./UsersKeyPanel";
 
 export class UsersEditPanel extends EditPanel {
+  userSettingsGrid = new UserSettingsGrid();
+
   constructor(form?: any) {
     super({
       useNotes: true,
@@ -87,6 +90,11 @@ export class UsersEditPanel extends EditPanel {
             ],
           }),
         ],
+      }),
+      new TabDef({
+        key: "user_settings",
+        label: "User Settings",
+        children: [this.userSettingsGrid],
       }),
       new TabDef({
         key:   "groups",
