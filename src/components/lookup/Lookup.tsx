@@ -299,8 +299,8 @@ export function Lookup({ value, onChange, config, label, domain: domainProp, hyd
     if (displayFormat) return displayFormat(record);
     if (displayTemplate) return displayTemplate.replace(/\{(\w+)\}/g, (_, k) => String(record[k] ?? ""));
     const v = record[valueField];
-    const d = record[displayField];
-    if (valueField === displayField || !d) return String(v ?? "");
+    const d = record._lookupLabel ?? record[displayField];
+    if (valueField === displayField || !d) return String(d ?? v ?? "");
     return `${v} — ${d}`;
   }
 
@@ -361,8 +361,8 @@ export function Lookup({ value, onChange, config, label, domain: domainProp, hyd
         if (aSel !== bSel) return aSel ? -1 : 1;
       }
 
-      const aLabel = String(a[displayField] ?? a[valueField] ?? "");
-      const bLabel = String(b[displayField] ?? b[valueField] ?? "");
+      const aLabel = String(a._lookupLabel ?? a[displayField] ?? a[valueField] ?? "");
+      const bLabel = String(b._lookupLabel ?? b[displayField] ?? b[valueField] ?? "");
       return aLabel.localeCompare(bLabel);
     });
   }, [search, results, config.searchColumns, valueField, displayField, promoteChecked]);
@@ -370,7 +370,9 @@ export function Lookup({ value, onChange, config, label, domain: domainProp, hyd
   const displayResults = useMemo(() => {
     const base = preload ? filteredResults : results;
     if (!allOption) return base;
-    const allRec = { [valueField]: allOption.value, [displayField]: allOption.label };
+    const allRec = valueField === displayField
+      ? { [valueField]: allOption.value, _lookupLabel: allOption.label }
+      : { [valueField]: allOption.value, [displayField]: allOption.label };
     cache.current.set(String(allOption.value), allRec);
     if (search) {
       const lower = search.toLowerCase();
@@ -538,7 +540,7 @@ export function Lookup({ value, onChange, config, label, domain: domainProp, hyd
             const val = String(row[valueField] ?? "");
             const selected = selectedValues.includes(val);
             const secondary = valueField !== displayField ? String(row[valueField] ?? "") : "";
-            const primary = String(row[displayField] ?? row[valueField] ?? "");
+            const primary = String(row._lookupLabel ?? row[displayField] ?? row[valueField] ?? "");
             return (
               <div
                 key={val + "-" + idx}

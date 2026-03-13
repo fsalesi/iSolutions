@@ -34,6 +34,7 @@ const NAV_SECTIONS: NavSection[] = [
     icon: "settings",
     items: [
       { key: "form:groups",        label: tx("shell.items.groups", "Groups"),           icon: "fileText" },
+      { key: "form:forms",         label: tx("shell.items.forms", "Forms"),             icon: "fileText" },
       { key: "form:locales",       label: tx("shell.items.locales", "Locales"),          icon: "fileText" },
       { key: "form:translations",  label: tx("shell.items.translations", "Translations"),     icon: "fileText" },
       { key: "form:pasoe_brokers", label: tx("shell.items.pasoe_brokers", "PASOE Brokers"),    icon: "fileText" },

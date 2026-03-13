@@ -246,9 +246,8 @@ export class PanelDef {
     });
 
     const data = await res.json().catch(() => ({}));
-    console.log("[save] response status:", res.status, "data:", JSON.stringify(data));
     if (!res.ok) {
-      this.showMessage(data.error ?? resolveClientText(tx("panel.save.failed", "Save failed")), "error");
+      await this.showMessage(data.error ?? resolveClientText(tx("panel.save.failed", "Save failed")), "error");
       return;
     }
 
@@ -328,10 +327,11 @@ export class PanelDef {
 
   // —— Helpers ———————————————————————————————————————————————————————
 
-  showMessage(message: string, type: "info" | "error" | "warning" = "info"): void {
-    if (type === "error") this.form?.alertDialog.error(message);
-    else if (type === "warning") this.form?.alertDialog.warning({ title: resolveClientText(tx("common.warning.title", "Warning")), message });
-    else this.form?.alertDialog.info(message);
+  async showMessage(message: string, type: "info" | "error" | "warning" = "info"): Promise<void> {
+    const dialog = this.form?.alertDialog ?? AlertDialogService;
+    if (type === "error") await dialog.error(message);
+    else if (type === "warning") await dialog.warning({ title: resolveClientText(tx("common.warning.title", "Warning")), message });
+    else await dialog.info(message);
   }
 
   canNavigateAway(): Promise<boolean> { return Promise.resolve(true); }

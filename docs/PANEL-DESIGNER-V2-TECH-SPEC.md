@@ -28,8 +28,7 @@ It must not depend on v1 runtime form architecture.
 
 The v2 Panel Designer must NOT:
 - use `CrudPage`, `FormPage`, `SplitCrudPage`, or other backup/v1 runtime patterns
-- use `form_tables`
-- use `form_fields`
+- depend on `form_tables` or `form_fields`
 - carry over v1 grid-layout/cell-placement logic
 - rely on scanning `custom_fields` JSONB row content to infer schema
 - introduce a second metadata system if panel-designer persistence can already hold the needed definitions
@@ -247,27 +246,19 @@ Likely attributes:
 ## Phase 1 Schema Decision
 
 ### Decision
-Use a new `panel_layout` table for v2 panel-designer persistence.
+Use the v2 `panel_layout` table for panel-designer persistence.
 
-Do not extend `form_layout`.
+Do not reintroduce or depend on `form_layout`.
 
 ### Why
-- `form_layout` already carries v1-era row/col placement semantics in `properties`.
-- live code in `CrudRoute` still reads `form_layout`, so repurposing it would couple the new v2 designer to the legacy metadata path.
+- `form_layout` was a v1-era metadata table and has been removed from the active iSolutions database.
 - the v2 designer needs ordered structural entries, not cell-based placement.
-- a clean new table lets us phase the work in safely without breaking existing behavior.
+- `panel_layout` already matches the current v2 runtime and custom-field path.
 
 ### Existing Tables Relevant To This Decision
-`form_layout` currently has:
-- `domain citext not null default '*'`
-- `form_key citext not null`
-- `table_name citext not null`
-- `layout_type citext not null`
-- `layout_key citext not null`
-- `parent_key citext not null`
-- `sort_order integer not null default 0`
-- `properties jsonb not null default '{}'::jsonb`
-- audit columns plus `oid uuid`
+- `panel_layout` is the active v2 persistence table.
+- `forms` remains available for future reuse.
+- `form_tables`, `form_fields`, and `form_layout` are no longer part of the active schema.
 
 `form_toolbar_actions` currently demonstrates the newer pattern we should mirror:
 - explicit key columns
@@ -374,8 +365,8 @@ create index panel_layout_lookup_idx
 - Phase 1 creates the table only.
 - No runtime should depend on `panel_layout` yet.
 - Zero rows must remain a strict no-op.
-- `form_layout` remains untouched during Phase 1.
-- `CrudRoute` references to `form_layout` will be removed or redirected in a later phase, not during schema introduction.
+- No runtime should depend on removed v1 metadata tables.
+- `panel_layout` is the only active panel-designer persistence table in v2.
 
 
 ## Backend Responsibilities

@@ -22,6 +22,7 @@ const registry: Record<string, () => Promise<PageConstructor>> = {
   pasoe_brokers: () => import("@/platform/pages/pasoe_brokers").then(m => m.PasoeBrokersPage),
   users:         () => import("@/platform/pages/users").then(m => m.UsersPage),
   groups:        () => import("@/platform/pages/groups").then(m => m.GroupsPage),
+  forms:         () => import("@/platform/pages/forms").then(m => m.FormsPage),
   locales:       () => import("@/platform/pages/locales").then(m => m.LocalesPage),
   translations:  () => import("@/platform/pages/translations").then(m => m.TranslationsPage),
   settings:      () => import("@/platform/pages/settings").then(m => m.SystemSettingsPage),

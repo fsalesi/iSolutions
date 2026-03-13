@@ -38,7 +38,7 @@ export class GroupsPage extends PageDef {
       const res  = await fetch("/api/groups/export");
       const data = await res.json() as { rows?: Record<string, string>[]; error?: string };
 
-      if (data.error) { AlertDialogService.error(data.error); return; }
+      if (data.error) { await AlertDialogService.error(data.error); return; }
 
       const rows = data.rows ?? [];
 
@@ -72,7 +72,7 @@ export class GroupsPage extends PageDef {
       a.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      AlertDialogService.error(resolveClientText(tx("groups.messages.export_failed", "Export failed: {error}"), { error: String(err) }));
+      await AlertDialogService.error(resolveClientText(tx("groups.messages.export_failed", "Export failed: {error}"), { error: String(err) }));
     }
   }
 }

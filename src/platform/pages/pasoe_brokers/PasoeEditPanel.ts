@@ -30,7 +30,7 @@ export class PasoeEditPanel extends EditPanel {
         const record = this.toolbar.panel?.currentRecord;
         const domain = record?.domain as string | undefined;
         const name   = record?.name   as string | undefined;
-        if (!domain || !name) { this.form?.alertDialog.error(resolveClientText(tx("pasoe_brokers.messages.no_record_selected", "No broker record selected."))); return; }
+        if (!domain || !name) { await this.form?.alertDialog.error(resolveClientText(tx("pasoe_brokers.messages.no_record_selected", "No broker record selected."))); return; }
 
         const btn = this.toolbar.getButton("test_connection");
         btn.disabled = true;
@@ -44,10 +44,10 @@ export class PasoeEditPanel extends EditPanel {
             body:    JSON.stringify({ domain, name }),
           });
           const data = await res.json();
-          if (data.ok) this.form?.alertDialog.info(data.message, resolveClientText(tx("pasoe_brokers.messages.test_title", "Broker Test")));
-          else this.form?.alertDialog.error(data.message, resolveClientText(tx("pasoe_brokers.messages.test_failed_title", "Broker Test Failed")));
+          if (data.ok) await this.form?.alertDialog.info(data.message, resolveClientText(tx("pasoe_brokers.messages.test_title", "Broker Test")));
+          else await this.form?.alertDialog.error(data.message, resolveClientText(tx("pasoe_brokers.messages.test_failed_title", "Broker Test Failed")));
         } catch (e) {
-          this.form?.alertDialog.error(resolveClientText(tx("pasoe_brokers.messages.request_failed", "Request failed: {error}"), { error: String(e) }), resolveClientText(tx("pasoe_brokers.messages.test_failed_title", "Broker Test Failed")));
+          await this.form?.alertDialog.error(resolveClientText(tx("pasoe_brokers.messages.request_failed", "Request failed: {error}"), { error: String(e) }), resolveClientText(tx("pasoe_brokers.messages.test_failed_title", "Broker Test Failed")));
         } finally {
           btn.disabled = false;
           btn.label    = tx("pasoe_brokers.actions.test_connection", "Test Connection");

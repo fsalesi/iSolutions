@@ -42,7 +42,9 @@ export class SsoConfigPage extends PageDef {
       key:     "franksButton",
       label:   tx("sso_config.actions.franks_button", "Frank's Button"),
       icon:    "star",
-      onClick: () => this.alertDialog.info(resolveClientText(tx("sso_config.messages.franks_button_clicked", "You've clicked Frank's button")), resolveClientText(tx("sso_config.messages.test_title", "Test"))),
+      onClick: async () => {
+        await this.alertDialog.info(resolveClientText(tx("sso_config.messages.franks_button_clicked", "You've clicked Frank's button")), resolveClientText(tx("sso_config.messages.test_title", "Test")));
+      },
     });
   }
 }
